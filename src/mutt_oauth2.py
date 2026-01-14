@@ -60,9 +60,8 @@ registrations = {
         'smtp_endpoint': 'smtp.gmail.com',
         'sasl_method': 'OAUTHBEARER',
         'scope': 'https://mail.google.com/',
-        # Thunderbird Client ID/Secret
-        'client_id': '406964657835-gre740f93o6o4crb8m37979p61517540.apps.googleusercontent.com',
-        'client_secret': '', # Public client
+        'client_id': '',
+        'client_secret': '',
     },
     'microsoft': {
         'authorize_endpoint': 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
@@ -152,6 +151,21 @@ if token['registration'] not in registrations:
     sys.exit(f'ERROR: Unknown registration "{token["registration"]}". Delete token file '
              f'and start over.')
 registration = registrations[token['registration']]
+
+# Interactive Prompt for missing credentials
+if args.authorize:
+    print(f"\n--- {token['registration'].upper()} Setup ---")
+    if not registration['client_id']:
+        print(f"No built-in Client ID found for {token['registration']}.")
+        print("You must provide your own OAuth2 Client ID.")
+        registration['client_id'] = input("Client ID: ").strip()
+    
+    if not registration['client_secret']:
+        # Secret might be optional for public clients, but give chance to enter
+        print("Client Secret (leave empty if not required): ", end='')
+        secret = input().strip()
+        if secret:
+            registration['client_secret'] = secret
 
 authflow = token['authflow']
 if args.authflow:
