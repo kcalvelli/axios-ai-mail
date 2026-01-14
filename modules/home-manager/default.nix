@@ -148,7 +148,7 @@ in {
           export NOTMUCH_CONFIG=${config.home.homeDirectory}/.notmuch-config
           
           # 1. Regenerate configs (handles refreshed oauth tokens if needed)
-          python3 ${../../src/generate_config.py}
+          python3 ${../../src/generate_config.py} --oauth-script ${../../src/mutt_oauth2.py}
           
           # 2. Sync Mail (Explicit config path)
           echo "Syncing mail..."
