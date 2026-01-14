@@ -77,7 +77,21 @@ programs.axios-ai-mail = {
     mkdir -p ~/.config/tokens
     ```
 
-2.  **Run the Auth Wizard**:
+2.  **Prerequisite (GMail Only)**:
+    Google requires you to create your own "App" credentials.
+    1.  Go to [Google Cloud Console](https://console.cloud.google.com/) and create a new project.
+    2.  **API & Services** > **Library** > Search for and Enable **Gmail API**.
+    3.  **OAuth Consent Screen**:
+        *   User Type: **External**.
+        *   Test Users: **Add your email address** (Important! This bypasses app verification).
+    4.  **Credentials** > **Create Credentials** > **OAuth Client ID**:
+        *   Application Type: **Desktop App**.
+        *   Name: `axios-mail`.
+    5.  **Copy** the `Client ID` and `Client Secret`. You will need them in the next step.
+
+    *(Outlook users can skip this; a default ID is provided.)*
+
+3.  **Run the Auth Wizard**:
 
     ```bash
     nix run github:kcalvelli/axios-ai-mail#auth -- \
