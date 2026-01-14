@@ -116,7 +116,6 @@ programs.axios-ai-mail = {
     | Provider | Registration | Flow | Note |
     | :--- | :--- | :--- | :--- |
     | **GMail** | `google` | `authcode` | Copy the link it gives you to a browser, log in, copy the code back. |
-    | **GMail** | `google` | `authcode` | Copy the link it gives you to a browser, log in, copy the code back. |
 
 4.  **Update your Config**:
     ```nix
