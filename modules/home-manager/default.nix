@@ -137,7 +137,15 @@ in {
         # We need to run the generator first to ensure fresh tokens/configs
         # Then sync, then index.
         ExecStart = pkgs.writeShellScript "axios-sync-pipeline" ''
-          export PATH=${lib.makeBinPath [ pkgs.python311 pkgs.isync pkgs.notmuch pkgs.msmtp ]}:$PATH
+          export PATH=${lib.makeBinPath [ 
+            (pkgs.python311.withPackages (ps: [ ps.requests ])) 
+            pkgs.isync 
+            pkgs.notmuch 
+            pkgs.msmtp 
+          ]}:$PATH
+          
+          # Force Notmuch to use our generated config
+          export NOTMUCH_CONFIG=${config.home.homeDirectory}/.notmuch-config
           
           # 1. Regenerate configs (handles refreshed oauth tokens if needed)
           python3 ${../../src/generate_config.py}
