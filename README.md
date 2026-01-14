@@ -66,6 +66,21 @@ programs.axios-ai-mail = {
       address = "jane.doe@work.com";
       passwordCommand = "pass email/work";
     };
+
+    # Standard IMAP Example
+    other = {
+      flavor = "manual";
+      address = "me@company.com";
+      userName = "keith"; # Optional if different from address
+      realName = "Keith Calvelli";
+      
+      # Connection Details
+      imap = { host = "imap.fastmail.com"; port = 993; };
+      smtp = { host = "smtp.fastmail.com"; port = 465; };
+      
+      # Password Command (must print password to stdout)
+      passwordCommand = "cat ~/.config/secrets/mailpass";
+    };
   };
 };
 ```
