@@ -105,6 +105,12 @@ in {
   };
 
   config = mkIf cfg.enable {
+    home.packages = with pkgs; [
+      notmuch
+      isync
+      msmtp
+    ];
+
     # This is where we will eventually write the implementation:
     # 1. Generate the JSON spec file
     # 2. Call the generator script to produce .mbsyncrc, .msmtp, etc
