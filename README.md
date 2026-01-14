@@ -84,8 +84,8 @@ programs.axios-ai-mail = {
     3.  **OAuth Consent Screen**:
         *   User Type: **External**.
         *   Test Users: **Add your email address** (Important! This bypasses app verification).
-    4.  **Credentials** > **Create Credentials** > **OAuth Client ID**:
-        *   Application Type: **Desktop App**.
+    4.  **Credentials** > **+ CREATE CREDENTIALS** > **OAuth client ID**:
+        *   Application Type: **Desktop app**.
         *   Name: `axios-mail`.
     5.  **Copy** the `Client ID` and `Client Secret`. You will need them in the next step.
 
