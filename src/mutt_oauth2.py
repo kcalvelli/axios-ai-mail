@@ -76,8 +76,8 @@ registrations = {
         'scope': ('offline_access https://outlook.office.com/IMAP.AccessAsUser.All '
                   'https://outlook.office.com/POP.AccessAsUser.All '
                   'https://outlook.office.com/SMTP.Send'),
-        # Thunderbird Client ID
-        'client_id': '08162f7c-0fd2-4200-a84a-f25a4db0b584',
+        # Evolution Client ID (Often works for Personal + Work)
+        'client_id': '389772cd-d5c2-4665-8b30-22c9535eb001',
         'client_secret': '',
     },
 }
