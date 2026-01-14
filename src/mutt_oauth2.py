@@ -47,7 +47,7 @@ import readline
 # although won't work until an appropriate identity appears in the first line.
 # If you prefer to store tokens in plain text, set this to [].
 ENCRYPTION_PIPE = []
-DECRYPTION_PIPE = ['gpg', '--decrypt']
+DECRYPTION_PIPE = []
 
 registrations = {
     'google': {

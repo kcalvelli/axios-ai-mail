@@ -72,32 +72,29 @@ programs.axios-ai-mail = {
 
 ## Authentication (OAuth2)
 
-1.  **Create the tokens directory** (recommended location):
+1.  **Create the tokens directory**:
     ```bash
     mkdir -p ~/.config/tokens
     ```
 
-2.  **Run the Auth Wizard** via Nix (no installation needed!):
+2.  **Run the Auth Wizard**:
 
-    **For Gmail:**
     ```bash
     nix run github:kcalvelli/axios-ai-mail#auth -- \
         --verbose --authorize \
-        --authflow authcode \
         ~/.config/tokens/gmail
     ```
-    *(Follow the link, log in, paste the code)*
+    *(Replace `gmail` with `outlook` or any name you prefer)*
 
-    **For Outlook:**
-    ```bash
-    nix run github:kcalvelli/axios-ai-mail#auth -- \
-        --verbose --authorize \
-        --authflow devicecode \
-        ~/.config/tokens/outlook
-    ```
-    *(Enter the code at microsoft.com/devicelogin)*
+3.  **Follow the Interactive Prompts**:
+    The script will ask for details. Use these settings:
 
-3.  **Update your Config**:
+    | Provider | Registration | Flow | Note |
+    | :--- | :--- | :--- | :--- |
+    | **GMail** | `google` | `authcode` | Copy the link it gives you to a browser, log in, copy the code back. |
+    | **Outlook** | `microsoft` | `devicecode` | Go to microsoft.com/devicelogin and enter the code displayed. |
+
+4.  **Update your Config**:
     ```nix
     accounts.personal = {
       flavor = "gmail";
@@ -105,8 +102,6 @@ programs.axios-ai-mail = {
       passwordCommand = "~/.config/tokens/gmail"; 
     };
     ```
-
-**Note**: The wizard automatically uses our pre-configured script (plaintext tokens enabled), so no extra setup is required.
 
 ## AI Setup
 
