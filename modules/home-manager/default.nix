@@ -192,3 +192,5 @@ in {
     
     # REVISION: Let's remove the separate service triggering logic and just append it 
     # to the sync pipeline if enabled. It's simpler.
+  };
+}
