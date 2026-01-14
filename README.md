@@ -140,22 +140,16 @@ programs.axios-ai-mail = {
 
 For providers like Fastmail, iCloud, or self-hosted servers, you can use a simple password file or a manager like `pass`.
 
-**Simplest Method (Password File):**
+**Simplest Method (Helper Tool):**
 
-1.  Create a secure directory:
+1.  Run the password helper:
     ```bash
-    mkdir -p ~/.config/secrets
-    chmod 700 ~/.config/secrets
+    nix run github:kcalvelli/axios-ai-mail#set-password -- <account_name>
+    # Example: nix run .#set-password -- work
     ```
-2.  Write your password to a file and secure it:
-    ```bash
-    echo "your_password_here" > ~/.config/secrets/work_pass
-    chmod 600 ~/.config/secrets/work_pass
-    ```
-3.  In your configuration (see below), set:
-    ```nix
-    passwordCommand = "cat ~/.config/secrets/work_pass";
-    ```
+    It will securely prompt for your password and save it to `~/.config/axios-ai-mail/secrets/<name>_pass` with correct permissions.
+
+2.  Copy the configuration line it prints (e.g. `passwordCommand = "cat ...";`) into your `home.nix`.
 
 ## AI Setup
 

@@ -42,6 +42,13 @@
           ${pkgs.python3}/bin/python3 ${./src/mutt_oauth2.py} "$@"
         ''}/bin/auth";
       };
+
+      set-password = {
+        type = "app";
+        program = "${pkgs.writeShellScriptBin "set-password" ''
+          ${pkgs.python3}/bin/python3 ${./src/store_password.py} "$@"
+        ''}/bin/set-password";
+      };
     });
   };
 }
