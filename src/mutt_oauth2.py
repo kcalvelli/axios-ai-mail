@@ -157,6 +157,12 @@ if args.authorize:
     print(f"\n--- {token['registration'].upper()} Setup ---")
     if not registration['client_id']:
         print(f"No built-in Client ID found for {token['registration']}.")
+        
+        if token['registration'] == 'google':
+             print("GUIDE: Go to https://console.cloud.google.com/apis/credentials")
+             print("       Create Credentials -> OAuth Client ID -> Application Type: Desktop App")
+             print("       (You may need to 'Configure Consent Screen' first -> External -> Email Address)")
+             
         print("You must provide your own OAuth2 Client ID.")
         registration['client_id'] = input("Client ID: ").strip()
     
