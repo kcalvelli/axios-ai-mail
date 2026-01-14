@@ -71,8 +71,8 @@ programs.axios-ai-mail = {
     other = {
       flavor = "manual";
       address = "me@company.com";
-      userName = "keith"; # Optional if different from address
-      realName = "Keith Calvelli";
+      userName = "user"; # Optional if different from address
+      realName = "First Last";
       
       # Connection Details
       imap = { host = "imap.fastmail.com"; port = 993; };
