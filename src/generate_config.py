@@ -133,6 +133,7 @@ def generate_msmtp(accounts):
 def generate_notmuch(accounts, settings):
     maildir_base = settings.get("settings", {}).get("maildirBase", "~/Mail")
     primary_email = ""
+    user_name = "User"
     other_emails = []
     
     for name, acc in accounts.items():
