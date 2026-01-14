@@ -79,6 +79,8 @@ programs.axios-ai-mail = {
 
 2.  **Prerequisite (GMail Only)**:
     Google requires you to create your own "App" credentials.
+    > **Note**: Google Cloud Console UI changes frequently. These steps are a general guide; look for similar options if exact labels differ.
+
     1.  Go to [Google Cloud Console](https://console.cloud.google.com/) and create a new project.
     2.  **API & Services** > **Library** > Search for and Enable **Gmail API**.
     3.  **OAuth Consent Screen**:
