@@ -134,6 +134,29 @@ programs.axios-ai-mail = {
     };
     ```
 
+    ```
+
+### Authentication (Standard IMAP)
+
+For providers like Fastmail, iCloud, or self-hosted servers, you can use a simple password file or a manager like `pass`.
+
+**Simplest Method (Password File):**
+
+1.  Create a secure directory:
+    ```bash
+    mkdir -p ~/.config/secrets
+    chmod 700 ~/.config/secrets
+    ```
+2.  Write your password to a file and secure it:
+    ```bash
+    echo "your_password_here" > ~/.config/secrets/work_pass
+    chmod 600 ~/.config/secrets/work_pass
+    ```
+3.  In your configuration (see below), set:
+    ```nix
+    passwordCommand = "cat ~/.config/secrets/work_pass";
+    ```
+
 ## AI Setup
 
 Ensure [Ollama](https://ollama.com) is installed and running.
