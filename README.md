@@ -17,7 +17,7 @@ Add `axios-ai-mail` to your flake inputs:
 {
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
-    axios-ai-mail.url = "github:yourusername/axios-ai-mail";
+    axios-ai-mail.url = "github:kcalvelli/axios-ai-mail";
   };
   
   outputs = { self, nixpkgs, axios-ai-mail, ... }: {
