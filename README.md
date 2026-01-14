@@ -72,57 +72,41 @@ programs.axios-ai-mail = {
 
 ## Authentication (OAuth2)
 
-Most modern email providers (Gmail, Outlook) require OAuth2. You cannot use your regular login password.
-
-**One-Time Setup**
-You need to generate a token file for each account.
-
-1.  **Create the tokens directory**:
+1.  **Create the tokens directory** (recommended location):
     ```bash
     mkdir -p ~/.config/tokens
     ```
 
-2.  **Download the helper script**:
-    ```bash
-    curl -O https://raw.githubusercontent.com/muttmua/mutt/master/contrib/mutt_oauth2.py
-    chmod +x mutt_oauth2.py
-    ```
+2.  **Run the Auth Wizard** via Nix (no installation needed!):
 
-3.  **Run the Wizard** (Choose your provider below):
-
-    **For GMail:**
+    **For Gmail:**
     ```bash
-    # Run this command and follow the prompts
-    ./mutt_oauth2.py --verbose --authorize \
+    nix run github:kcalvelli/axios-ai-mail#auth -- \
+        --verbose --authorize \
         --authflow authcode \
         ~/.config/tokens/gmail
     ```
-    *   **Registration**: Select `google`
-    *   **Flow**: Select `authcode`
-    *   **Result**: It will give you a link. Open it in a browser, log in, copy the code, and paste it back into the terminal.
+    *(Follow the link, log in, paste the code)*
 
-    **For Outlook / Office 365:**
+    **For Outlook:**
     ```bash
-    ./mutt_oauth2.py --verbose --authorize \
+    nix run github:kcalvelli/axios-ai-mail#auth -- \
+        --verbose --authorize \
         --authflow devicecode \
         ~/.config/tokens/outlook
     ```
-    *   **Registration**: Select `microsoft`
-    *   **Flow**: Select `devicecode`
-    *   **Result**: It will show a code (e.g., `A1B2C3D`). Go to [microsoft.com/devicelogin](https://microsoft.com/devicelogin), enter the code, and approve.
+    *(Enter the code at microsoft.com/devicelogin)*
 
-4.  **Update your Config**:
-    Point your configuration to the new token file.
-    
+3.  **Update your Config**:
     ```nix
     accounts.personal = {
       flavor = "gmail";
-      # ... other settings ...
+      # ...
       passwordCommand = "~/.config/tokens/gmail"; 
     };
     ```
 
-**Note**: The system will automatically detect this is a token file and handle refreshing it in the background. You never need to run this wizard again unless the token is revoked.
+**Note**: The wizard automatically uses our pre-configured script (plaintext tokens enabled), so no extra setup is required.
 
 ## AI Setup
 

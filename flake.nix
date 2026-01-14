@@ -31,5 +31,17 @@
         ];
       };
     });
+    
+    # Apps for easy running
+    apps = forAllSystems (system: let
+      pkgs = nixpkgs.legacyPackages.${system};
+    in {
+      auth = {
+        type = "app";
+        program = "${pkgs.writeShellScriptBin "auth" ''
+          ${pkgs.python3}/bin/python3 ${./src/mutt_oauth2.py} "$@"
+        ''}/bin/auth";
+      };
+    });
   };
 }
