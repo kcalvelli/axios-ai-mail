@@ -60,8 +60,9 @@ registrations = {
         'smtp_endpoint': 'smtp.gmail.com',
         'sasl_method': 'OAUTHBEARER',
         'scope': 'https://mail.google.com/',
-        'client_id': '',
-        'client_secret': '',
+        # Thunderbird Client ID/Secret
+        'client_id': '406964657835-gre740f93o6o4crb8m37979p61517540.apps.googleusercontent.com',
+        'client_secret': '', # Public client
     },
     'microsoft': {
         'authorize_endpoint': 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
@@ -76,7 +77,8 @@ registrations = {
         'scope': ('offline_access https://outlook.office.com/IMAP.AccessAsUser.All '
                   'https://outlook.office.com/POP.AccessAsUser.All '
                   'https://outlook.office.com/SMTP.Send'),
-        'client_id': '',
+        # Thunderbird Client ID
+        'client_id': '08162f7c-0fd2-4200-a84a-f25a4db0b584',
         'client_secret': '',
     },
 }
