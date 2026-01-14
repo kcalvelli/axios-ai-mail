@@ -120,6 +120,11 @@ in {
       settings = cfg.settings;
     };
 
+    # Ensure Maildir exists
+    home.activation.createMaildir = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      mkdir -p ${cfg.settings.maildirBase}
+    '';
+
     # Systemd Service: Mail Sync
     systemd.user.services.axios-mail-sync = {
       Unit = {
