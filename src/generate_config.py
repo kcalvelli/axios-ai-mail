@@ -44,6 +44,7 @@ def load_config():
 def get_account_defaults(flavor):
     return PROVIDERS.get(flavor, {})
 
+def generate_mbsync(accounts, settings, oauth_script=None):
     maildir_base = settings.get("settings", {}).get("maildirBase", "~/Mail")
     # Ensure expansion ~ -> /home/user
     abs_base = os.path.expanduser(maildir_base)
