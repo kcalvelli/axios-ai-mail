@@ -138,25 +138,25 @@ in {
         # Then sync, then index.
         ExecStart = pkgs.writeShellScript "axios-sync-pipeline" ''
           export PATH=${lib.makeBinPath [ 
-            (pkgs.python311.withPackages (ps: [ ps.requests ])) 
+            (pkgs.python311.withPackages (ps: [ ps.requests ps.notmuch ])) 
             pkgs.isync 
             pkgs.notmuch 
             pkgs.msmtp 
           ]}:$PATH
           
-          # Force Notmuch to use our generated config
+          # Force Notmuch to use our generated config (Environment variable)
           export NOTMUCH_CONFIG=${config.home.homeDirectory}/.notmuch-config
           
           # 1. Regenerate configs (handles refreshed oauth tokens if needed)
           python3 ${../../src/generate_config.py}
           
-          # 2. Sync Mail
+          # 2. Sync Mail (Explicit config path)
           echo "Syncing mail..."
-          mbsync -a
+          mbsync -c ${config.home.homeDirectory}/.mbsyncrc -a
           
-          # 3. Index Mail
+          # 3. Index Mail (Explicit config path)
           echo "Indexing mail..."
-          notmuch new
+          notmuch --config=${config.home.homeDirectory}/.notmuch-config new
           
           # 4. AI Classification (if enabled)
           ${if cfg.ai.enable then ''
