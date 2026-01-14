@@ -148,7 +148,8 @@ in {
           # Force Notmuch to use our generated config (Environment variable)
           export NOTMUCH_CONFIG=${config.home.homeDirectory}/.notmuch-config
           # Fix for mbsync missing SASL plugins for XOAUTH2
-          export SASL_PATH=${pkgs.cyrus_sasl}/lib/sasl2
+          # Use .out output for libraries, as default might be bin
+          export SASL_PATH=${pkgs.cyrus_sasl.out}/lib/sasl2
           
           # 1. Regenerate configs (handles refreshed oauth tokens if needed)
           python3 ${../../src/generate_config.py} --oauth-script ${../../src/mutt_oauth2.py}
