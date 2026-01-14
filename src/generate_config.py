@@ -78,7 +78,14 @@ def generate_mbsync(accounts, settings, oauth_script=None):
         lines.append(f"User {user}")
         lines.append(f"PassCmd \"{pass_cmd}\"")
         lines.append(f"SSLType IMAPS")
-        lines.append(f"AuthMechs LOGIN")
+        lines.append(f"PassCmd \"{pass_cmd}\"")
+        lines.append(f"SSLType IMAPS")
+        
+        auth_mech = "LOGIN"
+        if flavor in ["gmail", "outlook"] and "oauth" in pass_cmd:
+             auth_mech = "XOAUTH2"
+        
+        lines.append(f"AuthMechs {auth_mech}")
         lines.append("")
         
         lines.append(f"IMAPStore {name}-remote")
