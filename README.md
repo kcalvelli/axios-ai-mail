@@ -72,28 +72,57 @@ programs.axios-ai-mail = {
 
 ## Authentication (OAuth2)
 
-For GMail and Outlook, standard passwords usually won't work. You must use OAuth2.
+Most modern email providers (Gmail, Outlook) require OAuth2. You cannot use your regular login password.
 
-1.  **Get a Client ID/Secret** for your provider (or use a known public client ID like Thunderbird's).
-2.  **Generate a Token**:
-    This project includes `mutt_oauth2.py` internally, but you need to generate the initial token file yourself.
-    
+**One-Time Setup**
+You need to generate a token file for each account.
+
+1.  **Create the tokens directory**:
     ```bash
-    # Download script for initial setup
+    mkdir -p ~/.config/tokens
+    ```
+
+2.  **Download the helper script**:
+    ```bash
     curl -O https://raw.githubusercontent.com/muttmua/mutt/master/contrib/mutt_oauth2.py
     chmod +x mutt_oauth2.py
-    
-    # Run interactive setup
-    ./mutt_oauth2.py --verbose --authorize --authflow localhost ~/.password-store/email/personal.token
     ```
+
+3.  **Run the Wizard** (Choose your provider below):
+
+    **For GMail:**
+    ```bash
+    # Run this command and follow the prompts
+    ./mutt_oauth2.py --verbose --authorize \
+        --authflow authcode \
+        ~/.config/tokens/gmail
+    ```
+    *   **Registration**: Select `google`
+    *   **Flow**: Select `authcode`
+    *   **Result**: It will give you a link. Open it in a browser, log in, copy the code, and paste it back into the terminal.
+
+    **For Outlook / Office 365:**
+    ```bash
+    ./mutt_oauth2.py --verbose --authorize \
+        --authflow devicecode \
+        ~/.config/tokens/outlook
+    ```
+    *   **Registration**: Select `microsoft`
+    *   **Flow**: Select `devicecode`
+    *   **Result**: It will show a code (e.g., `A1B2C3D`). Go to [microsoft.com/devicelogin](https://microsoft.com/devicelogin), enter the code, and approve.
+
+4.  **Update your Config**:
+    Point your configuration to the new token file.
     
-3.  **Store the Token**:
-    Save the token file path or encypt it. If you use `pass`, you can store the *file path* in pass, OR just point `passwordCommand` to the token file directly if it's secured.
-    
-    *Recommended*: Store the token in a secure path (e.g. `~/.config/tokens/gmail`) and reference it:
-    `passwordCommand = "~/.config/tokens/gmail";`
-    
-    The system will automatically detect if `passwordCommand` is a file path and use the internal `mutt_oauth2.py` to refresh the access token on runtime.
+    ```nix
+    accounts.personal = {
+      flavor = "gmail";
+      # ... other settings ...
+      passwordCommand = "~/.config/tokens/gmail"; 
+    };
+    ```
+
+**Note**: The system will automatically detect this is a token file and handle refreshing it in the background. You never need to run this wizard again unless the token is revoked.
 
 ## AI Setup
 
