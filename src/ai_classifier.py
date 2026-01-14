@@ -97,7 +97,31 @@ def main():
     endpoint = ai_config.get("endpoint", "http://localhost:11434")
     model = ai_config.get("model", "llama3")
     
-    db = notmuch.Database(mode=notmuch.Database.MODE.READ_WRITE)
+    endpoint = ai_config.get("endpoint", "http://localhost:11434")
+    model = ai_config.get("model", "llama3")
+    
+    # Explicitly find database path from config to avoid Python binding discovery issues
+    try:
+        config_path = os.environ.get("NOTMUCH_CONFIG", os.path.expanduser("~/.notmuch-config"))
+        # Simple manual parse because configparser might struggle with some notmuch versions or we just want 'path'
+        db_path = None
+        if os.path.exists(config_path):
+            with open(config_path, 'r') as f:
+                for line in f:
+                    if line.strip().startswith("path="):
+                        db_path = line.split("=", 1)[1].strip()
+                        break
+        
+        # Open DB with explicit path if found, else rely on defaults
+        if db_path:
+             db = notmuch.Database(path=db_path, mode=notmuch.Database.MODE.READ_WRITE)
+        else:
+             db = notmuch.Database(mode=notmuch.Database.MODE.READ_WRITE)
+
+    except Exception as e:
+        print(f"Error opening Notmuch DB: {e}", file=sys.stderr)
+        sys.exit(1)
+
     query = db.create_query("tag:new")
     
     processed = 0
