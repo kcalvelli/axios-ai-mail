@@ -163,41 +163,57 @@ By default, the classifier looks for mail tagged `new` in Notmuch, classifies it
 
 ## Reading Your Email
 
-Since `axios-ai-mail` operates as a backend (sync + index + classify), you need a frontend to read your mail. Any client that supports **Notmuch** or **Maildir** will work.
+Since `axios-ai-mail` operates as a backend (sync + index + classify), you need a frontend to read your mail. Any client that supports **Notmuch** or **Maildir** will work. We recommend configuring them via Home Manager.
 
 ### Option A: aerc (Recommended)
-[aerc](https://aerc-mail.org/) is a highly efficient TUI client.
 
-1.  Isolate `aerc` configuration to use the Notmuch backend.
-2.  In your `aerc.conf` or `accounts.conf`:
+[aerc](https://aerc-mail.org/) is a highly efficient TUI client. Add this to your `home.nix`:
 
-```ini
-[Personal]
-source = notmuch://~/Mail
-query-map = ~/.config/aerc/map.conf
-default = INBOX
-from = Jane Doe <jane.doe@gmail.com>
+```nix
+programs.aerc = {
+  enable = true;
+  extraConfig = {
+    general.unsafe-accounts-conf = true; # Allow expansion of commands
+  };
+  accounts = {
+    Personal = {
+      source = "notmuch://~/Mail";
+      default = "INBOX";
+      from = "Jane Doe <jane.doe@gmail.com>";
+      outgoing = "msmtp --account=personal -t";
+    };
+  };
+};
 ```
 
 ### Option B: alot
+
 [alot](https://github.com/pazz/alot) is a terminal client written in Python specifically for Notmuch.
 
-```bash
-# ~/.config/alot/config
-[accounts]
-  [[personal]]
-    realname = Jane Doe
-    address = jane.doe@gmail.com
-    sendmail_command = msmtp --account=personal -t
-    # alot automatically discovers the notmuch DB at ~/Mail
+```nix
+programs.alot = {
+  enable = true;
+  accounts = {
+    personal = {
+      realname = "Jane Doe";
+      address = "jane.doe@gmail.com";
+      sendMailCommand = "msmtp --account=personal -t";
+    };
+  };
+};
 ```
 
 ### Option C: Emacs (notmuch.el)
-If you use Emacs, the built-in `notmuch` package is the gold standard.
 
-```elisp
-(setq notmuch-search-oldest-first nil)
-(notmuch)
+If you use Emacs with Home Manager:
+
+```nix
+programs.emacs = {
+  enable = true;
+  extraPackages = epkgs: [ epkgs.notmuch ];
+};
+```
+Then `M-x notmuch` works out of the box.
 ```
 
 ## Troubleshooting
