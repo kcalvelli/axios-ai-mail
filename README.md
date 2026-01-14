@@ -61,14 +61,8 @@ programs.axios-ai-mail = {
       passwordCommand = "pass email/personal"; 
     };
 
-    work = {
-      flavor = "outlook";
-      address = "jane.doe@work.com";
-      passwordCommand = "pass email/work";
-    };
-
     # Standard IMAP Example
-    other = {
+    work = {
       flavor = "manual";
       address = "me@company.com";
       userName = "user"; # Optional if different from address
@@ -106,7 +100,7 @@ programs.axios-ai-mail = {
         *   Name: `axios-mail`.
     5.  **Copy** the `Client ID` and `Client Secret`. You will need them in the next step.
 
-    *(Outlook users can skip this; a default ID is provided.)*
+
 
 3.  **Run the Auth Wizard**:
 
@@ -115,7 +109,6 @@ programs.axios-ai-mail = {
         --verbose --authorize \
         ~/.config/tokens/gmail
     ```
-    *(Replace `gmail` with `outlook` or any name you prefer)*
 
 3.  **Follow the Interactive Prompts**:
     The script will ask for details. Use these settings:
@@ -123,7 +116,7 @@ programs.axios-ai-mail = {
     | Provider | Registration | Flow | Note |
     | :--- | :--- | :--- | :--- |
     | **GMail** | `google` | `authcode` | Copy the link it gives you to a browser, log in, copy the code back. |
-    | **Outlook** | `microsoft` | `devicecode` | Go to microsoft.com/devicelogin and enter the code displayed. |
+    | **GMail** | `google` | `authcode` | Copy the link it gives you to a browser, log in, copy the code back. |
 
 4.  **Update your Config**:
     ```nix
