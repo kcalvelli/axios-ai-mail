@@ -101,14 +101,18 @@ path = Path(args.tokenfile)
 if path.exists():
     if 0o777 & path.stat().st_mode != 0o600:
         sys.exit('Token file has unsafe mode. Suggest deleting and starting over.')
+if path.exists():
+    if 0o777 & path.stat().st_mode != 0o600:
+        sys.exit('Token file has unsafe mode. Suggest deleting and starting over.')
     try:
-        sub = subprocess.run(DECRYPTION_PIPE, check=True, input=path.read_bytes(),
-                             capture_output=True)
-        token = json.loads(sub.stdout)
-    except subprocess.CalledProcessError:
-        sys.exit('Difficulty decrypting token file. Is your decryption agent primed for '
-                 'non-interactive usage, or an appropriate environment variable such as '
-                 'GPG_TTY set to allow interactive agent usage from inside a pipe?')
+        if DECRYPTION_PIPE:
+            sub = subprocess.run(DECRYPTION_PIPE, check=True, input=path.read_bytes(),
+                                 capture_output=True)
+            token = json.loads(sub.stdout)
+        else:
+            token = json.loads(path.read_text())
+    except (subprocess.CalledProcessError, json.JSONDecodeError):
+        sys.exit('Difficulty decrypting or reading token file. Delete it to start over.')
 
 
 def writetokenfile():
@@ -117,9 +121,14 @@ def writetokenfile():
         path.touch(mode=0o600)
     if 0o777 & path.stat().st_mode != 0o600:
         sys.exit('Token file has unsafe mode. Suggest deleting and starting over.')
-    sub2 = subprocess.run(ENCRYPTION_PIPE, check=True, input=json.dumps(token).encode(),
-                          capture_output=True)
-    path.write_bytes(sub2.stdout)
+    
+    token_json = json.dumps(token).encode()
+    if ENCRYPTION_PIPE:
+        sub2 = subprocess.run(ENCRYPTION_PIPE, check=True, input=token_json,
+                              capture_output=True)
+        path.write_bytes(sub2.stdout)
+    else:
+        path.write_bytes(token_json)
 
 
 if args.debug:
