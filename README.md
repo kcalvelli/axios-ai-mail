@@ -165,24 +165,27 @@ By default, the classifier looks for mail tagged `new` in Notmuch, classifies it
 
 `axios-ai-mail` can automatically configure a terminal email client for you.
 
-### Option A: Integrated Client (Recommended)
+### Option A:### Integrated Client (Recommended)
 
-Simply set the `client` option in your configuration:
+`axios-ai-mail` supports clients that are **native** to the Notmuch database, allowing you to instantly see AI-assigned tags like `important` or `junk`.
+
+Simply set the `client` option to either `alot` (TUI) or `astroid` (GUI):
 
 ```nix
 programs.axios-ai-mail = {
   enable = true;
-  # Choose "aerc" or "meli"
-  client = "aerc"; 
+  client = "alot"; # or "astroid"
   # ... accounts ...
 };
 ```
-This will install the client and fully configure it to use your accounts, `notmuch` backend, and `msmtp` sender.
+This will install the client and configure it to use your Notmuch database and `msmtp` sender automatically.
+
+- **Alot**: A terminal-based client (similar to mutt) optimized for tagging and searching.
+- **Astroid**: A powerful GUI client with threaded views and embedded HTML support.
 
 ### Option B: Manual Configuration
 
 If you prefer another client (e.g. `alot`, `neomutt`, `Emacs`), simply configure it to read the Maildir at `~/Mail`.
-```
 
 ## Troubleshooting
 

@@ -90,7 +90,7 @@ in {
     };
 
     client = mkOption {
-      type = types.enum [ "none" "aerc" "meli" ];
+      type = types.enum [ "none" "alot" "astroid" ];
       default = "none";
       description = "Email client to automatically configure.";
     };
@@ -194,43 +194,29 @@ in {
       # Systemd Service: AI Classifier (Legacy/Disabled separate service in favor of pipeline)
     })
 
-    # Aerc Integration
-    (mkIf (cfg.enable && cfg.client == "aerc") {
-      home.packages = [ pkgs.aerc ];
+    # Alot Integration (Notmuch TUI)
+    (mkIf (cfg.enable && cfg.client == "alot") {
+      home.packages = [ pkgs.alot pkgs.w3m ];
       
-      # Manual config generation to avoid HM module option conflicts/versions
-      xdg.configFile."aerc/accounts.conf".text = lib.concatStringsSep "\n" (
-        lib.mapAttrsToList (name: acc: ''
-          [${name}]
-          source = maildir://${cfg.settings.maildirBase}/${name}
-          default = Inbox
-          from = ${acc.realName} <${acc.address}>
-          outgoing = msmtp --account=${name} -t
-        '') cfg.accounts
-      );
-      
-      xdg.configFile."aerc/aerc.conf".text = ''
-        [general]
-        unsafe-accounts-conf = true
+      xdg.configFile."alot/config".text = ''
+        [accounts]
+          ${lib.concatStringsSep "\n" (lib.mapAttrsToList (name: acc: ''
+            [[${name}]]
+              realname = ${acc.realName}
+              address = ${acc.address}
+              sendmail_command = msmtp --account=${name} -t
+          '') cfg.accounts)}
       '';
     })
 
-    # Meli Integration
-    (mkIf (cfg.enable && cfg.client == "meli") {
-      home.packages = [ pkgs.meli pkgs.w3m ];
+    # Astroid Integration (Notmuch GUI)
+    (mkIf (cfg.enable && cfg.client == "astroid") {
+      home.packages = [ pkgs.astroid ];
       
-      # Generate minimal Meli config
-      xdg.configFile."meli/config.toml".text = lib.concatStringsSep "\n" (
-        lib.mapAttrsToList (name: acc: ''
-          [accounts.${name}]
-          format = "Maildir"
-          root_mailbox = "${cfg.settings.maildirBase}/${name}"
-          subscribed_mailboxes = ["Inbox", "Sent", "Drafts", "Trash", "Archive"]
-          send_mail = "${pkgs.msmtp}/bin/msmtp --account=${name} -t"
-          identity = "${acc.address}"
-          display_name = "${acc.realName}"
-        '') cfg.accounts
-      );
+      xdg.configFile."astroid/poll.sh" = {
+        executable = true;
+        text = "#!/bin/sh\n# Polling handled by systemd service\nexit 0";
+      };
     })
   ];
 }
