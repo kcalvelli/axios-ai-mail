@@ -226,6 +226,10 @@ in {
           format = "maildir"
           path = "${cfg.settings.maildirBase}/${name}"
           root_mailbox = "INBOX"
+          
+          [accounts.${name}.send_mail]
+          cmd = "${pkgs.msmtp}/bin/msmtp"
+          args = ["--account=${name}", "-t"]
         '') cfg.accounts
       );
     })
