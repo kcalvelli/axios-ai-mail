@@ -111,6 +111,11 @@ def main():
                     if action: msg.add_tag("todo")
                     
                     # Lifecycle Logic
+                    # 1. Default to Inbox (Safety: Put it back in inbox, then conditionally remove)
+                    msg.add_tag("inbox")
+                    # Remove archive if present (we are re-evaluating)
+                    msg.remove_tag("archive")
+
                     if "junk" in tags:
                         msg.remove_tag("inbox")
                         msg.add_tag("junk")
