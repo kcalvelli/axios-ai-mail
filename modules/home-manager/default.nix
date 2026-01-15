@@ -227,9 +227,7 @@ in {
         };
       };
       
-          }) cfg.accounts;
-        };
-      };
+
       
       # Activation script to create mutable searches file
       # Astroid crashes if this file is read-only (which xdg.configFile creates)
