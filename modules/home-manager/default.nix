@@ -134,6 +134,11 @@ in {
         mkdir -p ${cfg.settings.maildirBase}
       '';
 
+      # Export NOTMUCH_CONFIG globally so clients (alot, astroid) can find the DB
+      home.sessionVariables = {
+        NOTMUCH_CONFIG = "${config.home.homeDirectory}/.notmuch-config";
+      };
+
       # Systemd Service: Mail Sync
       systemd.user.services.axios-mail-sync = {
         Unit = {
