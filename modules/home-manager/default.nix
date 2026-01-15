@@ -224,6 +224,12 @@ in {
             email = acc.address;
             sendmail = "msmtp --account=${name} -t";
           }) cfg.accounts;
+          
+          saved_searches = {
+            inbox = { query = "tag:inbox"; sort_order = "newest"; };
+            important = { query = "tag:important"; sort_order = "newest"; };
+            all = { query = "*"; sort_order = "newest"; };
+          };
         };
       };
       
