@@ -204,20 +204,31 @@ in {
       programs.astroid = {
         enable = true;
         extraConfig = {
+          # 1. Search Queries (your existing block)
           startup = {
             queries = {
-               "Inbox" = "tag:inbox";
-               "To-Do" = "tag:todo";
-               "High Priority" = "tag:prio-high";
-               "Work" = "tag:work";
-               "Finance" = "tag:finance";
-               "Archive" = "tag:archive";
-               "Spam" = "tag:junk or tag:spam";
-               "inbox" = null; # Try to suppress default duplicate
+              "Inbox" = "tag:inbox";
+              "To-Do" = "tag:todo";
+              "High Priority" = "tag:prio-high";
+              "Spam" = "tag:junk or tag:spam";
+              "Trash" = "tag:deleted";
             };
           };
-          
-          # Widen the tags column to accommodate multiple AI tags
+      
+          thread_view = {
+            labels = {
+              remove_tags = [ "inbox" "unseen" ];
+              add_tags = [ "deleted" ];
+            };
+          };
+      
+          keybindings = {
+            common = {
+              "d" = "thread_view.archive";
+            };
+          };
+      
+          # 4. UI Adjustments
           thread_index = {
             cell = {
               tags_length = 200;
