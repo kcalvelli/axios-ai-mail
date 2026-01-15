@@ -227,15 +227,35 @@ in {
         };
       };
       
-      # Astroid saves searches in a separate JSON file
-      xdg.configFile."astroid/searches".text = builtins.toJSON {
-        saved = {
-          Inbox = "tag:inbox";
-          Important = "tag:important";
-          "All Mail" = "*";
+          }) cfg.accounts;
         };
-        history = [];
       };
+      
+      # Activation script to create mutable searches file
+      # Astroid crashes if this file is read-only (which xdg.configFile creates)
+      home.activation.configureAstroidSearches = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        SEARCHES="$HOME/.config/astroid/searches"
+        # If it's a symlink (from previous read-only config), remove it
+        if [ -L "$SEARCHES" ]; then
+          rm "$SEARCHES"
+        fi
+        
+        # If doesn't exist, create defaults
+        if [ ! -f "$SEARCHES" ]; then
+          mkdir -p "$(dirname "$SEARCHES")"
+          cat <<EOF > "$SEARCHES"
+          ${builtins.toJSON {
+            saved = {
+              Inbox = "tag:inbox";
+              Important = "tag:important";
+              "All Mail" = "*";
+            };
+            history = [];
+          }}
+          EOF
+          chmod 644 "$SEARCHES"
+        fi
+      '';
       
       xdg.configFile."astroid/poll.sh" = {
         executable = true;
