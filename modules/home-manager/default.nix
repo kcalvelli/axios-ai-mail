@@ -225,7 +225,7 @@ in {
           [accounts.${name}]
           format = "Maildir"
           root_mailbox = "${cfg.settings.maildirBase}/${name}"
-          subscribed_mailboxes = ["INBOX"]
+          subscribed_mailboxes = ["Inbox", "Sent", "Drafts", "Trash", "Archive"]
           send_mail = "${pkgs.msmtp}/bin/msmtp --account=${name} -t"
           identity = "${acc.address}"
           display_name = "${acc.realName}"
