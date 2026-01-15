@@ -167,21 +167,21 @@ By default, the classifier looks for mail tagged `new` in Notmuch, classifies it
 
 ### Option A:### Integrated Client (Recommended)
 
-`axios-ai-mail` supports clients that are **native** to the Notmuch database, allowing you to instantly see AI-assigned tags like `important` or `junk`.
+`axios-ai-mail` integrates with **Aerc**, a powerful terminal email client. We configure it to use the **Notmuch backend** natively, so you can leverage the full power of the search database and AI tags.
 
-Simply set the `client` option to either `alot` (TUI) or `astroid` (GUI):
+Simply set the `client` option to `aerc`:
 
 ```nix
 programs.axios-ai-mail = {
   enable = true;
-  client = "alot"; # or "astroid"
+  client = "aerc";
   # ... accounts ...
 };
 ```
-This will install the client and configure it to use your Notmuch database and `msmtp` sender automatically.
+This will install `aerc` and generate the configuration needed to view your accounts, AI tags, and threads.
 
-- **Alot**: A terminal-based client (similar to mutt) optimized for tagging and searching.
-- **Astroid**: A powerful GUI client with threaded views and embedded HTML support.
+- **Folders**: Your sidebar show virtual "folders" (Saved Searches) like `Inbox`, `Important`, `Junk`, backed by Notmuch queries.
+- **Search**: Press `/` to search your entire archive using Notmuch syntax (e.g. `tag:invoice`).
 
 ### Option B: Manual Configuration
 

@@ -90,9 +90,9 @@ in {
     };
 
     client = mkOption {
-      type = types.enum [ "none" "alot" "astroid" ];
+      type = types.enum [ "none" "aerc" ];
       default = "none";
-      description = "Email client to automatically configure.";
+      description = "Email client to automatically configure (Aerc TUI).";
     };
 
     settings = {
@@ -199,65 +199,56 @@ in {
       # Systemd Service: AI Classifier (Legacy/Disabled separate service in favor of pipeline)
     })
 
-    # Alot Integration (Notmuch TUI)
-    (mkIf (cfg.enable && cfg.client == "alot") {
-      home.packages = [ pkgs.alot pkgs.w3m ];
-      
-      xdg.configFile."alot/config".text = ''
-        [accounts]
-          ${lib.concatStringsSep "\n" (lib.mapAttrsToList (name: acc: ''
-            [[${name}]]
-              realname = ${acc.realName}
-              address = ${acc.address}
-              sendmail_command = msmtp --account=${name} -t
-          '') cfg.accounts)}
-      '';
-    })
-
-    # Astroid Integration (Notmuch GUI)
-    (mkIf (cfg.enable && cfg.client == "astroid") {
-      programs.astroid = {
-        enable = true;
-        extraConfig = {
-          accounts = lib.mapAttrs (name: acc: {
-            name = acc.realName;
-            email = acc.address;
-            sendmail = "msmtp --account=${name} -t";
-          }) cfg.accounts;
-        };
-      };
-      
-
-      
-      # Activation script to create mutable searches file
-      # Astroid crashes if this file is read-only (which xdg.configFile creates)
-      home.activation.configureAstroidSearches = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-        SEARCHES="$HOME/.config/astroid/searches"
-        # If it's a symlink (from previous read-only config), remove it
-        if [ -L "$SEARCHES" ]; then
-          rm "$SEARCHES"
-        fi
+    # Aerc Integration (TUI with Notmuch Backend)
+    (mkIf (cfg.enable && cfg.client == "aerc") (
+      let
+        # Generate query map for each account to filter by path
+        queryMaps = lib.mapAttrs' (name: acc: lib.nameValuePair 
+          "aerc/map-${name}.conf" 
+          {
+            text = let prefix = "path:${name}/**"; in ''
+              Inbox     = tag:inbox and ${prefix}
+              Important = tag:important and ${prefix}
+              Junk      = tag:junk and ${prefix}
+              Drafts    = tag:draft and ${prefix}
+              Sent      = tag:sent and ${prefix}
+              All       = ${prefix}
+            '';
+          }
+        ) cfg.accounts;
+      in
+      {
+        home.packages = [ pkgs.aerc ];
         
-        # If doesn't exist OR is empty (zombie file), create defaults
-        if [ ! -s "$SEARCHES" ]; then
-          mkdir -p "$(dirname "$SEARCHES")"
-          printf '%s' '${builtins.toJSON {
-            saved = {
-              Inbox = "tag:inbox";
-              Important = "tag:important";
-              "All Mail" = "*";
-            };
-            history = [];
-          }}' > "$SEARCHES"
-          chmod 600 "$SEARCHES"
-        fi
-      '';
-
-      
-      xdg.configFile."astroid/poll.sh" = {
-        executable = true;
-        text = "#!/bin/sh\n# Polling handled by systemd service\nexit 0";
-      };
-    })
+        xdg.configFile = {
+          # 1. Accounts Configuration
+          "aerc/accounts.conf".text = lib.concatStringsSep "\n" (
+            lib.mapAttrsToList (name: acc: ''
+              [${name}]
+              source        = notmuch://${cfg.settings.maildirBase}
+              maildir-store = ${cfg.settings.maildirBase}/${name}
+              query-map     = ${config.xdg.configHome}/aerc/map-${name}.conf
+              from          = ${acc.realName} <${acc.address}>
+              outgoing      = msmtp --account=${name} -t
+              default       = Inbox
+              # Enable threading
+              thread-sort   = true
+            '') cfg.accounts
+          );
+          
+          # 2. General Configuration
+          "aerc/aerc.conf".text = ''
+            [general]
+            unsafe-accounts-conf = true
+            [ui]
+            index-columns = date<20,name<17,flags<4,subject<*
+            column-date = {{.DateAutoFormat .Date.Local}}
+            column-name = {{index (.From | names) 0}}
+            column-flags = {{.Flags | join ""}}
+            column-subject = {{.Subject}}
+          '';
+        } // queryMaps;
+      }
+    ))
   ];
 }
