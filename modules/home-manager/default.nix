@@ -217,7 +217,7 @@ in {
 
     # Meli Integration
     (mkIf (cfg.enable && cfg.client == "meli") {
-      home.packages = [ pkgs.meli ];
+      home.packages = [ pkgs.meli pkgs.w3m ];
       
       # Generate minimal Meli config
       xdg.configFile."meli/config.toml".text = lib.concatStringsSep "\n" (
