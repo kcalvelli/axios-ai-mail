@@ -215,6 +215,13 @@ in {
                "Spam" = "tag:junk or tag:spam";
             };
           };
+          
+          # Widen the tags column to accommodate multiple AI tags
+          thread_index = {
+            cell = {
+              tags_length = 200;
+            };
+          };
         };
       };
     })
