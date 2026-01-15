@@ -213,6 +213,7 @@ in {
                "Finance" = "tag:finance";
                "Archive" = "tag:archive";
                "Spam" = "tag:junk or tag:spam";
+               "inbox" = null; # Try to suppress default duplicate
             };
           };
           
