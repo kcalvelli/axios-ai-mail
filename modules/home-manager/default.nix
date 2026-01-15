@@ -221,6 +221,7 @@ in {
           thread_index = {
             cell = {
               tags_length = 200;
+              authors_length = 60;
             };
           };
         };
