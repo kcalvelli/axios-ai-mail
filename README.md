@@ -163,57 +163,25 @@ By default, the classifier looks for mail tagged `new` in Notmuch, classifies it
 
 ## Reading Your Email
 
-Since `axios-ai-mail` operates as a backend (sync + index + classify), you need a frontend to read your mail. Any client that supports **Notmuch** or **Maildir** will work. We recommend configuring them via Home Manager.
+`axios-ai-mail` can automatically configure a terminal email client for you.
 
-### Option A: aerc (Recommended)
+### Option A: Integrated Client (Recommended)
 
-[aerc](https://aerc-mail.org/) is a highly efficient TUI client. Add this to your `home.nix`:
-
-```nix
-programs.aerc = {
-  enable = true;
-  extraConfig = {
-    general.unsafe-accounts-conf = true; # Allow expansion of commands
-  };
-  accounts = {
-    Personal = {
-      source = "notmuch://~/Mail";
-      default = "INBOX";
-      from = "Jane Doe <jane.doe@gmail.com>";
-      outgoing = "msmtp --account=personal -t";
-    };
-  };
-};
-```
-
-### Option B: alot
-
-[alot](https://github.com/pazz/alot) is a terminal client written in Python specifically for Notmuch.
+Simply set the `client` option in your configuration:
 
 ```nix
-programs.alot = {
+programs.axios-ai-mail = {
   enable = true;
-  accounts = {
-    personal = {
-      realname = "Jane Doe";
-      address = "jane.doe@gmail.com";
-      sendMailCommand = "msmtp --account=personal -t";
-    };
-  };
+  # Choose "aerc" or "meli"
+  client = "aerc"; 
+  # ... accounts ...
 };
 ```
+This will install the client and fully configure it to use your accounts, `notmuch` backend, and `msmtp` sender.
 
-### Option C: Emacs (notmuch.el)
+### Option B: Manual Configuration
 
-If you use Emacs with Home Manager:
-
-```nix
-programs.emacs = {
-  enable = true;
-  extraPackages = epkgs: [ epkgs.notmuch ];
-};
-```
-Then `M-x notmuch` works out of the box.
+If you prefer another client (e.g. `alot`, `neomutt`, `Emacs`), simply configure it to read the Maildir at `~/Mail`.
 ```
 
 ## Troubleshooting

@@ -89,6 +89,12 @@ in {
       };
     };
 
+    client = mkOption {
+      type = types.enum [ "none" "aerc" "meli" ];
+      default = "none";
+      description = "Email client to automatically configure.";
+    };
+
     settings = {
       maildirBase = mkOption {
         type = types.str;
@@ -104,112 +110,119 @@ in {
     };
   };
 
-  config = mkIf cfg.enable {
-    home.packages = with pkgs; [
-      notmuch
-      isync
-      msmtp
-    ];
+  config = mkMerge [
+    # Core Configuration
+    (mkIf cfg.enable {
+      home.packages = with pkgs; [
+        notmuch
+        isync
+        msmtp
+      ];
 
-    # This is where we will eventually write the implementation:
-    # 1. Generate the JSON spec file
-    # 2. Call the generator script to produce .mbsyncrc, .msmtp, etc
-    # 3. Define systemd services
-    
-    # Write configs
-    xdg.configFile."axios-ai-mail/accounts.json".text = builtins.toJSON (
-      lib.mapAttrs (name: account: account) cfg.accounts
-    );
-    
-    xdg.configFile."axios-ai-mail/config.json".text = builtins.toJSON {
-      ai = cfg.ai;
-      settings = cfg.settings;
-    };
-
-    # Ensure Maildir exists
-    home.activation.createMaildir = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-      mkdir -p ${cfg.settings.maildirBase}
-    '';
-
-    # Systemd Service: Mail Sync
-    systemd.user.services.axios-mail-sync = {
-      Unit = {
-        Description = "Axios AI Mail Synchronization";
-        After = [ "network-online.target" ];
+      # Write configs
+      xdg.configFile."axios-ai-mail/accounts.json".text = builtins.toJSON (
+        lib.mapAttrs (name: account: account) cfg.accounts
+      );
+      
+      xdg.configFile."axios-ai-mail/config.json".text = builtins.toJSON {
+        ai = cfg.ai;
+        settings = cfg.settings;
       };
-      Service = {
-        Type = "oneshot";
-        
-        # We need to run the generator first to ensure fresh tokens/configs
-        # Then sync, then index.
-        ExecStart = pkgs.writeShellScript "axios-sync-pipeline" ''
-          export PATH=${lib.makeBinPath [ 
-            (pkgs.python311.withPackages (ps: [ ps.requests ps.notmuch ])) 
-            pkgs.isync 
-            pkgs.notmuch 
-            pkgs.msmtp 
-            pkgs.cyrus_sasl
-            pkgs.cyrus-sasl-xoauth2
-          ]}:$PATH
-          
-          # Force Notmuch to use our generated config (Environment variable)
-          export NOTMUCH_CONFIG=${config.home.homeDirectory}/.notmuch-config
-          # Fix for mbsync missing SASL plugins for XOAUTH2
-          # Combine default SASL plugins and the XOAUTH2 plugin
-          export SASL_PATH=${pkgs.cyrus_sasl.out}/lib/sasl2:${pkgs.cyrus-sasl-xoauth2}/lib/sasl2
-          
-          # 1. Regenerate configs (handles refreshed oauth tokens if needed)
-          python3 ${../../src/generate_config.py} --oauth-script ${../../src/mutt_oauth2.py}
-          
-          # 2. Sync Mail (Explicit config path)
-          echo "Syncing mail..."
-          mbsync -c ${config.home.homeDirectory}/.mbsyncrc -a
-          
-          # 3. Index Mail (Explicit config path)
-          echo "Indexing mail..."
-          notmuch --config=${config.home.homeDirectory}/.notmuch-config new
-          
-          # 4. AI Classification (if enabled)
-          ${if cfg.ai.enable then ''
-            echo "Running AI Classifier..."
-            python3 ${../../src/ai_classifier.py}
-          '' else ""}
-        '';
-      };
-    };
 
-    systemd.user.timers.axios-mail-sync = {
-      Unit = { Description = "Timer for Axios Mail Sync"; };
-      Timer = {
-        OnBootSec = "2m";
-        OnUnitActiveSec = cfg.settings.syncFrequency;
-        Unit = "axios-mail-sync.service";
-      };
-      Install = { WantedBy = [ "timers.target" ]; };
-    };
+      # Ensure Maildir exists
+      home.activation.createMaildir = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        mkdir -p ${cfg.settings.maildirBase}
+      '';
 
-    # Systemd Service: AI Classifier
-    systemd.user.services.axios-ai-classifier = mkIf cfg.ai.enable {
-      Unit = {
-        Description = "Axios AI Email Classifier";
-        After = [ "axios-mail-sync.service" ];
+      # Systemd Service: Mail Sync
+      systemd.user.services.axios-mail-sync = {
+        Unit = {
+          Description = "Axios AI Mail Synchronization";
+          After = [ "network-online.target" ];
+        };
+        Service = {
+          Type = "oneshot";
+          
+          # We need to run the generator first to ensure fresh tokens/configs
+          # Then sync, then index.
+          ExecStart = pkgs.writeShellScript "axios-sync-pipeline" ''
+            export PATH=${lib.makeBinPath [ 
+              (pkgs.python311.withPackages (ps: [ ps.requests ps.notmuch ])) 
+              pkgs.isync 
+              pkgs.notmuch 
+              pkgs.msmtp 
+              pkgs.cyrus_sasl
+              pkgs.cyrus-sasl-xoauth2
+            ]}:$PATH
+            
+            # Force Notmuch to use our generated config (Environment variable)
+            export NOTMUCH_CONFIG=${config.home.homeDirectory}/.notmuch-config
+            # Fix for mbsync missing SASL plugins for XOAUTH2
+            # Combine default SASL plugins and the XOAUTH2 plugin
+            export SASL_PATH=${pkgs.cyrus_sasl.out}/lib/sasl2:${pkgs.cyrus-sasl-xoauth2}/lib/sasl2
+            
+            # 1. Regenerate configs (handles refreshed oauth tokens if needed)
+            python3 ${../../src/generate_config.py} --oauth-script ${../../src/mutt_oauth2.py}
+            
+            # 2. Sync Mail (Explicit config path)
+            echo "Syncing mail..."
+            mbsync -c ${config.home.homeDirectory}/.mbsyncrc -a
+            
+            # 3. Index Mail (Explicit config path)
+            echo "Indexing mail..."
+            notmuch --config=${config.home.homeDirectory}/.notmuch-config new
+            
+            # 4. AI Classification (if enabled)
+            ${if cfg.ai.enable then ''
+              echo "Running AI Classifier..."
+              python3 ${../../src/ai_classifier.py}
+            '' else ""}
+          '';
+        };
       };
-      Service = {
-        Type = "oneshot";
-        ExecStart = "${pkgs.python311}/bin/python3 ${../../src/ai_classifier.py}";
-      };
-    };
 
-    # Optional: Trigger classifier immediately after sync
-    # (Or we can run it on its own timer, but event-driven is better)
-    # For now, let's chain it in the sync script OR make it triggered.
-    # A cleaner approach is to have the sync service 'Wants' the classifier
-    # if it finds new mail, but systemd chaining is easier via `ExecStartPost` or a separate timer.
-    
-    # Let's run classifier 1 minute after syncs, or just trigger it via the sync script?
-    # Actually, appending it to the sync script is the most robust way to ensure ordering.
-    
-    # REVISION: Let's remove the separate service triggering logic and just append it 
-    # to the sync pipeline if enabled. It's simpler.
-  };
+      systemd.user.timers.axios-mail-sync = {
+        Unit = { Description = "Timer for Axios Mail Sync"; };
+        Timer = {
+          OnBootSec = "2m";
+          OnUnitActiveSec = cfg.settings.syncFrequency;
+          Unit = "axios-mail-sync.service";
+        };
+        Install = { WantedBy = [ "timers.target" ]; };
+      };
+
+      # Systemd Service: AI Classifier (Legacy/Disabled separate service in favor of pipeline)
+    })
+
+    # Aerc Integration
+    (mkIf (cfg.enable && cfg.client == "aerc") {
+      programs.aerc = {
+        enable = true;
+        extraConfig = {
+          general.unsafe-accounts-conf = true;
+        };
+        accounts = lib.mapAttrs (name: acc: {
+          source = "notmuch://${cfg.settings.maildirBase}/${name}";
+          default = "INBOX";
+          from = "${acc.realName} <${acc.address}>";
+          outgoing = "msmtp --account=${name} -t";
+        }) cfg.accounts;
+      };
+    })
+
+    # Meli Integration
+    (mkIf (cfg.enable && cfg.client == "meli") {
+      home.packages = [ pkgs.meli ];
+      
+      # Generate minimal Meli config
+      xdg.configFile."meli/config.toml".text = lib.concatStringsSep "\n" (
+        lib.mapAttrsToList (name: acc: ''
+          [accounts.${name}]
+          format = "maildir"
+          path = "${cfg.settings.maildirBase}/${name}"
+          root_mailbox = "INBOX"
+        '') cfg.accounts
+      );
+    })
+  ];
 }
