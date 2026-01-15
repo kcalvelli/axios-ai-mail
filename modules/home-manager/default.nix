@@ -223,15 +223,12 @@ in {
       xdg.configFile."meli/config.toml".text = lib.concatStringsSep "\n" (
         lib.mapAttrsToList (name: acc: ''
           [accounts.${name}]
-          format = "maildir"
-          path = "${cfg.settings.maildirBase}/${name}"
-          root_mailbox = "INBOX"
+          format = "Maildir"
+          root_mailbox = "${cfg.settings.maildirBase}/${name}"
+          subscribed_mailboxes = ["INBOX"]
           send_mail = "${pkgs.msmtp}/bin/msmtp --account=${name} -t"
-          identity = "${name}"
-          
-          [identities.${name}]
-          name = "${acc.realName}"
-          address = "${acc.address}"
+          identity = "${acc.address}"
+          display_name = "${acc.realName}"
         '') cfg.accounts
       );
     })
