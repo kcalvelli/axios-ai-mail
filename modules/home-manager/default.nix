@@ -211,7 +211,16 @@ in {
 
     # Astroid Integration (Notmuch GUI)
     (mkIf (cfg.enable && cfg.client == "astroid") {
-      home.packages = [ pkgs.astroid ];
+      programs.astroid = {
+        enable = true;
+        extraConfig = {
+          accounts = lib.mapAttrs (name: acc: {
+            name = acc.realName;
+            email = acc.address;
+            sendmail = "msmtp --account=${name} -t";
+          }) cfg.accounts;
+        };
+      };
       
       xdg.configFile."astroid/poll.sh" = {
         executable = true;
