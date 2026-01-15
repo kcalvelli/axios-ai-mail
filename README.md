@@ -5,9 +5,9 @@
 ## Features
 
 - **Declarative Configuration**: Define email accounts in Nix. No more manual `.mbsyncrc` editing.
-- **Local AI Intelligence**: Uses Ollama (e.g., Llama 3) to classify mail as `Important`, `Junk`, or `Neutral`.
+- **Local AI Intelligence**: Uses Ollama (e.g., Llama 3) to classify mail with structured tags (`Work`, `Finance`, `To-Do`) and auto-archive junk.
 - **Privacy-First**: All processing happens locally. No mail data is sent to cloud APIs.
-- **Universal Backend**: Works with any Notmuch-compatible TUI (e.g., `alot`, `astroid`, `neo-mutt`, `aerc`).
+- **Universal Backend**: Works with any Notmuch-compatible client. Includes native setup for **Aerc** and **Astroid**.
 
 ## Installation
 
@@ -87,20 +87,7 @@ programs.axios-ai-mail = {
     ```
 
 2.  **Prerequisite (GMail Only)**:
-    Google requires you to create your own "App" credentials.
-    > **Note**: Google Cloud Console UI changes frequently. These steps are a general guide; look for similar options if exact labels differ.
-
-    1.  Go to [Google Cloud Console](https://console.cloud.google.com/) and create a new project.
-    2.  **API & Services** > **Library** > Search for and Enable **Gmail API**.
-    3.  **OAuth Consent Screen**:
-        *   User Type: **External**.
-        *   Test Users: **Add your email address** (Important! This bypasses app verification).
-    4.  **Credentials** > **+ CREATE CREDENTIALS** > **OAuth client ID**:
-        *   Application Type: **Desktop app**.
-        *   Name: `axios-mail`.
-    5.  **Copy** the `Client ID` and `Client Secret`. You will need them in the next step.
-
-
+    Google requires you to create your own "App" credentials (Desktop App). Obtain `Client ID` and `Client Secret`.
 
 3.  **Run the Auth Wizard**:
 
@@ -110,22 +97,15 @@ programs.axios-ai-mail = {
         ~/.config/tokens/gmail
     ```
 
-3.  **Follow the Interactive Prompts**:
-    The script will ask for details. Use these settings:
+4.  **Follow the Interactive Prompts** to authenticate via browser.
 
-    | Provider | Registration | Flow | Note |
-    | :--- | :--- | :--- | :--- |
-    | **GMail** | `google` | `authcode` | Copy the link it gives you to a browser, log in, copy the code back. |
-
-4.  **Update your Config**:
+5.  **Update your Config**:
     ```nix
     accounts.personal = {
       flavor = "gmail";
       # ...
       passwordCommand = "~/.config/tokens/gmail"; 
     };
-    ```
-
     ```
 
 ### Authentication (Standard IMAP)
@@ -143,64 +123,59 @@ For providers like Fastmail, iCloud, or self-hosted servers, you can use a simpl
 
 2.  Copy the configuration line it prints (e.g. `passwordCommand = "cat ...";`) into your `home.nix`.
 
-## AI Setup
+## AI Integration
 
-Ensure [Ollama](https://ollama.com) is installed and running.
+Ensure [Ollama](https://ollama.com) is installed and running (`ollama serve`).
 
-```bash
-ollama serve
-ollama pull llama3
-```
+The classifier analyzes incoming mail (`tag:new`) and applies the following logic:
 
-By default, the classifier looks for mail tagged `new` in Notmuch, classifies it, and removes the `new` tag.
+- **Tags**: Adds categorical tags like `Work`, `Finance`, `Personal`.
+- **Priority**: Adds `prio-high` or `prio-normal`.
+- **To-Do**: Adds `todo` tag if the email requires action (reply, pay bill, etc.).
+- **Auto-Archive**: If the email is a receipt/newsletter AND requires no action, it removes the `Inbox` tag and adds `Archive`.
 
-## Architecture
+## Reading Your Email (Integrated Clients)
 
-1.  **Generator**: Configs for `mbsync`, `msmtp`, and `notmuch` are regenerated before every sync.
-2.  **Sync**: `mbsync` pulls mail to `~/Mail/<account>`.
-3.  **Index**: `notmuch new` indexes headers and tags new mail as `new`.
-4.  **Classify**: `ai_classifier.py` reads `tag:new`, prompts Ollama, and applies tags (`important`, `junk`).
+`axios-ai-mail` can automatically configure a terminal or GUI email client for you.
 
-## Reading Your Email
-
-`axios-ai-mail` can automatically configure a terminal email client for you.
-
-### Option A:### Integrated Client (Recommended)
-
-`axios-ai-mail` integrates with **Aerc**, a powerful terminal email client. We configure it to use the **Notmuch backend** natively, so you can leverage the full power of the search database and AI tags.
-
-Simply set the `client` option to `aerc`:
+Simply set the `client` option to either `aerc` (TUI) or `astroid` (GUI):
 
 ```nix
 programs.axios-ai-mail = {
   enable = true;
-  client = "aerc";
-  # ... accounts ...
+  client = "aerc"; # or "astroid"
 };
 ```
-This will install `aerc` and generate the configuration needed to view your accounts, AI tags, and threads.
 
-- **Folders**: Your sidebar show virtual "folders" (Saved Searches) like `Inbox`, `Important`, `Junk`, backed by Notmuch queries.
-- **Search**: Press `/` to search your entire archive using Notmuch syntax (e.g. `tag:invoice`).
+This generates all necessary configuration to view your accounts and AI tags out of the box.
 
-### Option B: Manual Configuration
+- **Folders/Tabs**: Your sidebar will show virtual views like `Inbox`, `To-Do`, `High Priority`, backed by Notmuch queries.
+- **Search**: Use Notmuch syntax (e.g. `tag:work and tag:todo`) to find anything instantly.
 
-If you prefer another client (e.g. `alot`, `neomutt`, `Emacs`), simply configure it to read the Maildir at `~/Mail`.
+## Management Tools
 
-## Troubleshooting
+### Re-classify Mail
+If you change your AI logic or want to process old mail, use the `reclassify` tool.
 
-**Check Service Status**:
 ```bash
-systemctl --user status axios-mail-sync
-systemctl --user status axios-ai-classifier
+# Process ALL mail (resets to Inbox default, then applies AI)
+nix run .#reclassify -- --query "*"
+
+# Dry run to see what would happen
+nix run .#reclassify -- --query "*" --dry-run
 ```
 
-**Run Manually to Debug**:
+### Manual Sync
 ```bash
-# Force a sync run
 systemctl --user start axios-mail-sync
+```
 
-# Run classifier purely manually (requires python env)
-nix develop
+### Debugging
+```bash
+# Check service logs
+journalctl --user -u axios-mail-sync -f
+
+# Run classifier manually
+nix shell .#default
 python3 src/ai_classifier.py --dry-run
 ```
