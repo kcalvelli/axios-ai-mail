@@ -196,18 +196,23 @@ in {
 
     # Aerc Integration
     (mkIf (cfg.enable && cfg.client == "aerc") {
-      programs.aerc = {
-        enable = true;
-        extraConfig = {
-          general.unsafe-accounts-conf = true;
-        };
-        accounts = lib.mapAttrs (name: acc: {
-          source = "notmuch://${cfg.settings.maildirBase}/${name}";
-          default = "INBOX";
-          from = "${acc.realName} <${acc.address}>";
-          outgoing = "msmtp --account=${name} -t";
-        }) cfg.accounts;
-      };
+      home.packages = [ pkgs.aerc ];
+      
+      # Manual config generation to avoid HM module option conflicts/versions
+      xdg.configFile."aerc/accounts.conf".text = lib.concatStringsSep "\n" (
+        lib.mapAttrsToList (name: acc: ''
+          [${name}]
+          source = notmuch://${cfg.settings.maildirBase}/${name}
+          default = INBOX
+          from = ${acc.realName} <${acc.address}>
+          outgoing = msmtp --account=${name} -t
+        '') cfg.accounts
+      );
+      
+      xdg.configFile."aerc/aerc.conf".text = ''
+        [general]
+        unsafe-accounts-conf = true
+      '';
     })
 
     # Meli Integration
