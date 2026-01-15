@@ -227,6 +227,10 @@ in {
           path = "${cfg.settings.maildirBase}/${name}"
           root_mailbox = "INBOX"
           send_mail = "${pkgs.msmtp}/bin/msmtp --account=${name} -t"
+          
+          [accounts.${name}.identity]
+          name = "${acc.realName}"
+          address = "${acc.address}"
         '') cfg.accounts
       );
     })
