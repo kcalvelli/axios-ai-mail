@@ -238,8 +238,8 @@ in {
           rm "$SEARCHES"
         fi
         
-        # If doesn't exist, create defaults
-        if [ ! -f "$SEARCHES" ]; then
+        # If doesn't exist OR is empty (zombie file), create defaults
+        if [ ! -s "$SEARCHES" ]; then
           mkdir -p "$(dirname "$SEARCHES")"
           printf '%s' '${builtins.toJSON {
             saved = {
