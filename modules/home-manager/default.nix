@@ -241,19 +241,18 @@ in {
         # If doesn't exist, create defaults
         if [ ! -f "$SEARCHES" ]; then
           mkdir -p "$(dirname "$SEARCHES")"
-          cat <<EOF > "$SEARCHES"
-          ${builtins.toJSON {
+          printf '%s' '${builtins.toJSON {
             saved = {
               Inbox = "tag:inbox";
               Important = "tag:important";
               "All Mail" = "*";
             };
             history = [];
-          }}
-          EOF
-          chmod 644 "$SEARCHES"
+          }}' > "$SEARCHES"
+          chmod 600 "$SEARCHES"
         fi
       '';
+
       
       xdg.configFile."astroid/poll.sh" = {
         executable = true;
