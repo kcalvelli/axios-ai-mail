@@ -207,12 +207,14 @@ in {
           "aerc/map-${name}.conf" 
           {
             text = let prefix = "path:${name}/**"; in ''
-              Inbox     = tag:inbox and ${prefix}
-              Important = tag:important and ${prefix}
-              Junk      = tag:junk and ${prefix}
-              Drafts    = tag:draft and ${prefix}
-              Sent      = tag:sent and ${prefix}
-              All       = ${prefix}
+              Inbox         = tag:inbox and ${prefix}
+              To-Do         = tag:todo and ${prefix}
+              High Priority = tag:prio-high and ${prefix}
+              Work          = tag:work and ${prefix}
+              Finance       = tag:finance and ${prefix}
+              Archive       = tag:archive and ${prefix}
+              Junk          = (tag:junk or tag:spam) and ${prefix}
+              All           = ${prefix}
             '';
           }
         ) cfg.accounts;

@@ -25,17 +25,21 @@ def load_config():
 
 def classify_email(text, endpoint, model):
     prompt = f"""
-    You are an intelligent email classifier. 
-    Classify the following email into exactly one of these categories: 'junk', 'important', 'neutral'.
+    Analyze this email and return ONLY a JSON object matching this schema:
+    {{
+      "tags": ["personal", "work", "finance", "travel", "dev", "junk", "marketing"],
+      "priority": "high" | "normal",
+      "action_required": boolean,
+      "can_archive": boolean
+    }}
     
     Rules:
-    - 'junk': Spam, marketing, automated newsletters, notifications.
-    - 'important': Personal correspondence, work emails, urgent alerts.
-    - 'neutral': Transactional receipts, updates, everything else.
+    - "action_required": true if it's a direct message, bill, or requires reply.
+    - "can_archive": true ONLY for receipts, shipping notifications, or newsletters that contain no tasks.
+    - If unsure, "can_archive" must be false.
+    - "tags" should include "junk" if it is spam/scam.
     
-    Output ONLY the single word category name. Do not output anything else.
-    
-    Email Content:
+    Email:
     {text}
     """
     
@@ -43,16 +47,12 @@ def classify_email(text, endpoint, model):
         response = requests.post(f"{endpoint}/api/generate", json={
             "model": model,
             "prompt": prompt,
+            "format": "json",
             "stream": False
         }, timeout=30)
         
         response.raise_for_status()
-        result = response.json().get("response", "").strip().lower()
-        
-        # Fallback for weak models that might be chatty
-        if "junk" in result: return "junk"
-        if "important" in result: return "important"
-        return "neutral"
+        return response.json().get("response", "")
         
     except Exception as e:
         print(f"Ollama Error: {e}", file=sys.stderr)
@@ -97,9 +97,6 @@ def main():
     endpoint = ai_config.get("endpoint", "http://localhost:11434")
     model = ai_config.get("model", "llama3")
     
-    endpoint = ai_config.get("endpoint", "http://localhost:11434")
-    model = ai_config.get("model", "llama3")
-    
     # Explicitly find database path from config to avoid Python binding discovery issues
     try:
         config_path = os.environ.get("NOTMUCH_CONFIG", os.path.expanduser("~/.notmuch-config"))
@@ -130,8 +127,12 @@ def main():
             break
             
         file_path = msg.get_filename()
-        with open(file_path, 'rb') as f:
-            email_obj = email.message_from_binary_file(f, policy=default)
+        try:
+            with open(file_path, 'rb') as f:
+                email_obj = email.message_from_binary_file(f, policy=default)
+        except Exception as e:
+            print(f"Error reading file {file_path}: {e}")
+            continue
             
         subject = email_obj.get("subject", "")
         sender = email_obj.get("from", "")
@@ -140,18 +141,46 @@ def main():
         content = f"From: {sender}\nSubject: {subject}\n\n{body}"
         
         print(f"Classifying: {subject[:50]}...", end=" ", flush=True)
-        category = classify_email(content, endpoint, model)
+        result_json_str = classify_email(content, endpoint, model)
         
-        if category:
-            print(f"-> {category}")
-            if not args.dry_run:
-                msg.add_tag(category)
-                msg.remove_tag("new")
-                # Also archive junk automatically (optional convention)
-                if category == "junk":
-                    msg.remove_tag("inbox")
+        if result_json_str:
+            try:
+                result = json.loads(result_json_str)
+                print(f"-> {result}")
+                
+                if not args.dry_run:
+                    tags = result.get("tags", [])
+                    priority = result.get("priority", "normal")
+                    action = result.get("action_required", False)
+                    archive = result.get("can_archive", False)
+                    
+                    # 1. Apply Categorical Tags
+                    for t in tags:
+                        # Clean tag name
+                        t = t.lower().strip()
+                        if t: msg.add_tag(t)
+                        
+                    # 2. Metadata Tags
+                    msg.add_tag(f"prio-{priority}")
+                    if action:
+                        msg.add_tag("todo")
+                        
+                    # 3. Lifecycle
+                    msg.remove_tag("new")
+                    
+                    # Junk handling (explicit tag take precedence)
+                    if "junk" in tags:
+                         msg.remove_tag("inbox")
+                         msg.add_tag("junk")
+                    # Archive logic: Only archive if SAFE and NO ACTION required
+                    elif archive and not action:
+                        msg.remove_tag("inbox")
+                        msg.add_tag("archive")
+                        
+            except json.JSONDecodeError:
+                 print(f"-> Failed to parse JSON: {result_json_str[:50]}...")
         else:
-            print("-> Failed (skipping)")
+             print("-> Failed (API Error)")
             
         processed += 1
 
