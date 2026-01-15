@@ -49,6 +49,15 @@
           ${pkgs.python3}/bin/python3 ${./src/store_password.py} "$@"
         ''}/bin/set-password";
       };
+
+      reclassify = {
+        type = "app";
+        program = "${pkgs.writeShellScriptBin "reclassify" ''
+          export PYTHONPATH=$PYTHONPATH:${./src}
+          # Ensure NOTMUCH_CONFIG is set if not already, though the script handles ~/.notmuch-config
+          ${pkgs.python3.withPackages (ps: [ ps.requests ps.notmuch ])}/bin/python3 ${./src/reclassify.py} "$@"
+        ''}/bin/reclassify";
+      };
     });
   };
 }
