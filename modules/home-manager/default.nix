@@ -202,8 +202,8 @@ in {
       xdg.configFile."aerc/accounts.conf".text = lib.concatStringsSep "\n" (
         lib.mapAttrsToList (name: acc: ''
           [${name}]
-          source = notmuch://${cfg.settings.maildirBase}/${name}
-          default = INBOX
+          source = maildir://${cfg.settings.maildirBase}/${name}
+          default = Inbox
           from = ${acc.realName} <${acc.address}>
           outgoing = msmtp --account=${name} -t
         '') cfg.accounts
