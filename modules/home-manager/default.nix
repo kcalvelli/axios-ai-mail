@@ -224,13 +224,17 @@ in {
             email = acc.address;
             sendmail = "msmtp --account=${name} -t";
           }) cfg.accounts;
-          
-          saved_searches = {
-            inbox = { query = "tag:inbox"; sort_order = "newest"; };
-            important = { query = "tag:important"; sort_order = "newest"; };
-            all = { query = "*"; sort_order = "newest"; };
-          };
         };
+      };
+      
+      # Astroid saves searches in a separate JSON file
+      xdg.configFile."astroid/searches".text = builtins.toJSON {
+        saved = {
+          Inbox = "tag:inbox";
+          Important = "tag:important";
+          "All Mail" = "*";
+        };
+        history = [];
       };
       
       xdg.configFile."astroid/poll.sh" = {
