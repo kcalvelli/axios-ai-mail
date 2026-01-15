@@ -90,9 +90,9 @@ in {
     };
 
     client = mkOption {
-      type = types.enum [ "none" "aerc" ];
+      type = types.enum [ "none" "aerc" "astroid" ];
       default = "none";
-      description = "Email client to automatically configure (Aerc TUI).";
+      description = "Email client to automatically configure.";
     };
 
     settings = {
@@ -197,6 +197,26 @@ in {
       };
 
       # Systemd Service: AI Classifier (Legacy/Disabled separate service in favor of pipeline)
+    })
+
+    # Astroid Integration (Restored per user request)
+    (mkIf (cfg.enable && cfg.client == "astroid") {
+      programs.astroid = {
+        enable = true;
+        extraConfig = {
+          startup = {
+            queries = {
+               "Inbox" = "tag:inbox";
+               "To-Do" = "tag:todo";
+               "High Priority" = "tag:prio-high";
+               "Work" = "tag:work";
+               "Finance" = "tag:finance";
+               "Archive" = "tag:archive";
+               "Spam" = "tag:junk or tag:spam";
+            };
+          };
+        };
+      };
     })
 
     # Aerc Integration (TUI with Notmuch Backend)
