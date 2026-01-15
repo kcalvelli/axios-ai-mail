@@ -136,7 +136,7 @@ in {
 
       # Export NOTMUCH_CONFIG globally so clients (alot, astroid) can find the DB
       home.sessionVariables = {
-        NOTMUCH_CONFIG = "${config.home.homeDirectory}/.notmuch-config";
+        NOTMUCH_CONFIG = "${config.xdg.configHome}/notmuch/default/config";
       };
 
       # Systemd Service: Mail Sync
@@ -161,7 +161,7 @@ in {
             ]}:$PATH
             
             # Force Notmuch to use our generated config (Environment variable)
-            export NOTMUCH_CONFIG=${config.home.homeDirectory}/.notmuch-config
+            export NOTMUCH_CONFIG=${config.xdg.configHome}/notmuch/default/config
             # Fix for mbsync missing SASL plugins for XOAUTH2
             # Combine default SASL plugins and the XOAUTH2 plugin
             export SASL_PATH=${pkgs.cyrus_sasl.out}/lib/sasl2:${pkgs.cyrus-sasl-xoauth2}/lib/sasl2
@@ -175,7 +175,7 @@ in {
             
             # 3. Index Mail (Explicit config path)
             echo "Indexing mail..."
-            notmuch --config=${config.home.homeDirectory}/.notmuch-config new
+            notmuch --config=${config.xdg.configHome}/notmuch/default/config new
             
             # 4. AI Classification (if enabled)
             ${if cfg.ai.enable then ''

@@ -33,7 +33,17 @@ def main():
     
     # Locate DB
     try:
-        config_path = os.environ.get("NOTMUCH_CONFIG", os.path.expanduser("~/.notmuch-config"))
+        # Check Env, then XDG default, then Legacy default
+        xdg_config = os.path.expanduser("~/.config/notmuch/default/config")
+        legacy_config = os.path.expanduser("~/.notmuch-config")
+        
+        config_path = os.environ.get("NOTMUCH_CONFIG")
+        if not config_path:
+             if os.path.exists(xdg_config):
+                 config_path = xdg_config
+             else:
+                 config_path = legacy_config
+
         db_path = None
         if os.path.exists(config_path):
              with open(config_path, 'r') as f:

@@ -216,11 +216,14 @@ def main():
             f.write(msmtp_conf)
         print("Generated ~/.msmtprc")
         
-        # We write to .notmuch-config.generated and prompt user to symlink or include
-        # Or we can write directly if we are sure. For now, let's write to default path.
-        with open(home / ".notmuch-config", "w") as f:
+        # Write Notmuch config to standard XDG location (Notmuch 0.32+)
+        config_home = os.environ.get("XDG_CONFIG_HOME", os.path.join(str(home), ".config"))
+        notmuch_config_path = pathlib.Path(config_home) / "notmuch" / "default" / "config"
+        notmuch_config_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(notmuch_config_path, "w") as f:
             f.write(notmuch_conf)
-        print("Generated ~/.notmuch-config")
+        print(f"Generated {notmuch_config_path}")
         
     except Exception as e:
         print(f"Failed to generate configs: {e}")
