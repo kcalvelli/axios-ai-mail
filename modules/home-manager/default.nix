@@ -262,9 +262,13 @@ let
       # Build frontend before building Python package
       preBuild = ''
         echo "Building frontend..."
+
+        # Set HOME for npm to avoid /homeless-shelter errors
+        export HOME=$TMPDIR
+
         cd web
-        npm ci --ignore-scripts
-        npm run build
+        npm ci --ignore-scripts --loglevel=error
+        npm run build --loglevel=error
         cd ..
 
         # Create directory for web assets in package
