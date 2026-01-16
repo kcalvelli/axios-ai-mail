@@ -61,12 +61,17 @@ class ConfigLoader:
 
         for account_id, account_config in config_accounts.items():
             try:
+                # Merge credential_file into settings
+                settings = account_config.get("settings", {}).copy()
+                if "credential_file" in account_config:
+                    settings["credential_file"] = account_config["credential_file"]
+
                 db.create_or_update_account(
                     account_id=account_id,
                     name=account_config.get("name", account_id),
                     email=account_config["email"],
                     provider=account_config["provider"],
-                    settings=account_config.get("settings", {}),
+                    settings=settings,
                 )
                 logger.debug(f"Synced account: {account_id} ({account_config['provider']})")
             except Exception as e:
