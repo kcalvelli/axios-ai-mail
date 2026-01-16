@@ -30,7 +30,7 @@ class IMAPProvider(BaseEmailProvider):
     """IMAP email provider with KEYWORD extension support for tag synchronization."""
 
     def __init__(self, config: IMAPConfig):
-        self.config = config
+        super().__init__(config)
         self.connection: Optional[imaplib.IMAP4_SSL] = None
         self._supports_keywords: Optional[bool] = None
 
