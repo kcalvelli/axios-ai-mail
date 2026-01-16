@@ -52,15 +52,17 @@ app.include_router(websocket_router, tags=["websocket"])
 
 # Serve static files (frontend build) if they exist
 # Try installed package location first, then development location
-static_dir = Path(__file__).parent / "web_assets"
+# In installed package: axios_ai_mail/web_assets (one level up from api/)
+static_dir = Path(__file__).parent.parent / "web_assets"
 if not static_dir.exists():
+    # Try development location
     static_dir = Path(__file__).parent.parent.parent.parent / "web" / "dist"
 
 if static_dir.exists():
     app.mount("/", StaticFiles(directory=str(static_dir), html=True), name="static")
     logger.info(f"Serving static files from {static_dir}")
 else:
-    logger.warning("Static files not found. Web UI will not be available.")
+    logger.warning(f"Static files not found at {static_dir}. Web UI will not be available.")
 
 
 @app.on_event("startup")
