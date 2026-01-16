@@ -6,291 +6,483 @@ let
   cfg = config.programs.axios-ai-mail;
 
   # Submodule for individual email accounts
-  accountOption = types.submodule {
+  accountOption = types.submodule ({ name, config, ... }: {
     options = {
-      primary = mkOption {
-        type = types.bool;
-        default = false;
-        description = "Whether this is the primary account.";
+      provider = mkOption {
+        type = types.enum [ "gmail" "imap" "outlook" ];
+        description = "Email provider type.";
+        example = "gmail";
       };
 
-      flavor = mkOption {
-        type = types.enum [ "gmail" "outlook" "fastmail" "manual" ];
-        default = "manual";
-        description = "Preset configuration for common providers.";
-      };
-
-      address = mkOption {
+      email = mkOption {
         type = types.str;
-        description = "Email address.";
-      };
-
-      userName = mkOption {
-        type = types.str;
-        default = "";
-        description = "Username for auth (defaults to address if empty).";
+        description = "Email address for this account.";
+        example = "user@gmail.com";
       };
 
       realName = mkOption {
         type = types.str;
-        description = "Real name to use for sending.";
+        default = "";
+        description = "Real name to display for this account.";
+        example = "John Doe";
       };
 
-      passwordCommand = mkOption {
-        type = types.str;
-        description = "Shell command to retrieve password/token (e.g. 'pass email/me').";
+      # OAuth2 configuration (for Gmail, Outlook)
+      oauthTokenFile = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        description = ''
+          Path to OAuth2 token file (decrypted by sops-nix, agenix, or systemd-creds).
+          Required for Gmail and Outlook providers.
+        '';
+        example = literalExpression ''config.sops.secrets."email/gmail-oauth".path'';
       };
 
-      imap = {
-        host = mkOption { type = types.str; default = ""; };
-        port = mkOption { type = types.port; default = 993; };
-        tls = mkOption { type = types.bool; default = true; };
+      # IMAP configuration (for IMAP provider)
+      passwordFile = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        description = ''
+          Path to password file for IMAP authentication.
+          Required for IMAP provider.
+        '';
+        example = literalExpression ''config.sops.secrets."email/fastmail-password".path'';
       };
 
-      smtp = {
-        host = mkOption { type = types.str; default = ""; };
-        port = mkOption { type = types.port; default = 587; };
-        tls = mkOption { type = types.bool; default = true; };
+      imap = mkOption {
+        type = types.nullOr (types.submodule {
+          options = {
+            host = mkOption {
+              type = types.str;
+              description = "IMAP server hostname.";
+              example = "imap.fastmail.com";
+            };
+
+            port = mkOption {
+              type = types.port;
+              default = 993;
+              description = "IMAP server port.";
+            };
+
+            tls = mkOption {
+              type = types.bool;
+              default = true;
+              description = "Use TLS for IMAP connection.";
+            };
+          };
+        });
+        default = null;
+        description = "IMAP server configuration (required for IMAP provider).";
       };
 
-      folders = {
-        inbox = mkOption { type = types.str; default = "Inbox"; };
-        sent = mkOption { type = types.str; default = "Sent"; };
-        drafts = mkOption { type = types.str; default = "Drafts"; };
-        trash = mkOption { type = types.str; default = "Trash"; };
-        archive = mkOption { type = types.str; default = "Archive"; };
+      smtp = mkOption {
+        type = types.nullOr (types.submodule {
+          options = {
+            host = mkOption {
+              type = types.str;
+              description = "SMTP server hostname.";
+              example = "smtp.fastmail.com";
+            };
+
+            port = mkOption {
+              type = types.port;
+              default = 465;
+              description = "SMTP server port.";
+            };
+
+            tls = mkOption {
+              type = types.bool;
+              default = true;
+              description = "Use TLS for SMTP connection.";
+            };
+          };
+        });
+        default = null;
+        description = "SMTP server configuration (for sending mail).";
       };
+
+      sync = mkOption {
+        type = types.submodule {
+          options = {
+            frequency = mkOption {
+              type = types.str;
+              default = "5m";
+              description = "Sync frequency (systemd timer format).";
+              example = "10m";
+            };
+
+            enableWebhooks = mkOption {
+              type = types.bool;
+              default = false;
+              description = "Enable real-time webhooks (Gmail Pub/Sub, MS Graph notifications).";
+            };
+          };
+        };
+        default = {};
+        description = "Sync configuration for this account.";
+      };
+
+      labels = mkOption {
+        type = types.submodule {
+          options = {
+            prefix = mkOption {
+              type = types.str;
+              default = "AI";
+              description = "Prefix for AI-generated labels.";
+              example = "MyAI";
+            };
+
+            colors = mkOption {
+              type = types.attrsOf types.str;
+              default = {
+                work = "blue";
+                finance = "green";
+                todo = "orange";
+                priority = "red";
+                personal = "purple";
+                dev = "cyan";
+              };
+              description = "Label colors (provider-specific format).";
+            };
+          };
+        };
+        default = {};
+        description = "Label configuration for AI tags.";
+      };
+    };
+  });
+
+  # Runtime configuration file
+  runtimeConfig = {
+    database_path = "${config.xdg.dataHome}/axios-ai-mail/mail.db";
+
+    accounts = mapAttrs (name: account: {
+      id = name;
+      provider = account.provider;
+      email = account.email;
+      real_name = account.realName;
+
+      credential_file =
+        if account.oauthTokenFile != null then account.oauthTokenFile
+        else if account.passwordFile != null then account.passwordFile
+        else throw "Account ${name}: either oauthTokenFile or passwordFile must be set";
+
+      settings = {
+        label_prefix = account.labels.prefix;
+        label_colors = account.labels.colors;
+        sync_frequency = account.sync.frequency;
+        enable_webhooks = account.sync.enableWebhooks;
+        ai_model = cfg.ai.model;
+        ai_endpoint = cfg.ai.endpoint;
+        ai_temperature = cfg.ai.temperature;
+      } // optionalAttrs (account.imap != null) {
+        imap_host = account.imap.host;
+        imap_port = account.imap.port;
+        imap_tls = account.imap.tls;
+      } // optionalAttrs (account.smtp != null) {
+        smtp_host = account.smtp.host;
+        smtp_port = account.smtp.port;
+        smtp_tls = account.smtp.tls;
+      };
+    }) cfg.accounts;
+
+    ai = {
+      enable = cfg.ai.enable;
+      model = cfg.ai.model;
+      endpoint = cfg.ai.endpoint;
+      temperature = cfg.ai.temperature;
+      tags = cfg.ai.tags;
+    };
+
+    ui = {
+      enable = cfg.ui.enable;
+      type = cfg.ui.type;
+      port = cfg.ui.port;
     };
   };
 
+  # Build ollama Python package since it's not in nixpkgs yet
+  ollama-python = pkgs.python3Packages.buildPythonPackage rec {
+    pname = "ollama";
+    version = "0.4.4";
+    format = "pyproject";
+
+    src = pkgs.fetchPypi {
+      inherit pname version;
+      hash = "sha256-4dsGQnPHObq8Ld6eqEApxKQ0FTVHQbbFCTnd090Pf/s=";
+    };
+
+    nativeBuildInputs = with pkgs.python3Packages; [
+      poetry-core
+      pythonRelaxDepsHook
+    ];
+
+    pythonRelaxDeps = [ "httpx" ];
+
+    propagatedBuildInputs = with pkgs.python3Packages; [
+      httpx
+      pydantic
+    ];
+
+    pythonImportsCheck = [ "ollama" ];
+    doCheck = false;
+  };
+
+  # Package reference
+  axios-ai-mail = pkgs.axios-ai-mail or (
+    # Fallback if not in nixpkgs yet
+    pkgs.python3Packages.buildPythonApplication {
+      pname = "axios-ai-mail";
+      version = "2.0.0";
+      src = ../..;
+      format = "pyproject";
+
+      nativeBuildInputs = with pkgs; [
+        nodejs
+        python3Packages.setuptools
+        python3Packages.wheel
+      ];
+
+      propagatedBuildInputs = with pkgs.python3Packages; [
+        # Core dependencies
+        pydantic pydantic-settings sqlalchemy alembic
+        # Email providers
+        google-api-python-client google-auth-httplib2 google-auth-oauthlib
+        msal
+        # HTTP/API
+        httpx requests
+        # AI/LLM
+        ollama-python
+        # CLI
+        click typer rich python-dateutil pyyaml
+        # Web API (Phase 2)
+        fastapi uvicorn websockets
+      ];
+
+      # Build frontend before building Python package
+      preBuild = ''
+        echo "Building frontend..."
+        cd web
+        npm ci --ignore-scripts
+        npm run build
+        cd ..
+
+        # Create directory for web assets in package
+        mkdir -p src/axios_ai_mail/web_assets
+        cp -r web/dist/* src/axios_ai_mail/web_assets/
+      '';
+
+      doCheck = false;
+    }
+  );
+
 in {
   options.programs.axios-ai-mail = {
-    enable = mkEnableOption "axios-ai-mail system";
+    enable = mkEnableOption "axios-ai-mail v2";
+
+    package = mkOption {
+      type = types.package;
+      default = axios-ai-mail;
+      defaultText = literalExpression "pkgs.axios-ai-mail";
+      description = "The axios-ai-mail package to use.";
+    };
 
     accounts = mkOption {
       type = types.attrsOf accountOption;
       default = {};
-      description = "Email accounts to manage.";
+      description = "Email accounts to manage with axios-ai-mail.";
+      example = literalExpression ''
+        {
+          personal = {
+            provider = "gmail";
+            email = "user@gmail.com";
+            realName = "John Doe";
+            oauthTokenFile = config.sops.secrets."gmail-oauth".path;
+            sync.frequency = "5m";
+            labels.prefix = "AI";
+          };
+
+          work = {
+            provider = "imap";
+            email = "user@fastmail.com";
+            realName = "John Doe";
+            passwordFile = config.sops.secrets."fastmail-password".path;
+            imap = {
+              host = "imap.fastmail.com";
+              port = 993;
+            };
+            smtp = {
+              host = "smtp.fastmail.com";
+              port = 465;
+            };
+          };
+        }
+      '';
     };
 
     ai = {
-      enable = mkEnableOption "AI classification";
-      
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "Enable AI classification.";
+      };
+
+      model = mkOption {
+        type = types.str;
+        default = "llama3.2";
+        description = "Ollama model to use for classification.";
+        example = "mistral";
+      };
+
       endpoint = mkOption {
         type = types.str;
         default = "http://localhost:11434";
         description = "Ollama API endpoint.";
       };
 
-      model = mkOption {
-        type = types.str;
-        default = "llama3";
-        description = "Model to use for classification.";
+      temperature = mkOption {
+        type = types.float;
+        default = 0.3;
+        description = "LLM temperature (0.0-1.0, lower = more deterministic).";
+      };
+
+      tags = mkOption {
+        type = types.listOf (types.submodule {
+          options = {
+            name = mkOption {
+              type = types.str;
+              description = "Tag name (lowercase, no spaces).";
+              example = "work";
+            };
+
+            description = mkOption {
+              type = types.str;
+              description = "Tag description for LLM prompt.";
+              example = "Work-related emails";
+            };
+          };
+        });
+        default = [
+          { name = "work"; description = "Work-related emails from colleagues, managers, or work tools"; }
+          { name = "personal"; description = "Personal correspondence from friends and family"; }
+          { name = "finance"; description = "Bills, transactions, statements, invoices"; }
+          { name = "shopping"; description = "Receipts, order confirmations, shipping notifications"; }
+          { name = "travel"; description = "Flight confirmations, hotel bookings, itineraries"; }
+          { name = "dev"; description = "Developer notifications: GitHub, GitLab, CI/CD"; }
+          { name = "social"; description = "Social media notifications"; }
+          { name = "newsletter"; description = "Newsletters and subscriptions"; }
+          { name = "junk"; description = "Promotional emails, spam, marketing"; }
+        ];
+        description = "Tag taxonomy for AI classification.";
       };
     };
 
-    client = mkOption {
-      type = types.enum [ "none" "aerc" "astroid" ];
-      default = "none";
-      description = "Email client to automatically configure.";
-    };
-
-    settings = {
-      maildirBase = mkOption {
-        type = types.str;
-        default = "~/Mail";
-        description = "Base directory for Maildir storage.";
+    ui = {
+      enable = mkOption {
+        type = types.bool;
+        default = false;
+        description = "Enable web UI (Phase 2 feature).";
       };
-      
-      syncFrequency = mkOption {
-        type = types.str;
-        default = "5m";
-        description = "Systemd timer frequency for mail synchronization.";
+
+      type = mkOption {
+        type = types.enum [ "web" "cli" ];
+        default = "cli";
+        description = "UI type.";
+      };
+
+      port = mkOption {
+        type = types.port;
+        default = 8080;
+        description = "Web UI port (if enabled).";
       };
     };
   };
 
-  config = mkMerge [
-    # Core Configuration
-    (mkIf cfg.enable {
-      home.packages = with pkgs; [
-        notmuch
-        isync
-        msmtp
-      ];
-
-      # Write configs
-      xdg.configFile."axios-ai-mail/accounts.json".text = builtins.toJSON (
-        lib.mapAttrs (name: account: account) cfg.accounts
-      );
-      
-      xdg.configFile."axios-ai-mail/config.json".text = builtins.toJSON {
-        ai = cfg.ai;
-        settings = cfg.settings;
-      };
-
-      # Ensure Maildir exists
-      home.activation.createMaildir = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-        mkdir -p ${cfg.settings.maildirBase}
-      '';
-
-      # Export NOTMUCH_CONFIG globally so clients (alot, astroid) can find the DB
-      home.sessionVariables = {
-        NOTMUCH_CONFIG = "${config.xdg.configHome}/notmuch/default/config";
-      };
-
-      # Systemd Service: Mail Sync
-      systemd.user.services.axios-mail-sync = {
-        Unit = {
-          Description = "Axios AI Mail Synchronization";
-          After = [ "network-online.target" ];
-        };
-        Service = {
-          Type = "oneshot";
-          
-          # We need to run the generator first to ensure fresh tokens/configs
-          # Then sync, then index.
-          ExecStart = pkgs.writeShellScript "axios-sync-pipeline" ''
-            export PATH=${lib.makeBinPath [ 
-              (pkgs.python311.withPackages (ps: [ ps.requests ps.notmuch ])) 
-              pkgs.isync 
-              pkgs.notmuch 
-              pkgs.msmtp 
-              pkgs.cyrus_sasl
-              pkgs.cyrus-sasl-xoauth2
-            ]}:$PATH
-            
-            # Force Notmuch to use our generated config (Environment variable)
-            export NOTMUCH_CONFIG=${config.xdg.configHome}/notmuch/default/config
-            # Fix for mbsync missing SASL plugins for XOAUTH2
-            # Combine default SASL plugins and the XOAUTH2 plugin
-            export SASL_PATH=${pkgs.cyrus_sasl.out}/lib/sasl2:${pkgs.cyrus-sasl-xoauth2}/lib/sasl2
-            
-            # 1. Regenerate configs (handles refreshed oauth tokens if needed)
-            python3 ${../../src/generate_config.py} --oauth-script ${../../src/mutt_oauth2.py}
-            
-            # 2. Sync Mail (Explicit config path)
-            echo "Syncing mail..."
-            mbsync -c ${config.home.homeDirectory}/.mbsyncrc -a
-            
-            # 3. Index Mail (Explicit config path)
-            echo "Indexing mail..."
-            notmuch --config=${config.xdg.configHome}/notmuch/default/config new
-            
-            # 4. AI Classification (if enabled)
-            ${if cfg.ai.enable then ''
-              echo "Running AI Classifier..."
-              python3 ${../../src/ai_classifier.py}
-            '' else ""}
-          '';
-        };
-      };
-
-      systemd.user.timers.axios-mail-sync = {
-        Unit = { Description = "Timer for Axios Mail Sync"; };
-        Timer = {
-          OnBootSec = "2m";
-          OnUnitActiveSec = cfg.settings.syncFrequency;
-          Unit = "axios-mail-sync.service";
-        };
-        Install = { WantedBy = [ "timers.target" ]; };
-      };
-
-      # Systemd Service: AI Classifier (Legacy/Disabled separate service in favor of pipeline)
-    })
-
-    # Astroid Integration (Restored per user request)
-    (mkIf (cfg.enable && cfg.client == "astroid") {
-      programs.astroid = {
-        enable = true;
-        extraConfig = {
-          # 1. Search Queries (your existing block)
-          startup = {
-            queries = {
-              "Inbox" = "tag:inbox";
-              "To-Do" = "tag:todo";
-              "High Priority" = "tag:prio-high";
-              "Spam" = "tag:junk or tag:spam";
-              "Trash" = "tag:deleted";
-            };
-          };
-      
-          thread_view = {
-            labels = {
-              remove_tags = [ "inbox" "unseen" ];
-              add_tags = [ "deleted" ];
-            };
-          };
-      
-          keybindings = {
-            common = {
-              "d" = "thread_view.archive";
-            };
-          };
-      
-          # 4. UI Adjustments
-          thread_index = {
-            cell = {
-              tags_length = 200;
-              authors_length = 60;
-            };
-          };
-        };
-      };
-    })
-
-    # Aerc Integration (TUI with Notmuch Backend)
-    (mkIf (cfg.enable && cfg.client == "aerc") (
-      let
-        # Generate query map for each account to filter by path
-        queryMaps = lib.mapAttrs' (name: acc: lib.nameValuePair 
-          "aerc/map-${name}.conf" 
-          {
-            text = let prefix = "path:${name}/**"; in ''
-              Inbox         = tag:inbox and ${prefix}
-              To-Do         = tag:todo and ${prefix}
-              High Priority = tag:prio-high and ${prefix}
-              Work          = tag:work and ${prefix}
-              Finance       = tag:finance and ${prefix}
-              Archive       = tag:archive and ${prefix}
-              Junk          = (tag:junk or tag:spam) and ${prefix}
-              All           = ${prefix}
-            '';
-          }
-        ) cfg.accounts;
-      in
+  config = mkIf cfg.enable {
+    # Assertions for validation
+    assertions = [
       {
-        home.packages = [ pkgs.aerc ];
-        
-        xdg.configFile = {
-          # 1. Accounts Configuration
-          "aerc/accounts.conf".text = lib.concatStringsSep "\n" (
-            lib.mapAttrsToList (name: acc: ''
-              [${name}]
-              source        = notmuch://${cfg.settings.maildirBase}
-              maildir-store = ${cfg.settings.maildirBase}/${name}
-              query-map     = ${config.xdg.configHome}/aerc/map-${name}.conf
-              from          = ${acc.realName} <${acc.address}>
-              outgoing      = msmtp --account=${name} -t
-              default       = Inbox
-              # Enable threading
-              thread-sort   = true
-            '') cfg.accounts
-          );
-          
-          # 2. General Configuration
-          "aerc/aerc.conf".text = ''
-            [general]
-            unsafe-accounts-conf = true
-            [ui]
-            index-columns = date<20,name<17,flags<4,subject<*
-            column-date = {{.DateAutoFormat .Date.Local}}
-            column-name = {{index (.From | names) 0}}
-            column-flags = {{.Flags | join ""}}
-            column-subject = {{.Subject}}
-          '';
-        } // queryMaps;
+        assertion = cfg.accounts != {};
+        message = "axios-ai-mail: at least one account must be configured";
       }
-    ))
-  ];
+    ] ++ (lib.flatten (lib.mapAttrsToList (name: account: [
+      {
+        assertion = (account.provider == "gmail" || account.provider == "outlook") -> account.oauthTokenFile != null;
+        message = "axios-ai-mail account '${name}': OAuth providers (gmail, outlook) require oauthTokenFile";
+      }
+      {
+        assertion = account.provider == "imap" -> (account.passwordFile != null && account.imap != null);
+        message = "axios-ai-mail account '${name}': IMAP provider requires passwordFile and imap configuration";
+      }
+      {
+        assertion = account.provider == "imap" -> account.imap.host != "";
+        message = "axios-ai-mail account '${name}': IMAP provider requires imap.host";
+      }
+    ]) cfg.accounts));
+
+    # Install package
+    home.packages = [ cfg.package ];
+
+    # Create data directory
+    home.file."${config.xdg.dataHome}/axios-ai-mail/.keep".text = "";
+
+    # Generate runtime configuration
+    xdg.configFile."axios-ai-mail/config.yaml".text = builtins.toJSON runtimeConfig;
+
+    # Systemd services
+    systemd.user.services.axios-ai-mail-sync = {
+      Unit = {
+        Description = "axios-ai-mail sync service";
+        After = [ "network-online.target" ];
+        Wants = [ "network-online.target" ];
+      };
+
+      Service = {
+        Type = "oneshot";
+        ExecStart = "${cfg.package}/bin/axios-ai-mail sync run";
+
+        # Environment
+        Environment = [
+          "PYTHONUNBUFFERED=1"
+        ];
+      };
+    };
+
+    systemd.user.timers.axios-ai-mail-sync = {
+      Unit = {
+        Description = "axios-ai-mail sync timer";
+      };
+
+      Timer = {
+        OnBootSec = "2min";
+        OnUnitActiveSec = "5min"; # Default, can be overridden per-account
+        Unit = "axios-ai-mail-sync.service";
+        Persistent = true;
+      };
+
+      Install = {
+        WantedBy = [ "timers.target" ];
+      };
+    };
+
+    # Optional: Web UI service (Phase 2)
+    systemd.user.services.axios-ai-mail-web = mkIf cfg.ui.enable {
+      Unit = {
+        Description = "axios-ai-mail web UI";
+        After = [ "network-online.target" ];
+        Wants = [ "network-online.target" ];
+      };
+
+      Service = {
+        Type = "simple";
+        ExecStart = "${cfg.package}/bin/axios-ai-mail web --port ${toString cfg.ui.port}";
+        Restart = "on-failure";
+        RestartSec = "5s";
+      };
+
+      Install = {
+        WantedBy = [ "default.target" ];
+      };
+    };
+  };
 }

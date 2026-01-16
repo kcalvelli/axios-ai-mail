@@ -1,0 +1,228 @@
+"""AI classifier using local LLM (Ollama) for email categorization."""
+
+import json
+import logging
+from dataclasses import dataclass
+from typing import Dict, List, Optional
+
+import requests
+
+from .providers.base import Classification, Message
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class AIConfig:
+    """AI classifier configuration."""
+
+    model: str = "llama3.2"
+    endpoint: str = "http://localhost:11434"
+    temperature: float = 0.3
+    timeout: int = 30
+    custom_tags: Optional[List[Dict[str, str]]] = None
+
+
+class AIClassifier:
+    """AI-powered email classifier using Ollama."""
+
+    # Default tag taxonomy
+    DEFAULT_TAGS = [
+        {"name": "work", "description": "Work-related emails from colleagues, managers, or work tools"},
+        {"name": "personal", "description": "Personal correspondence from friends and family"},
+        {"name": "finance", "description": "Bills, transactions, statements, invoices, payment confirmations"},
+        {"name": "shopping", "description": "Receipts, order confirmations, shipping notifications"},
+        {"name": "travel", "description": "Flight confirmations, hotel bookings, itineraries"},
+        {"name": "dev", "description": "Developer notifications: GitHub, GitLab, CI/CD, code reviews"},
+        {"name": "social", "description": "Social media notifications and updates"},
+        {"name": "newsletter", "description": "Newsletters, digests, subscriptions"},
+        {"name": "junk", "description": "Promotional emails, spam, marketing"},
+    ]
+
+    def __init__(self, config: AIConfig):
+        """Initialize AI classifier.
+
+        Args:
+            config: AI configuration
+        """
+        self.config = config
+        self.tags = config.custom_tags or self.DEFAULT_TAGS
+
+    def _build_prompt(self, message: Message) -> str:
+        """Build classification prompt for the LLM.
+
+        Args:
+            message: Message to classify
+
+        Returns:
+            Prompt string
+        """
+        # Build tag descriptions
+        tag_descriptions = "\n".join(
+            [f'    - "{tag["name"]}": {tag["description"]}' for tag in self.tags]
+        )
+
+        prompt = f"""
+Analyze this email and classify it with structured tags.
+
+EMAIL CONTENT:
+Subject: {message.subject}
+From: {message.from_email}
+To: {", ".join(message.to_emails)}
+Date: {message.date}
+Snippet: {message.snippet}
+
+AVAILABLE TAGS:
+{tag_descriptions}
+
+CLASSIFICATION RULES:
+1. Select 1-3 most relevant tags from the list above
+2. Set priority to "high" if:
+   - From important senders (boss, family, banks)
+   - Contains urgent language (ASAP, urgent, deadline)
+   - Requires immediate attention
+3. Set action_required to true if:
+   - Requires a reply
+   - Contains a task or to-do
+   - Needs payment or form submission
+4. Set can_archive to true ONLY if:
+   - It's a receipt, shipping notification, or newsletter
+   - AND requires no action from the user
+   - When in doubt, set to false
+
+RESPOND WITH ONLY A JSON OBJECT (no markdown, no explanation):
+{{
+  "tags": ["tag1", "tag2"],
+  "priority": "high" | "normal",
+  "action_required": true | false,
+  "can_archive": true | false
+}}
+"""
+        return prompt
+
+    def classify(self, message: Message) -> Classification:
+        """Classify a message using the AI model.
+
+        Args:
+            message: Message to classify
+
+        Returns:
+            Classification result
+
+        Raises:
+            Exception: If classification fails
+        """
+        prompt = self._build_prompt(message)
+
+        try:
+            response = requests.post(
+                f"{self.config.endpoint}/api/generate",
+                json={
+                    "model": self.config.model,
+                    "prompt": prompt,
+                    "format": "json",
+                    "stream": False,
+                    "options": {
+                        "temperature": self.config.temperature,
+                    },
+                },
+                timeout=self.config.timeout,
+            )
+
+            response.raise_for_status()
+            result = response.json()
+
+            # Parse LLM response
+            classification_json = result.get("response", "")
+            classification_data = json.loads(classification_json)
+
+            # Validate and normalize
+            tags = self._normalize_tags(classification_data.get("tags", []))
+            priority = classification_data.get("priority", "normal")
+            if priority not in ["high", "normal"]:
+                priority = "normal"
+
+            todo = classification_data.get("action_required", False)
+            can_archive = classification_data.get("can_archive", False)
+
+            classification = Classification(
+                tags=tags,
+                priority=priority,
+                todo=todo,
+                can_archive=can_archive,
+            )
+
+            logger.info(
+                f"Classified message {message.id[:8]}: "
+                f"tags={tags}, priority={priority}, todo={todo}, archive={can_archive}"
+            )
+
+            return classification
+
+        except requests.exceptions.Timeout:
+            logger.error(
+                f"Ollama request timed out after {self.config.timeout}s for message {message.id}"
+            )
+            raise
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Ollama API error for message {message.id}: {e}")
+            raise
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse LLM response for message {message.id}: {e}")
+            # Return default classification
+            return Classification(
+                tags=["personal"],
+                priority="normal",
+                todo=False,
+                can_archive=False,
+            )
+        except Exception as e:
+            logger.error(f"Unexpected error classifying message {message.id}: {e}")
+            raise
+
+    def _normalize_tags(self, tags: List[str]) -> List[str]:
+        """Normalize and validate tags.
+
+        Args:
+            tags: Raw tags from LLM
+
+        Returns:
+            Normalized tags
+        """
+        # Convert to lowercase, strip whitespace
+        normalized = [tag.lower().strip() for tag in tags]
+
+        # Remove duplicates
+        normalized = list(dict.fromkeys(normalized))
+
+        # Filter to valid tags only
+        valid_tag_names = {tag["name"] for tag in self.tags}
+        normalized = [tag for tag in normalized if tag in valid_tag_names]
+
+        # Ensure at least one tag
+        if not normalized:
+            normalized = ["personal"]
+
+        return normalized
+
+    def classify_batch(self, messages: List[Message]) -> Dict[str, Classification]:
+        """Classify multiple messages (sequential for now).
+
+        Args:
+            messages: List of messages to classify
+
+        Returns:
+            Dict mapping message ID to classification
+        """
+        results = {}
+
+        for message in messages:
+            try:
+                classification = self.classify(message)
+                results[message.id] = classification
+            except Exception as e:
+                logger.warning(f"Skipping message {message.id} due to error: {e}")
+                continue
+
+        logger.info(f"Classified {len(results)}/{len(messages)} messages")
+        return results

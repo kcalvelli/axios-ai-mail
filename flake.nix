@@ -12,51 +12,172 @@
     # Home-Manager Module
     homeManagerModules.default = ./modules/home-manager;
 
+    # Python package
+    packages = forAllSystems (system: let
+      pkgs = nixpkgs.legacyPackages.${system};
+
+      # Build ollama Python package since it's not in nixpkgs yet
+      ollama-python = pkgs.python3Packages.buildPythonPackage rec {
+        pname = "ollama";
+        version = "0.4.4";
+        format = "pyproject";
+
+        src = pkgs.fetchPypi {
+          inherit pname version;
+          hash = "sha256-4dsGQnPHObq8Ld6eqEApxKQ0FTVHQbbFCTnd090Pf/s=";
+        };
+
+        nativeBuildInputs = with pkgs.python3Packages; [
+          poetry-core
+          pythonRelaxDepsHook
+        ];
+
+        pythonRelaxDeps = [ "httpx" ];
+
+        propagatedBuildInputs = with pkgs.python3Packages; [
+          httpx
+          pydantic
+        ];
+
+        pythonImportsCheck = [ "ollama" ];
+        doCheck = false;
+      };
+    in {
+      default = pkgs.python3Packages.buildPythonApplication {
+        pname = "axios-ai-mail";
+        version = "2.0.0";
+
+        src = ./.;
+
+        format = "pyproject";
+
+        nativeBuildInputs = with pkgs; [
+          nodejs
+          python3Packages.setuptools
+          python3Packages.wheel
+        ];
+
+        propagatedBuildInputs = with pkgs.python3Packages; [
+          # Core dependencies
+          pydantic
+          pydantic-settings
+          sqlalchemy
+          alembic
+
+          # Email providers
+          google-api-python-client
+          google-auth-httplib2
+          google-auth-oauthlib
+          msal
+
+          # HTTP/API
+          httpx
+          requests
+
+          # AI/LLM
+          ollama-python
+
+          # CLI
+          click
+          typer
+          rich
+          python-dateutil
+          pyyaml
+
+          # Web API (Phase 2)
+          fastapi
+          uvicorn
+          websockets
+        ];
+
+        # Build frontend before building Python package
+        preBuild = ''
+          echo "Building frontend..."
+          cd web
+          npm ci --ignore-scripts
+          npm run build
+          cd ..
+
+          # Create directory for web assets in package
+          mkdir -p src/axios_ai_mail/web_assets
+          cp -r web/dist/* src/axios_ai_mail/web_assets/
+        '';
+
+        # Skip tests for now (no tests written yet)
+        doCheck = false;
+
+        meta = with pkgs.lib; {
+          description = "AI-enhanced email workflow with two-way sync";
+          homepage = "https://github.com/kcalvelli/axios-ai-mail";
+          license = licenses.mit;
+        };
+      };
+    });
+
     # Dev Shell for working on the python agents
     devShells = forAllSystems (system: let
       pkgs = nixpkgs.legacyPackages.${system};
     in {
       default = pkgs.mkShell {
-        buildInputs = with pkgs; [
+        packages = with pkgs; [
           python311
           python311Packages.black
           python311Packages.ruff
-          poetry
-          notmuch
-          isync
-          msmtp
-          
+          python311Packages.mypy
+          python311Packages.pytest
+          python311Packages.pip
+          python311Packages.venvShellHook
+
           # For testing/dev
           ollama
         ];
+
+        venvDir = "./.venv";
+
+        postVenvCreation = ''
+          unset SOURCE_DATE_EPOCH
+          pip install -e .[dev]
+        '';
+
+        postShellHook = ''
+          unset SOURCE_DATE_EPOCH
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "  axios-ai-mail v2.0 development environment"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "Python virtual environment: $VIRTUAL_ENV"
+          echo "Installed in editable mode with [dev] dependencies"
+          echo ""
+          echo "Available commands:"
+          echo "  axios-ai-mail --help      Show CLI help"
+          echo "  axios-ai-mail auth setup gmail"
+          echo "  axios-ai-mail sync run"
+          echo "  axios-ai-mail status"
+          echo ""
+          echo "Run tests: pytest"
+          echo "Format code: black ."
+          echo "Lint: ruff check ."
+          echo ""
+        '';
       };
     });
     
     # Apps for easy running
     apps = forAllSystems (system: let
       pkgs = nixpkgs.legacyPackages.${system};
+      axios-ai-mail = self.packages.${system}.default;
     in {
-      auth = {
+      default = {
+        type = "app";
+        program = "${axios-ai-mail}/bin/axios-ai-mail";
+      };
+
+      # Legacy v1 scripts (kept for backward compatibility)
+      auth-v1 = {
         type = "app";
         program = "${pkgs.writeShellScriptBin "auth" ''
           ${pkgs.python3}/bin/python3 ${./src/mutt_oauth2.py} "$@"
         ''}/bin/auth";
-      };
-
-      set-password = {
-        type = "app";
-        program = "${pkgs.writeShellScriptBin "set-password" ''
-          ${pkgs.python3}/bin/python3 ${./src/store_password.py} "$@"
-        ''}/bin/set-password";
-      };
-
-      reclassify = {
-        type = "app";
-        program = "${pkgs.writeShellScriptBin "reclassify" ''
-          export PYTHONPATH=$PYTHONPATH:${./src}
-          # Ensure NOTMUCH_CONFIG is set if not already, though the script handles ~/.notmuch-config
-          ${pkgs.python3.withPackages (ps: [ ps.requests ps.notmuch ])}/bin/python3 ${./src/reclassify.py} "$@"
-        ''}/bin/reclassify";
       };
     });
   };
