@@ -43,14 +43,14 @@ export function AccountsPage() {
       </Typography>
 
       <Grid container spacing={3} mt={2}>
-        {accountsData.accounts.map((account) => (
+        {accountsData.map((account) => (
           <Grid item xs={12} md={6} key={account.id}>
             <AccountCard accountId={account.id} />
           </Grid>
         ))}
       </Grid>
 
-      {accountsData.accounts.length === 0 && (
+      {accountsData.length === 0 && (
         <Paper sx={{ p: 4, textAlign: 'center', mt: 3 }}>
           <Email sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
           <Typography variant="h6" color="text.secondary" gutterBottom>
@@ -70,7 +70,10 @@ interface AccountCardProps {
 }
 
 function AccountCard({ accountId }: AccountCardProps) {
+  const { data: accountsData } = useAccounts();
   const { data: statsData, isLoading } = useAccountStats(accountId);
+
+  const account = accountsData?.find((a) => a.id === accountId);
 
   if (isLoading) {
     return (
@@ -84,11 +87,11 @@ function AccountCard({ accountId }: AccountCardProps) {
     );
   }
 
-  if (!statsData) {
+  if (!statsData || !account) {
     return null;
   }
 
-  const { account, stats } = statsData;
+  const stats = statsData;
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return 'Never';
@@ -124,8 +127,8 @@ function AccountCard({ accountId }: AccountCardProps) {
             </Typography>
           </Box>
           <Chip
-            label={account.is_enabled ? 'Active' : 'Disabled'}
-            color={account.is_enabled ? 'success' : 'default'}
+            label="Active"
+            color="success"
             size="small"
           />
         </Stack>
@@ -159,19 +162,19 @@ function AccountCard({ accountId }: AccountCardProps) {
             <StatItem
               icon={<Schedule />}
               label="Last Sync"
-              value={formatDate(account.last_sync_at)}
+              value={formatDate(account.last_sync || null)}
             />
           </Grid>
         </Grid>
 
         {/* Top Tags */}
-        {stats.top_tags && stats.top_tags.length > 0 && (
+        {(stats as any).top_tags && (stats as any).top_tags.length > 0 && (
           <Box mt={2}>
             <Typography variant="caption" color="text.secondary" gutterBottom>
               Top Tags
             </Typography>
             <Stack direction="row" spacing={1} flexWrap="wrap" gap={1} mt={1}>
-              {stats.top_tags.slice(0, 5).map((tag) => (
+              {(stats as any).top_tags.slice(0, 5).map((tag: any) => (
                 <Chip
                   key={tag.name}
                   label={`${tag.name} (${tag.count})`}

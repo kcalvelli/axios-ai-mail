@@ -50,7 +50,7 @@ export function StatsPage() {
     );
   }
 
-  const { stats } = statsData;
+  const stats = statsData;
 
   const classificationRate =
     stats.total_messages > 0
@@ -204,8 +204,8 @@ export function StatsPage() {
         </Typography>
 
         <Stack spacing={2}>
-          {stats.accounts_breakdown &&
-            Object.entries(stats.accounts_breakdown).map(([accountId, count]) => {
+          {(stats as any).accounts_breakdown &&
+            Object.entries((stats as any).accounts_breakdown).map(([accountId, count]: any) => {
               const percentage =
                 stats.total_messages > 0
                   ? ((count as number) / stats.total_messages) * 100
@@ -266,7 +266,7 @@ export function StatsPage() {
                     Last Sync
                   </Typography>
                   <Typography variant="h5">
-                    {stats.last_sync ? formatRelativeTime(stats.last_sync) : 'Never'}
+                    {(stats as any).last_sync ? formatRelativeTime((stats as any).last_sync) : 'Never'}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
                     Automatic sync every 5 min

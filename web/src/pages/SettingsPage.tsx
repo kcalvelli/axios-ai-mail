@@ -21,7 +21,7 @@ import {
   TableHead,
   TableRow,
 } from '@mui/material';
-import { Settings, SmartToy, Sync, Label } from '@mui/icons-material';
+import { SmartToy, Sync, Label } from '@mui/icons-material';
 import { useState } from 'react';
 
 interface TabPanelProps {

@@ -7,7 +7,7 @@ import { tagColors } from '../theme';
 
 interface TagChipProps {
   tag: string;
-  onClick?: () => void;
+  onClick?: (e: React.MouseEvent) => void;
   onDelete?: () => void;
   size?: 'small' | 'medium';
 }
