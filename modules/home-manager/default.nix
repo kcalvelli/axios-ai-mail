@@ -228,6 +228,25 @@ let
     doCheck = false;
   };
 
+  # Build frontend separately
+  axios-ai-mail-web = pkgs.buildNpmPackage {
+    pname = "axios-ai-mail-web";
+    version = "2.0.0";
+
+    src = ../../web;
+
+    npmDepsHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="; # Will be auto-calculated
+
+    buildPhase = ''
+      npm run build
+    '';
+
+    installPhase = ''
+      mkdir -p $out
+      cp -r dist/* $out/
+    '';
+  };
+
   # Package reference
   axios-ai-mail = pkgs.axios-ai-mail or (
     # Fallback if not in nixpkgs yet
@@ -238,7 +257,6 @@ let
       format = "pyproject";
 
       nativeBuildInputs = with pkgs; [
-        nodejs
         python3Packages.setuptools
         python3Packages.wheel
       ];
@@ -259,20 +277,15 @@ let
         fastapi uvicorn websockets
       ];
 
-      # Copy pre-built frontend assets
+      # Copy frontend assets from separate derivation
       preBuild = ''
-        echo "Copying pre-built frontend assets..."
+        echo "Copying frontend assets from Nix-built derivation..."
 
         # Create directory for web assets in package
         mkdir -p src/axios_ai_mail/web_assets
 
-        # Copy pre-built frontend from web/dist (built outside Nix)
-        if [ -d web/dist ]; then
-          cp -r web/dist/* src/axios_ai_mail/web_assets/
-        else
-          echo "Warning: web/dist not found - web UI will not be available"
-          echo "Run 'cd web && npm run build' to build the frontend"
-        fi
+        # Copy from the separately-built frontend derivation
+        cp -r ${axios-ai-mail-web}/* src/axios_ai_mail/web_assets/
       '';
 
       doCheck = false;
