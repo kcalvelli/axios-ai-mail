@@ -269,7 +269,6 @@ class IMAPProvider(BaseEmailProvider):
             to_emails=to_emails,
             date=date,
             snippet=snippet,
-            body_text=body_text,
             is_unread=is_unread,
             provider_labels=keywords,
         )
