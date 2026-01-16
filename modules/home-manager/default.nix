@@ -259,21 +259,20 @@ let
         fastapi uvicorn websockets
       ];
 
-      # Build frontend before building Python package
+      # Copy pre-built frontend assets
       preBuild = ''
-        echo "Building frontend..."
-
-        # Set HOME for npm to avoid /homeless-shelter errors
-        export HOME=$TMPDIR
-
-        cd web
-        npm ci --ignore-scripts --loglevel=error
-        npm run build --loglevel=error
-        cd ..
+        echo "Copying pre-built frontend assets..."
 
         # Create directory for web assets in package
         mkdir -p src/axios_ai_mail/web_assets
-        cp -r web/dist/* src/axios_ai_mail/web_assets/
+
+        # Copy pre-built frontend from web/dist (built outside Nix)
+        if [ -d web/dist ]; then
+          cp -r web/dist/* src/axios_ai_mail/web_assets/
+        else
+          echo "Warning: web/dist not found - web UI will not be available"
+          echo "Run 'cd web && npm run build' to build the frontend"
+        fi
       '';
 
       doCheck = false;
