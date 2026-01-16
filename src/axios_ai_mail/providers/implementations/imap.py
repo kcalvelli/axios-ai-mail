@@ -262,15 +262,15 @@ class IMAPProvider(BaseEmailProvider):
 
         return Message(
             id=f"{self.config.account_id}:{msg_id}",
-            account_id=self.config.account_id,
             thread_id=thread_id,
             subject=subject,
             from_email=from_email,
             to_emails=to_emails,
             date=date,
             snippet=snippet,
+            body_text=body_text,
+            labels=keywords,
             is_unread=is_unread,
-            provider_labels=keywords,
         )
 
     def _decode_header(self, header: str) -> str:
