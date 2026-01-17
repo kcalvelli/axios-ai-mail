@@ -2,6 +2,30 @@
 
 **axios-ai-mail** is a declarative, AI-enhanced email workflow designed for NixOS and Home Manager users. It combines robust CLI tools (`isync`, `msmtp`, `notmuch`) with a local LLM-based classifier (`Ollama`) to organize your inbox automatically.
 
+## Product Scope
+
+**axios-ai-mail is an inbox organizer, not a spam filter.**
+
+### What This Product Does ✅
+- **Classifies legitimate mail** that reached your inbox
+- **Organizes messages** with AI-powered tags (work, finance, personal, etc.)
+- **Identifies low-priority content** like promotional emails and newsletters ("junk" tag)
+- **Helps you prioritize** what matters in your inbox
+
+### What This Product Doesn't Do ❌
+- **Does not filter spam** - Your email provider (Gmail, Fastmail, etc.) already does this
+- **Does not sync spam folders** - We intentionally exclude provider spam folders from sync
+- **Does not replace SpamAssassin/provider filters** - We trust your provider's spam detection
+
+### Spam vs. Junk: The Distinction
+
+| Category | Handled By | Definition | Example |
+|----------|-----------|------------|---------|
+| **SPAM** | Email Provider | Malicious, fraudulent, blocked content | Phishing, scams, malware |
+| **JUNK** | AI Classifier | Legitimate but low-priority promotional mail | Marketing emails, newsletters, promotions |
+
+**Why this matters:** Provider spam filters catch malicious content before it reaches your inbox. Our AI classifier helps you organize the *legitimate* mail that made it through, distinguishing important messages from promotional clutter.
+
 ## Features
 
 - **Declarative Configuration**: Define email accounts in Nix. No more manual `.mbsyncrc` editing.
