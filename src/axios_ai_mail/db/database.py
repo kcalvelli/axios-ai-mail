@@ -215,8 +215,26 @@ class Database:
                 return message
             return None
 
+    def move_to_trash(self, message_id: str) -> Optional[Message]:
+        """Move a message to trash folder.
+
+        Args:
+            message_id: Message ID to move to trash
+
+        Returns:
+            Updated message if successful, None if not found
+        """
+        with self.session() as session:
+            message = session.get(Message, message_id)
+            if message:
+                message.folder = "trash"
+                session.commit()
+                session.refresh(message)
+                return message
+            return None
+
     def delete_message(self, message_id: str) -> bool:
-        """Delete a message from the database.
+        """Permanently delete a message from the database.
 
         Args:
             message_id: Message ID to delete

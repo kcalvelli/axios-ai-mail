@@ -117,8 +117,9 @@ class GmailProvider(BaseEmailProvider):
         try:
             messages = []
 
-            # Build query
-            query = "in:inbox"
+            # Build query - fetch from all folders (inbox, sent, etc.)
+            # Exclude DRAFT and SPAM by default
+            query = "-in:draft -in:spam"
             if since:
                 # Gmail uses YYYY/MM/DD format
                 date_str = since.strftime("%Y/%m/%d")
@@ -198,6 +199,18 @@ class GmailProvider(BaseEmailProvider):
         label_ids = msg_detail.get("labelIds", [])
         labels = set(label_ids)  # Will map to human-readable names later
 
+        # Detect folder from Gmail labels
+        folder = "inbox"  # Default
+        if "SENT" in label_ids:
+            folder = "sent"
+        elif "TRASH" in label_ids:
+            folder = "trash"
+        elif "DRAFT" in label_ids:
+            folder = "drafts"
+        elif "SPAM" in label_ids:
+            folder = "spam"
+        # INBOX is default
+
         # Parse date
         date = datetime.fromtimestamp(int(msg_detail["internalDate"]) / 1000)
 
@@ -213,7 +226,7 @@ class GmailProvider(BaseEmailProvider):
             body_html=body_html,
             labels=labels,
             is_unread="UNREAD" in label_ids,
-            folder="inbox",  # Gmail uses labels, default to inbox
+            folder=folder,
         )
 
     def update_labels(

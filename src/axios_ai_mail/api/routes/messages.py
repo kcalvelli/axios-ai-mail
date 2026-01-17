@@ -158,26 +158,42 @@ async def bulk_mark_read(request: Request, body: BulkReadRequest):
 
 @router.post("/messages/bulk/delete")
 async def bulk_delete(request: Request, body: BulkDeleteRequest):
-    """Delete multiple messages."""
+    """Delete multiple messages (moves to trash unless already in trash)."""
     db = request.app.state.db
 
     try:
         deleted_count = 0
+        moved_to_trash_count = 0
         errors = []
 
         for message_id in body.message_ids:
             try:
-                success = db.delete_message(message_id)
-                if success:
-                    deleted_count += 1
-                else:
+                message = db.get_message(message_id)
+                if not message:
                     errors.append({"message_id": message_id, "error": "Not found"})
+                    continue
+
+                # If already in trash, permanently delete
+                if message.folder == "trash":
+                    success = db.delete_message(message_id)
+                    if success:
+                        deleted_count += 1
+                    else:
+                        errors.append({"message_id": message_id, "error": "Failed to delete"})
+                else:
+                    # Move to trash
+                    updated = db.move_to_trash(message_id)
+                    if updated:
+                        moved_to_trash_count += 1
+                    else:
+                        errors.append({"message_id": message_id, "error": "Failed to move to trash"})
             except Exception as e:
                 errors.append({"message_id": message_id, "error": str(e)})
                 logger.error(f"Error deleting message {message_id}: {e}")
 
         return {
             "deleted": deleted_count,
+            "moved_to_trash": moved_to_trash_count,
             "total": len(body.message_ids),
             "errors": errors,
         }
@@ -359,8 +375,12 @@ async def mark_message_read(
 
 
 @router.delete("/messages/{message_id}")
-async def delete_message(request: Request, message_id: str):
-    """Delete a message."""
+async def delete_message(
+    request: Request,
+    message_id: str,
+    permanent: bool = Query(False, description="Permanently delete (bypass trash)"),
+):
+    """Delete a message (moves to trash unless already in trash or permanent=true)."""
     db = request.app.state.db
 
     try:
@@ -369,12 +389,18 @@ async def delete_message(request: Request, message_id: str):
         if not message:
             raise HTTPException(status_code=404, detail="Message not found")
 
-        # Delete from database
-        success = db.delete_message(message_id)
-        if not success:
-            raise HTTPException(status_code=500, detail="Failed to delete message")
-
-        return {"status": "deleted", "message_id": message_id}
+        # If already in trash or permanent flag, permanently delete
+        if message.folder == "trash" or permanent:
+            success = db.delete_message(message_id)
+            if not success:
+                raise HTTPException(status_code=500, detail="Failed to delete message")
+            return {"status": "deleted", "message_id": message_id, "permanent": True}
+        else:
+            # Move to trash
+            updated_message = db.move_to_trash(message_id)
+            if not updated_message:
+                raise HTTPException(status_code=500, detail="Failed to move message to trash")
+            return {"status": "moved_to_trash", "message_id": message_id, "permanent": False}
 
     except HTTPException:
         raise
@@ -416,23 +442,34 @@ async def delete_all_messages(
                 or search_lower in m.snippet.lower()
             ]
 
-        # Delete all matching messages
+        # Delete all matching messages (move to trash or permanently delete if in trash)
         deleted_count = 0
+        moved_to_trash_count = 0
         errors = []
 
         for message in messages:
             try:
-                success = db.delete_message(message.id)
-                if success:
-                    deleted_count += 1
+                # If already in trash, permanently delete
+                if message.folder == "trash":
+                    success = db.delete_message(message.id)
+                    if success:
+                        deleted_count += 1
+                    else:
+                        errors.append({"message_id": message.id, "error": "Failed to delete"})
                 else:
-                    errors.append({"message_id": message.id, "error": "Failed to delete"})
+                    # Move to trash
+                    updated = db.move_to_trash(message.id)
+                    if updated:
+                        moved_to_trash_count += 1
+                    else:
+                        errors.append({"message_id": message.id, "error": "Failed to move to trash"})
             except Exception as e:
                 errors.append({"message_id": message.id, "error": str(e)})
                 logger.error(f"Error deleting message {message.id}: {e}")
 
         return {
             "deleted": deleted_count,
+            "moved_to_trash": moved_to_trash_count,
             "total": len(messages),
             "errors": errors,
         }
