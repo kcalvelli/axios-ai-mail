@@ -35,11 +35,11 @@ User quote: *"ability to delete messages from the main screen. There should be a
 - Option to permanently delete vs move to trash
 
 ### Multi-folder Support
-- Folder list in sidebar: Inbox, Sent, Drafts, Archive, Trash
+- Folder navigation at top of sidebar: Inbox, Sent, Trash
 - Sync additional folders beyond INBOX during sync operation
 - Database schema updated to include folder field on messages
 - Folder configuration per account in Nix config
-- Message counts per folder
+- Clicking folder shows messages from that folder across all accounts
 
 ### IMAP IDLE for Real-time Sync
 - Implement IMAP IDLE for push notifications
@@ -49,11 +49,12 @@ User quote: *"ability to delete messages from the main screen. There should be a
 - Systemd service updated for long-running IDLE connection
 
 ### Unified Account and Tag Filtering
-- Display accounts in sidebar with same UI pattern as tags
-- Clickable account chips to filter messages by account
-- Visual indication of selected account (matching tag behavior)
-- Combine account + tag + folder filters seamlessly
-- Show message count per account (like tag counts)
+- Treat accounts as tags in the existing Tags section
+- Each account appears as a clickable tag chip (e.g., "kc.calvelli@gmail.com", "work", "personal")
+- No separate Accounts section - maintains tag-focused filtering approach
+- Clicking account tag filters to show only messages from that account
+- Combine account tags + AI tags + folder filters seamlessly
+- Show message count per account (like other tag counts)
 
 ## Impact
 

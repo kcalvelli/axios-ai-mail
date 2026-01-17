@@ -16,15 +16,18 @@
 - [ ] 2.6 Add transaction support for atomic bulk operations
 - [ ] 2.7 Return detailed error info per message (which succeeded/failed)
 
-## 3. Backend - Multi-folder and Multi-account Support
+## 3. Backend - Multi-folder Support
 - [ ] 3.1 Update GET /api/messages to accept folder parameter
 - [ ] 3.2 Add GET /api/folders endpoint to list folders per account
 - [ ] 3.3 Add GET /api/folders/{folder}/stats endpoint (message count, unread)
 - [ ] 3.4 Update Database.query_messages() to support folder filtering
 - [ ] 3.5 Update sync logic to detect and store folder for each message
-- [ ] 3.6 Add support for multiple account_id query parameters (OR logic)
-- [ ] 3.7 Update Database.query_messages() to filter by account_ids list
-- [ ] 3.8 Add GET /api/accounts endpoint with message counts per account
+
+## 3a. Backend - Account Tags Integration
+- [ ] 3a.1 Modify GET /api/tags to include account tags alongside AI tags
+- [ ] 3a.2 Add type field to tag response: 'ai' or 'account'
+- [ ] 3a.3 Count messages per account for account tag counts
+- [ ] 3a.4 Ensure tags endpoint handles account_id as a valid tag filter
 
 ## 4. IMAP Provider - Multi-folder Sync
 - [ ] 4.1 Add folder parameter to fetch_messages() method
@@ -84,27 +87,21 @@
 - [ ] 10.7 Toast notification on completion
 
 ## 11. Web UI - Folder Navigation
-- [ ] 11.1 Add "Folders" section to sidebar
+- [ ] 11.1 Add folder navigation items to top of sidebar (Inbox, Sent, Trash)
 - [ ] 11.2 Fetch and display folders from API
-- [ ] 11.3 Show message count per folder (badge)
+- [ ] 11.3 Show message count per folder (optional badge)
 - [ ] 11.4 Highlight currently selected folder
 - [ ] 11.5 Update MessageList to filter by selected folder
 - [ ] 11.6 Persist selected folder in URL (?folder=sent)
-- [ ] 11.7 Add folder icons (Inbox, Sent, Drafts, Archive, Trash)
+- [ ] 11.7 Add folder icons (Inbox, Sent, Trash)
 
-## 12. Web UI - Unified Account Filtering
-- [ ] 12.1 Add "Accounts" section to sidebar (similar to Tags section)
-- [ ] 12.2 Fetch account list with message counts from API
-- [ ] 12.3 Display accounts as clickable chips (reuse TagChip component or create AccountChip)
-- [ ] 12.4 Add selectedAccounts to Zustand store (similar to selectedTags)
-- [ ] 12.5 Implement toggle account selection on chip click
-- [ ] 12.6 Visual highlight for selected accounts (filled vs outlined)
-- [ ] 12.7 Update MessageList to filter by selectedAccounts
-- [ ] 12.8 Persist selected accounts in URL (?account_id=work)
-- [ ] 12.9 Support multi-account selection with OR logic
-- [ ] 12.10 Add tooltip showing full email address on account chip hover
-- [ ] 12.11 Update account count badges after bulk operations
-- [ ] 12.12 Combine account + tag + folder filters seamlessly
+## 12. Web UI - Account Tags Integration
+- [ ] 12.1 Modify tags API client to fetch both AI tags and account tags
+- [ ] 12.2 Update TagChip component to accept isAccountTag prop
+- [ ] 12.3 Add visual distinction for account tags (email icon or "@" prefix)
+- [ ] 12.4 Optionally add subsection headers in Tags ("Accounts", "Categories")
+- [ ] 12.5 Ensure tag tooltip shows full email for account tags
+- [ ] 12.6 No additional state needed - reuse existing selectedTags
 
 ## 13. Web UI - React Hooks for Bulk Operations
 - [ ] 13.1 Create useBulkMarkRead() hook
@@ -129,7 +126,7 @@
 - [ ] 15.3 Add folder parameter to messages.list()
 - [ ] 15.4 Add deleteAll() method with filter params
 - [ ] 15.5 Add TypeScript types for bulk operation requests/responses
-- [ ] 15.6 Add account list endpoint with message counts
+- [ ] 15.6 Update tags type to include 'type' field ('ai' | 'account')
 
 ## 16. Nix Configuration
 - [ ] 16.1 Add `folders` option to account submodule (default: ["INBOX", "Sent"])
@@ -148,11 +145,12 @@
 - [ ] 17.7 E2E test: IDLE detects new mail, UI updates
 - [ ] 17.8 Manual test: Verify bulk ops sync to IMAP/Gmail
 - [ ] 17.9 Manual test: Folder navigation and message counts
-- [ ] 17.10 Manual test: Unified account filtering UI
+- [ ] 17.10 Manual test: Account tags appear in Tags section
+- [ ] 17.11 Manual test: Filter by account tag works identically to AI tags
 
 ## 18. Documentation
 - [ ] 18.1 Update QUICKSTART_WEB.md with bulk operations
 - [ ] 18.2 Document folder configuration in README
 - [ ] 18.3 Add troubleshooting section for IDLE issues
 - [ ] 18.4 Update API documentation (OpenAPI/Swagger)
-- [ ] 18.5 Document unified account filtering UX
+- [ ] 18.5 Document account tags in Tags section (tag-focused filtering)

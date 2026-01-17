@@ -260,76 +260,80 @@ Toast: "8 of 10 messages deleted. 2 failed."
 
 ### 8. Unified Account Filtering UI
 
-**Decision**: Treat accounts as first-class filters in the sidebar, matching the tag filtering UX
+**Decision**: Treat accounts AS tags in the existing Tags section
 
 **Rationale**:
-- Users expect consistent filtering patterns across all dimensions (account, tag, folder)
-- Account selection should be as intuitive as tag selection
-- Multi-account environments benefit from visual filtering (not hidden dropdowns)
-- Reusing existing UI patterns reduces cognitive load
+- Maintains the tag-focused filtering approach that sets this software apart
+- No new UI sections needed - accounts appear alongside AI tags
+- Simpler mental model: everything is a tag (accounts, AI categories, etc.)
+- Multi-selection and OR logic already work for tags
+- Reduces UI complexity and maintains consistency
 
 **Implementation**:
 ```typescript
+// Tags are just tags - no separate state needed for accounts
 interface FilterStore {
-  selectedAccounts: string[];  // Similar to selectedTags
-  selectedTags: string[];
+  selectedTags: string[];  // Includes both AI tags and account tags
   selectedFolder: string | null;
 
-  toggleAccount: (accountId: string) => void;
   toggleTag: (tag: string) => void;
   setFolder: (folder: string) => void;
   clearFilters: () => void;
 }
 
-// Sidebar component
-<Section title="Accounts">
-  {accounts.map(account => (
-    <AccountChip
-      key={account.id}
-      account={account}
-      selected={selectedAccounts.includes(account.id)}
-      onClick={() => toggleAccount(account.id)}
-      count={account.message_count}
+// Sidebar component - single Tags section
+<Section title="Tags">
+  {tags.map(tag => (
+    <TagChip
+      key={tag.name}
+      tag={tag.name}
+      selected={selectedTags.includes(tag.name)}
+      onClick={() => toggleTag(tag.name)}
+      count={tag.count}
+      isAccountTag={tag.type === 'account'}
     />
   ))}
 </Section>
 ```
 
-**UX Pattern**: OR logic for multi-selection
-- Multiple accounts selected → show messages from ANY selected account
-- Matches tag behavior (selecting "work" + "finance" shows messages with either tag)
-- Alternative (single selection) would be inconsistent with tags
-
-**API Integration**:
+**Tag Types**:
 ```typescript
-// MessageList builds filters from store state
-const filters = {
-  account_id: selectedAccounts.length === 1 ? selectedAccounts[0] : undefined,
-  account_ids: selectedAccounts.length > 1 ? selectedAccounts : undefined,
-  tags: selectedTags,
-  folder: selectedFolder,
-};
+interface Tag {
+  name: string;           // "work", "urgent", "newsletter", etc.
+  count: number;          // Message count
+  type: 'ai' | 'account'; // Distinguish for visual styling
+}
 ```
 
-**Backend Support**:
-- API already supports single `account_id` parameter
-- Need to add support for multiple account IDs (OR query)
-- Or: Frontend makes multiple requests and merges results (less efficient)
+**Backend API**:
+- GET /api/tags returns BOTH AI tags and account tags
+- Account tags have type='account' and name=account_id
+- Frontend treats them identically - just clickable filters
+- URL: `?tags=work&tags=urgent` (work is account, urgent is AI tag)
 
-**Decision**: Add multi-account support to backend
-- `GET /api/messages?account_id=work&account_id=personal` (multiple query params)
-- Database query: `WHERE account_id IN (...)`
-- More efficient than client-side merging
+**Visual Distinction**:
+- Account tags: Email icon prefix or "@" symbol
+- AI tags: Existing semantic colors (urgent=red, work=blue, etc.)
+- Both use same TagChip component
+- Optional: Subsections within Tags ("Accounts" header, then "Categories" header)
 
-**Visual Design**:
-- Reuse TagChip component with account-specific color scheme
-- Account chips use neutral colors (grey/blue) vs tag semantic colors
-- Hover tooltip shows full email address
-- Count badge shows total messages (not unread count, for simplicity)
+**Example Tags List**:
+```
+Tags
+  @ work (150)              ← Account tag (email icon)
+  @ personal (75)           ← Account tag
+  @ kc.calvelli@gmail.com  ← Account tag (full email)
+  urgent (12)               ← AI tag (red)
+  newsletter (45)           ← AI tag (grey)
+  finance (8)               ← AI tag (green)
+```
 
-**Alternative considered**: Dropdown for account selection
-- Rejected: Hidden UI pattern, doesn't scale visually to 5+ accounts
-- Rejected: Inconsistent with tag filtering UX
+**Alternative considered**: Separate "Accounts" section
+- Rejected: Violates tag-focused approach
+- Rejected: Adds UI complexity
+- Rejected: Would require separate state management
+
+**Decision**: Single Tags section, visual indicators for account vs AI tags
 
 ## Data Flow Diagrams
 

@@ -221,70 +221,73 @@ Actions performed in a folder (delete, mark read) MUST sync to the corresponding
 **Or** the IMAP \Deleted flag is set and EXPUNGE is deferred
 **And** the database record is updated to folder="Trash"
 
-### Requirement: Users SHALL be able to filter by account using the same UI pattern as tags
+### Requirement: Users SHALL be able to filter by account by treating accounts as tags
 
-Since the inbox and folder structure are unified across all accounts, users MUST be able to filter by email account using the same interaction pattern and visual design as tag filtering.
+Since the inbox and folder structure are unified across all accounts, users MUST be able to filter by email account by clicking account tags in the Tags section, maintaining the tag-focused filtering approach.
 
-#### Scenario: View accounts in sidebar with tag-like UI
+#### Scenario: View accounts as tags in Tags section
 
 **Given** the user has configured 2 email accounts: "work" and "personal"
 **When** the user opens the web UI
-**Then** an "Accounts" section appears in the sidebar (above or below Tags section)
-**And** each account is displayed as a clickable chip (similar to tag chips)
-**And** each account chip shows the account name
-**And** each account chip shows a message count badge
-**And** accounts use consistent visual styling with tags (outlined chips)
+**Then** the "Tags" section includes account tags alongside AI-generated tags
+**And** each account appears as a tag chip showing the account ID or email address
+**And** account tags show a message count badge (like other tags)
+**And** account tags use the same visual styling as regular tags (outlined chips)
+**And** account tags are clearly identifiable (e.g., different icon or label prefix)
 
-#### Scenario: Filter messages by clicking account chip
+#### Scenario: Filter messages by clicking account tag
 
-**Given** the sidebar displays accounts: "work" (150 messages) and "personal" (75 messages)
-**When** the user clicks the "work" account chip
-**Then** the account chip is visually highlighted (filled/selected state)
+**Given** the Tags section displays "work" (150 messages) and "personal" (75 messages)
+**And** the Tags section also displays AI tags like "urgent" and "newsletter"
+**When** the user clicks the "work" account tag
+**Then** the tag is visually highlighted (filled/selected state)
 **And** the message list updates to show only messages from "work" account
-**And** the URL updates to include ?account_id=work
+**And** the URL updates to include ?tags=work
 **And** the message list shows 150 messages
-**When** the user clicks the "work" chip again
+**When** the user clicks the "work" tag again
 **Then** the filter is removed
 **And** all messages from all accounts are shown
 **And** the chip returns to outlined state
 
-#### Scenario: Combine account and tag filters
+#### Scenario: Combine account tags with AI tags
 
-**Given** the user has clicked the "work" account chip (selected)
+**Given** the user has clicked the "work" account tag (selected)
 **And** the message list shows only work messages
-**When** the user clicks a tag chip "urgent"
-**Then** both "work" account AND "urgent" tag are selected/highlighted
-**And** the message list shows only work messages with urgent tag
-**And** the URL includes ?account_id=work&tags=urgent
+**When** the user clicks the "urgent" AI tag
+**Then** both "work" AND "urgent" tags are selected/highlighted
+**And** the message list shows messages with either "work" account OR "urgent" tag (OR logic)
+**And** the URL includes ?tags=work&tags=urgent
 **And** both filters can be cleared independently
 
-#### Scenario: Account count badges update after operations
+**Note**: Tags already support multi-selection with OR logic, so account tags behave identically to AI tags.
 
-**Given** the "work" account shows "50" messages
+#### Scenario: Account tag count badges update after operations
+
+**Given** the "work" account tag shows "50" messages
 **And** the user has filtered to show work messages
 **When** the user bulk deletes 10 messages
-**Then** the "work" account badge updates to "40"
+**Then** the "work" account tag badge updates to "40"
 **And** the count reflects the new total across all folders
 
-#### Scenario: Multi-account selection
+#### Scenario: Distinguish account tags from AI tags visually
 
-**Given** the sidebar displays accounts: "work", "personal", "family"
-**When** the user clicks "work" account
-**Then** only work messages are shown
-**When** the user clicks "personal" account (without clearing work)
-**Then** both "work" AND "personal" are selected
-**And** messages from either account are shown (OR logic)
-**And** the URL includes ?account_id=work&account_id=personal
-**Or** the UI only allows single account selection (AND logic)
+**Given** the Tags section displays both account tags and AI tags
+**When** the user views the Tags section
+**Then** account tags have a visual indicator (e.g., email icon, "@" prefix, or lighter color)
+**And** AI tags have their own visual indicator (e.g., robot icon or semantic colors)
+**And** both types of tags use the same interaction pattern (clickable chips)
 
-**Note**: Decision needed - should multiple accounts use OR logic (like tags) or only allow single account selection? Recommend OR logic for consistency with tag behavior.
+**Alternative**: Use subsections within Tags:
+- "Accounts" subsection header with account tags
+- "Categories" subsection header with AI tags
 
-#### Scenario: Account chips show email address on hover
+#### Scenario: Account tags use account name or email
 
-**Given** the sidebar displays account chip "work"
-**When** the user hovers over the "work" chip
-**Then** a tooltip appears showing the full email address (e.g., "user@company.com")
-**And** the tooltip shows unread count (e.g., "12 unread / 50 total")
+**Given** an account configured with id="work" and email="user@company.com"
+**When** the account tag is displayed in the Tags section
+**Then** the tag shows the account ID "work" (if human-readable)
+**Or** the tag shows the email address "user@company.com" (if no custom name)
+**And** hovering shows the full email address in a tooltip
 
 ## MODIFIED Requirements
 
