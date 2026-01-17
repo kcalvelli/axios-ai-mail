@@ -209,7 +209,7 @@ class IMAPProvider(BaseEmailProvider):
         Args:
             since: Only fetch messages after this date
             max_results: Maximum number of messages to fetch
-            folder: Folder to fetch from (defaults to config.folder)
+            folder: Folder to fetch from. If None, fetches from all common folders (INBOX, Sent, Trash)
 
         Returns:
             List of normalized Message objects
@@ -217,15 +217,81 @@ class IMAPProvider(BaseEmailProvider):
         if not self.connection:
             raise RuntimeError("Not authenticated. Call authenticate() first.")
 
-        # Use default folder if not specified
-        folder = folder or self.config.folder
+        # If specific folder requested, fetch from that folder only
+        if folder:
+            return self._fetch_from_folder(folder, since, max_results)
 
+        # Otherwise, fetch from multiple common folders (like Gmail's "in:all")
+        logger.info("Fetching messages from all folders (INBOX, Sent, Trash)")
+
+        # Get available folders
+        available_folders = self.list_folders()
+
+        # Map common folder names to what we want to fetch
+        folders_to_fetch = []
+
+        # INBOX (always exists)
+        if "INBOX" in available_folders:
+            folders_to_fetch.append("INBOX")
+
+        # Sent folder (various names)
+        for sent_name in ["Sent", "Sent Items", "Sent Mail", "INBOX.Sent"]:
+            if sent_name in available_folders and sent_name not in folders_to_fetch:
+                folders_to_fetch.append(sent_name)
+                break
+
+        # Trash folder (various names)
+        for trash_name in ["Trash", "Deleted Items", "Deleted Messages", "INBOX.Trash"]:
+            if trash_name in available_folders and trash_name not in folders_to_fetch:
+                folders_to_fetch.append(trash_name)
+                break
+
+        logger.info(f"Fetching from folders: {folders_to_fetch}")
+
+        # Fetch from each folder and combine results
+        all_messages = []
+        per_folder_limit = max(10, max_results // len(folders_to_fetch)) if folders_to_fetch else max_results
+
+        for folder_name in folders_to_fetch:
+            try:
+                messages = self._fetch_from_folder(folder_name, since, per_folder_limit)
+                all_messages.extend(messages)
+                logger.info(f"Fetched {len(messages)} messages from {folder_name}")
+            except Exception as e:
+                logger.error(f"Failed to fetch from folder {folder_name}: {e}")
+                continue
+
+        # Sort by date (most recent first) and limit total results
+        all_messages.sort(key=lambda m: m.date, reverse=True)
+        if len(all_messages) > max_results:
+            all_messages = all_messages[:max_results]
+
+        logger.info(f"Total fetched: {len(all_messages)} messages across {len(folders_to_fetch)} folders")
+        return all_messages
+
+    def _fetch_from_folder(
+        self,
+        folder: str,
+        since: Optional[datetime] = None,
+        max_results: int = 100,
+    ) -> List[Message]:
+        """
+        Fetch messages from a specific IMAP folder.
+
+        Args:
+            folder: IMAP folder name
+            since: Only fetch messages after this date
+            max_results: Maximum number of messages to fetch
+
+        Returns:
+            List of normalized Message objects
+        """
         # Select the folder
         if not self._select_folder(folder):
             logger.error(f"Failed to select folder {folder}, skipping fetch")
             return []
 
-        logger.info(f"Fetching messages from IMAP folder '{folder}' (max: {max_results})")
+        logger.debug(f"Fetching messages from IMAP folder '{folder}' (max: {max_results})")
 
         # Build IMAP search query
         if since:
@@ -247,7 +313,7 @@ class IMAPProvider(BaseEmailProvider):
         if len(msg_ids) > max_results:
             msg_ids = msg_ids[-max_results:]
 
-        logger.info(f"Found {len(msg_ids)} messages to fetch")
+        logger.debug(f"Found {len(msg_ids)} messages in {folder}")
 
         messages = []
         for msg_id in msg_ids:
@@ -275,7 +341,6 @@ class IMAPProvider(BaseEmailProvider):
                 logger.error(f"Error parsing message {msg_id}: {e}")
                 continue
 
-        logger.info(f"Successfully fetched {len(messages)} messages")
         return messages
 
     def mark_as_read(self, message_id: str) -> None:
