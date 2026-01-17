@@ -11,7 +11,7 @@ let
       pname = "axios-ai-mail-web";
       version = "2.0.0";
       src = ../../web;
-      npmDepsHash = "sha256-0PyMKTQ3DyfqBb5/eOTZXDDXaO6FL8I5iDdDe2WBy6c=";
+      npmDepsHash = "sha256-XTZ7hZaJ5n9R5etODt/7ftMk0b/O6XTXWS8nM5Q3P74=";
       buildPhase = "npm run build";
       installPhase = ''
         mkdir -p $out
@@ -197,6 +197,8 @@ let
         smtp_host = account.smtp.host;
         smtp_port = account.smtp.port;
         smtp_tls = account.smtp.tls;
+        # SMTP uses same password as IMAP by default
+        smtp_password_file = account.passwordFile;
       };
     }) cfg.accounts;
 
