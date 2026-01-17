@@ -258,6 +258,79 @@ const { mutate } = useBulkDelete({
 Toast: "8 of 10 messages deleted. 2 failed."
 ```
 
+### 8. Unified Account Filtering UI
+
+**Decision**: Treat accounts as first-class filters in the sidebar, matching the tag filtering UX
+
+**Rationale**:
+- Users expect consistent filtering patterns across all dimensions (account, tag, folder)
+- Account selection should be as intuitive as tag selection
+- Multi-account environments benefit from visual filtering (not hidden dropdowns)
+- Reusing existing UI patterns reduces cognitive load
+
+**Implementation**:
+```typescript
+interface FilterStore {
+  selectedAccounts: string[];  // Similar to selectedTags
+  selectedTags: string[];
+  selectedFolder: string | null;
+
+  toggleAccount: (accountId: string) => void;
+  toggleTag: (tag: string) => void;
+  setFolder: (folder: string) => void;
+  clearFilters: () => void;
+}
+
+// Sidebar component
+<Section title="Accounts">
+  {accounts.map(account => (
+    <AccountChip
+      key={account.id}
+      account={account}
+      selected={selectedAccounts.includes(account.id)}
+      onClick={() => toggleAccount(account.id)}
+      count={account.message_count}
+    />
+  ))}
+</Section>
+```
+
+**UX Pattern**: OR logic for multi-selection
+- Multiple accounts selected → show messages from ANY selected account
+- Matches tag behavior (selecting "work" + "finance" shows messages with either tag)
+- Alternative (single selection) would be inconsistent with tags
+
+**API Integration**:
+```typescript
+// MessageList builds filters from store state
+const filters = {
+  account_id: selectedAccounts.length === 1 ? selectedAccounts[0] : undefined,
+  account_ids: selectedAccounts.length > 1 ? selectedAccounts : undefined,
+  tags: selectedTags,
+  folder: selectedFolder,
+};
+```
+
+**Backend Support**:
+- API already supports single `account_id` parameter
+- Need to add support for multiple account IDs (OR query)
+- Or: Frontend makes multiple requests and merges results (less efficient)
+
+**Decision**: Add multi-account support to backend
+- `GET /api/messages?account_id=work&account_id=personal` (multiple query params)
+- Database query: `WHERE account_id IN (...)`
+- More efficient than client-side merging
+
+**Visual Design**:
+- Reuse TagChip component with account-specific color scheme
+- Account chips use neutral colors (grey/blue) vs tag semantic colors
+- Hover tooltip shows full email address
+- Count badge shows total messages (not unread count, for simplicity)
+
+**Alternative considered**: Dropdown for account selection
+- Rejected: Hidden UI pattern, doesn't scale visually to 5+ accounts
+- Rejected: Inconsistent with tag filtering UX
+
 ## Data Flow Diagrams
 
 ### Bulk Delete Flow

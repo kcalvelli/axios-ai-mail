@@ -16,12 +16,15 @@
 - [ ] 2.6 Add transaction support for atomic bulk operations
 - [ ] 2.7 Return detailed error info per message (which succeeded/failed)
 
-## 3. Backend - Multi-folder Support
+## 3. Backend - Multi-folder and Multi-account Support
 - [ ] 3.1 Update GET /api/messages to accept folder parameter
 - [ ] 3.2 Add GET /api/folders endpoint to list folders per account
 - [ ] 3.3 Add GET /api/folders/{folder}/stats endpoint (message count, unread)
 - [ ] 3.4 Update Database.query_messages() to support folder filtering
 - [ ] 3.5 Update sync logic to detect and store folder for each message
+- [ ] 3.6 Add support for multiple account_id query parameters (OR logic)
+- [ ] 3.7 Update Database.query_messages() to filter by account_ids list
+- [ ] 3.8 Add GET /api/accounts endpoint with message counts per account
 
 ## 4. IMAP Provider - Multi-folder Sync
 - [ ] 4.1 Add folder parameter to fetch_messages() method
@@ -89,50 +92,67 @@
 - [ ] 11.6 Persist selected folder in URL (?folder=sent)
 - [ ] 11.7 Add folder icons (Inbox, Sent, Drafts, Archive, Trash)
 
-## 12. Web UI - React Hooks for Bulk Operations
-- [ ] 12.1 Create useBulkMarkRead() hook
-- [ ] 12.2 Create useBulkDelete() hook
-- [ ] 12.3 Create useBulkUpdateTags() hook
-- [ ] 12.4 Create useDeleteAll() hook
-- [ ] 12.5 Implement optimistic updates for all bulk operations
-- [ ] 12.6 Handle partial success (some messages failed)
-- [ ] 12.7 Invalidate React Query cache after bulk operations
+## 12. Web UI - Unified Account Filtering
+- [ ] 12.1 Add "Accounts" section to sidebar (similar to Tags section)
+- [ ] 12.2 Fetch account list with message counts from API
+- [ ] 12.3 Display accounts as clickable chips (reuse TagChip component or create AccountChip)
+- [ ] 12.4 Add selectedAccounts to Zustand store (similar to selectedTags)
+- [ ] 12.5 Implement toggle account selection on chip click
+- [ ] 12.6 Visual highlight for selected accounts (filled vs outlined)
+- [ ] 12.7 Update MessageList to filter by selectedAccounts
+- [ ] 12.8 Persist selected accounts in URL (?account_id=work)
+- [ ] 12.9 Support multi-account selection with OR logic
+- [ ] 12.10 Add tooltip showing full email address on account chip hover
+- [ ] 12.11 Update account count badges after bulk operations
+- [ ] 12.12 Combine account + tag + folder filters seamlessly
 
-## 13. Web UI - Real-time Updates (WebSocket)
-- [ ] 13.1 Add WebSocket client connection
-- [ ] 13.2 Subscribe to "new_mail" events
-- [ ] 13.3 Update message list when new mail arrives
-- [ ] 13.4 Show toast notification: "3 new messages"
-- [ ] 13.5 Handle reconnection after connection loss
-- [ ] 13.6 Debounce rapid updates (batch within 1 second)
+## 13. Web UI - React Hooks for Bulk Operations
+- [ ] 13.1 Create useBulkMarkRead() hook
+- [ ] 13.2 Create useBulkDelete() hook
+- [ ] 13.3 Create useBulkUpdateTags() hook
+- [ ] 13.4 Create useDeleteAll() hook
+- [ ] 13.5 Implement optimistic updates for all bulk operations
+- [ ] 13.6 Handle partial success (some messages failed)
+- [ ] 13.7 Invalidate React Query cache after bulk operations
 
-## 14. API Client Updates
-- [ ] 14.1 Add bulk operations to web/src/api/client.ts
-- [ ] 14.2 Add folder endpoints (list, stats)
-- [ ] 14.3 Add folder parameter to messages.list()
-- [ ] 14.4 Add deleteAll() method with filter params
-- [ ] 14.5 Add TypeScript types for bulk operation requests/responses
+## 14. Web UI - Real-time Updates (Server-Sent Events)
+- [ ] 14.1 Add EventSource client connection
+- [ ] 14.2 Subscribe to "new_mail" events
+- [ ] 14.3 Update message list when new mail arrives
+- [ ] 14.4 Show toast notification: "3 new messages"
+- [ ] 14.5 Handle reconnection after connection loss
+- [ ] 14.6 Debounce rapid updates (batch within 1 second)
 
-## 15. Nix Configuration
-- [ ] 15.1 Add `folders` option to account submodule (default: ["INBOX", "Sent"])
-- [ ] 15.2 Add `idleEnabled` option (default: true)
-- [ ] 15.3 Update systemd service for long-running IDLE process
-- [ ] 15.4 Add service restart on failure
-- [ ] 15.5 Generate config.yaml with folder settings
+## 15. API Client Updates
+- [ ] 15.1 Add bulk operations to web/src/api/client.ts
+- [ ] 15.2 Add folder endpoints (list, stats)
+- [ ] 15.3 Add folder parameter to messages.list()
+- [ ] 15.4 Add deleteAll() method with filter params
+- [ ] 15.5 Add TypeScript types for bulk operation requests/responses
+- [ ] 15.6 Add account list endpoint with message counts
 
-## 16. Testing & Validation
-- [ ] 16.1 Unit tests for IMAPIdleManager
-- [ ] 16.2 Unit tests for bulk operation endpoints
-- [ ] 16.3 Unit tests for folder mapping
-- [ ] 16.4 Integration test: Select 10 messages, bulk delete
-- [ ] 16.5 Integration test: Delete all in current filter
-- [ ] 16.6 Integration test: Multi-folder sync
-- [ ] 16.7 E2E test: IDLE detects new mail, UI updates
-- [ ] 16.8 Manual test: Verify bulk ops sync to IMAP/Gmail
-- [ ] 16.9 Manual test: Folder navigation and message counts
+## 16. Nix Configuration
+- [ ] 16.1 Add `folders` option to account submodule (default: ["INBOX", "Sent"])
+- [ ] 16.2 Add `idleEnabled` option (default: true)
+- [ ] 16.3 Update systemd service for long-running IDLE process
+- [ ] 16.4 Add service restart on failure
+- [ ] 16.5 Generate config.yaml with folder settings
 
-## 17. Documentation
-- [ ] 17.1 Update QUICKSTART_WEB.md with bulk operations
-- [ ] 17.2 Document folder configuration in README
-- [ ] 17.3 Add troubleshooting section for IDLE issues
-- [ ] 17.4 Update API documentation (OpenAPI/Swagger)
+## 17. Testing & Validation
+- [ ] 17.1 Unit tests for IMAPIdleManager
+- [ ] 17.2 Unit tests for bulk operation endpoints
+- [ ] 17.3 Unit tests for folder mapping
+- [ ] 17.4 Integration test: Select 10 messages, bulk delete
+- [ ] 17.5 Integration test: Delete all in current filter
+- [ ] 17.6 Integration test: Multi-folder sync
+- [ ] 17.7 E2E test: IDLE detects new mail, UI updates
+- [ ] 17.8 Manual test: Verify bulk ops sync to IMAP/Gmail
+- [ ] 17.9 Manual test: Folder navigation and message counts
+- [ ] 17.10 Manual test: Unified account filtering UI
+
+## 18. Documentation
+- [ ] 18.1 Update QUICKSTART_WEB.md with bulk operations
+- [ ] 18.2 Document folder configuration in README
+- [ ] 18.3 Add troubleshooting section for IDLE issues
+- [ ] 18.4 Update API documentation (OpenAPI/Swagger)
+- [ ] 18.5 Document unified account filtering UX

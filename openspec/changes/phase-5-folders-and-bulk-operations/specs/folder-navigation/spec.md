@@ -221,6 +221,71 @@ Actions performed in a folder (delete, mark read) MUST sync to the corresponding
 **Or** the IMAP \Deleted flag is set and EXPUNGE is deferred
 **And** the database record is updated to folder="Trash"
 
+### Requirement: Users SHALL be able to filter by account using the same UI pattern as tags
+
+Since the inbox and folder structure are unified across all accounts, users MUST be able to filter by email account using the same interaction pattern and visual design as tag filtering.
+
+#### Scenario: View accounts in sidebar with tag-like UI
+
+**Given** the user has configured 2 email accounts: "work" and "personal"
+**When** the user opens the web UI
+**Then** an "Accounts" section appears in the sidebar (above or below Tags section)
+**And** each account is displayed as a clickable chip (similar to tag chips)
+**And** each account chip shows the account name
+**And** each account chip shows a message count badge
+**And** accounts use consistent visual styling with tags (outlined chips)
+
+#### Scenario: Filter messages by clicking account chip
+
+**Given** the sidebar displays accounts: "work" (150 messages) and "personal" (75 messages)
+**When** the user clicks the "work" account chip
+**Then** the account chip is visually highlighted (filled/selected state)
+**And** the message list updates to show only messages from "work" account
+**And** the URL updates to include ?account_id=work
+**And** the message list shows 150 messages
+**When** the user clicks the "work" chip again
+**Then** the filter is removed
+**And** all messages from all accounts are shown
+**And** the chip returns to outlined state
+
+#### Scenario: Combine account and tag filters
+
+**Given** the user has clicked the "work" account chip (selected)
+**And** the message list shows only work messages
+**When** the user clicks a tag chip "urgent"
+**Then** both "work" account AND "urgent" tag are selected/highlighted
+**And** the message list shows only work messages with urgent tag
+**And** the URL includes ?account_id=work&tags=urgent
+**And** both filters can be cleared independently
+
+#### Scenario: Account count badges update after operations
+
+**Given** the "work" account shows "50" messages
+**And** the user has filtered to show work messages
+**When** the user bulk deletes 10 messages
+**Then** the "work" account badge updates to "40"
+**And** the count reflects the new total across all folders
+
+#### Scenario: Multi-account selection
+
+**Given** the sidebar displays accounts: "work", "personal", "family"
+**When** the user clicks "work" account
+**Then** only work messages are shown
+**When** the user clicks "personal" account (without clearing work)
+**Then** both "work" AND "personal" are selected
+**And** messages from either account are shown (OR logic)
+**And** the URL includes ?account_id=work&account_id=personal
+**Or** the UI only allows single account selection (AND logic)
+
+**Note**: Decision needed - should multiple accounts use OR logic (like tags) or only allow single account selection? Recommend OR logic for consistency with tag behavior.
+
+#### Scenario: Account chips show email address on hover
+
+**Given** the sidebar displays account chip "work"
+**When** the user hovers over the "work" chip
+**Then** a tooltip appears showing the full email address (e.g., "user@company.com")
+**And** the tooltip shows unread count (e.g., "12 unread / 50 total")
+
 ## MODIFIED Requirements
 
 ### Requirement: Message listing SHALL filter by folder in addition to tags

@@ -9,6 +9,7 @@ Phase 4 successfully implemented single message operations (view body, mark read
 3. **No "select all"**: No way to quickly select all messages matching current filter for bulk actions
 4. **Polling-based sync**: IMAP accounts sync every 5 minutes, causing delays in seeing new mail
 5. **No visual feedback for selection**: Users need clear indication of which messages are selected and what actions are available
+6. **Inconsistent filtering UX**: Tags have a rich filtering UI in the sidebar, but account filtering is hidden or inconsistent - users expect to filter by account using the same interaction pattern as tags
 
 User quote: *"ability to delete messages from the main screen. There should be a UI element to show radio buttons to the left of every message when clicked, that can then be selected, and a trash icon that will delete the selected messages. There should also be a delete all option."*
 
@@ -47,6 +48,13 @@ User quote: *"ability to delete messages from the main screen. There should be a
 - WebSocket notifications to update UI in real-time
 - Systemd service updated for long-running IDLE connection
 
+### Unified Account and Tag Filtering
+- Display accounts in sidebar with same UI pattern as tags
+- Clickable account chips to filter messages by account
+- Visual indication of selected account (matching tag behavior)
+- Combine account + tag + folder filters seamlessly
+- Show message count per account (like tag counts)
+
 ## Impact
 
 - Affected capabilities: `web-ui`, `email-management`, `imap-provider`, `gmail-provider`
@@ -70,6 +78,7 @@ None - this is additive functionality. Existing single-message operations remain
 - Click individual messages to open, mark read, or delete
 - Only see INBOX messages
 - Wait up to 5 minutes for new mail to appear
+- Account filtering requires dropdown or hidden UI
 
 ### After
 - Select multiple messages with checkboxes
@@ -77,3 +86,4 @@ None - this is additive functionality. Existing single-message operations remain
 - "Delete All" option for current view
 - Navigate between Inbox, Sent, Drafts, Archive, Trash
 - New mail appears instantly (if IDLE supported)
+- Filter by account using same UI as tags (clickable chips in sidebar)
