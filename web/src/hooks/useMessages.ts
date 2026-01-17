@@ -61,6 +61,28 @@ export function useMarkRead() {
     onSuccess: () => {
       // Invalidate and refetch messages
       queryClient.invalidateQueries({ queryKey: messageKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: messageKeys.details() });
+    },
+  });
+}
+
+export function useMessageBody(id: string) {
+  return useQuery({
+    queryKey: [...messageKeys.detail(id), 'body'],
+    queryFn: () => messages.getBody(id),
+    enabled: !!id,
+    staleTime: 10 * 60 * 1000, // 10 minutes - bodies don't change
+  });
+}
+
+export function useDeleteMessage() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => messages.delete(id),
+    onSuccess: () => {
+      // Invalidate and refetch messages list
+      queryClient.invalidateQueries({ queryKey: messageKeys.lists() });
     },
   });
 }

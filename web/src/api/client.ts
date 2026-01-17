@@ -46,11 +46,21 @@ export const messages = {
 
   get: (id: string) => api.get<Message>(`/messages/${id}`).then((r) => r.data),
 
+  getBody: (id: string) =>
+    api
+      .get<{ id: string; body_text: string | null; body_html: string | null }>(
+        `/messages/${id}/body`
+      )
+      .then((r) => r.data),
+
   updateTags: (id: string, data: UpdateTagsRequest) =>
     api.put<Message>(`/messages/${id}/tags`, data).then((r) => r.data),
 
   markRead: (id: string, data: MarkReadRequest) =>
     api.post<Message>(`/messages/${id}/read`, data).then((r) => r.data),
+
+  delete: (id: string) =>
+    api.delete<{ status: string; message_id: string }>(`/messages/${id}`).then((r) => r.data),
 };
 
 // Account endpoints
