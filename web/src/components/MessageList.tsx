@@ -13,9 +13,11 @@ import {
   DialogContent,
   DialogContentText,
   DialogActions,
+  Pagination,
+  Stack,
 } from '@mui/material';
 import { InboxOutlined, DeleteSweep, CheckBox } from '@mui/icons-material';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MessageCard } from './MessageCard';
 import { BulkActionBar } from './BulkActionBar';
 import {
@@ -52,10 +54,16 @@ export function MessageList() {
 
   const [clearTrashDialogOpen, setClearTrashDialogOpen] = useState(false);
   const [permanentDeleteDialogOpen, setPermanentDeleteDialogOpen] = useState(false);
+  const [page, setPage] = useState(1);
 
   // Get folder from URL query params (default to inbox)
   const folder = searchParams.get('folder') || 'inbox';
   const isTrash = folder === 'trash';
+
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [selectedAccount, selectedTags, isUnreadOnly, searchQuery, folder]);
 
   // Bulk operation handlers
   const handleBulkDelete = () => {
@@ -173,9 +181,10 @@ export function MessageList() {
   };
 
   // Build filters
+  const ITEMS_PER_PAGE = 50;
   const filters: any = {
-    limit: 50,
-    offset: 0,
+    limit: ITEMS_PER_PAGE,
+    offset: (page - 1) * ITEMS_PER_PAGE,
     folder: folder,
   };
 
@@ -299,6 +308,27 @@ export function MessageList() {
             onClick={() => navigate(`/messages/${message.id}`)}
           />
         ))}
+
+        {/* Pagination */}
+        {data.total > ITEMS_PER_PAGE && (
+          <Stack spacing={2} alignItems="center" mt={3} mb={2}>
+            <Pagination
+              count={Math.ceil(data.total / ITEMS_PER_PAGE)}
+              page={page}
+              onChange={(event, value) => {
+                setPage(value);
+                clearSelection(); // Clear selections when changing pages
+                window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll to top
+              }}
+              color="primary"
+              showFirstButton
+              showLastButton
+            />
+            <Typography variant="caption" color="text.secondary">
+              Showing {data.offset + 1}-{Math.min(data.offset + ITEMS_PER_PAGE, data.total)} of {data.total}
+            </Typography>
+          </Stack>
+        )}
       </Box>
 
       {/* Bulk Action Bar */}
