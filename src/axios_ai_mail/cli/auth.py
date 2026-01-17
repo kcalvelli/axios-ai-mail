@@ -6,7 +6,7 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Optional, Dict, Any, List
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlparse, quote
 
 import typer
 from rich.console import Console
@@ -244,7 +244,12 @@ def setup_gmail_oauth(email: str, account_id: Optional[str] = None) -> None:
     console.print(f"Opening browser for authorization (callback on port {port})...")
 
     redirect_uri = f"http://localhost:{port}"
-    scopes = "https://www.googleapis.com/auth/gmail.modify"
+    # All scopes needed for full Gmail functionality (read, modify, send)
+    scopes = (
+        "https://www.googleapis.com/auth/gmail.modify "
+        "https://www.googleapis.com/auth/gmail.send "
+        "https://www.googleapis.com/auth/gmail.readonly"
+    )
 
     console.print(f"\n[yellow]IMPORTANT: In Google Cloud Console, add this redirect URI:[/yellow]")
     console.print(f"[cyan]{redirect_uri}[/cyan]")
@@ -254,7 +259,7 @@ def setup_gmail_oauth(email: str, account_id: Optional[str] = None) -> None:
         f"client_id={client_id}&"
         f"redirect_uri={redirect_uri}&"
         f"response_type=code&"
-        f"scope={scopes}&"
+        f"scope={quote(scopes, safe='')}&"
         f"access_type=offline&"
         f"prompt=consent"
     )
