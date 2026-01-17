@@ -22,6 +22,9 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  paramsSerializer: {
+    indexes: null, // Serialize arrays as ?tags=work&tags=finance (FastAPI compatible)
+  },
 });
 
 // Add response interceptor for error handling
@@ -38,6 +41,7 @@ export const messages = {
   list: (params?: {
     account_id?: string;
     tag?: string;
+    tags?: string[];
     is_unread?: boolean;
     search?: string;
     limit?: number;
