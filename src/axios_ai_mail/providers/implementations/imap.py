@@ -25,6 +25,13 @@ class IMAPConfig(ProviderConfig):
     folder: str = "INBOX"
     keyword_prefix: str = "$"  # Prefix for IMAP keywords (e.g., $work, $finance)
 
+    # SMTP settings for sending
+    smtp_host: Optional[str] = None
+    smtp_port: int = 587
+    smtp_tls: bool = True
+    smtp_username: Optional[str] = None
+    smtp_password_file: Optional[str] = None
+
 
 class IMAPProvider(BaseEmailProvider):
     """IMAP email provider with KEYWORD extension support for tag synchronization."""
@@ -949,3 +956,239 @@ class IMAPProvider(BaseEmailProvider):
             flags_part = match.group(1)
             return set(flags_part.split())
         return set()
+
+    def send_message(self, mime_message: bytes, thread_id: Optional[str] = None) -> str:
+        """Send a message via SMTP and store in Sent folder.
+
+        Args:
+            mime_message: RFC822 MIME message as bytes
+            thread_id: Optional thread ID (not used for IMAP)
+
+        Returns:
+            Message ID (UID in Sent folder)
+
+        Raises:
+            RuntimeError: If send fails or SMTP not configured
+        """
+        from ...email.smtp_client import SMTPClient, SMTPConfig
+
+        # Validate SMTP configuration
+        if not self.config.smtp_host:
+            raise RuntimeError("SMTP host not configured for IMAP account")
+
+        # Get SMTP credentials
+        smtp_username = self.config.smtp_username or self.config.email
+        if self.config.smtp_password_file:
+            smtp_password = Credentials.load_password(self.config.smtp_password_file)
+        else:
+            # Fall back to IMAP password
+            smtp_password = Credentials.load_password(self.config.credential_file)
+
+        # Create SMTP config
+        smtp_config = SMTPConfig(
+            host=self.config.smtp_host,
+            port=self.config.smtp_port,
+            username=smtp_username,
+            password=smtp_password,
+            use_tls=self.config.smtp_tls,
+        )
+
+        # Parse MIME message to get From and To addresses
+        parsed_message = email.message_from_bytes(mime_message)
+        from_addr = parsed_message.get("From", self.config.email)
+        to_addrs = []
+
+        # Extract all recipients (To, Cc, Bcc)
+        for header in ["To", "Cc", "Bcc"]:
+            if parsed_message.get(header):
+                to_addrs.extend([addr.strip() for addr in parsed_message.get(header).split(",")])
+
+        # Send via SMTP
+        logger.info(f"Sending message via SMTP to {len(to_addrs)} recipients")
+        smtp_client = SMTPClient(smtp_config)
+        message_id = smtp_client.send_message(parsed_message, from_addr, to_addrs)
+
+        # Store in Sent folder
+        try:
+            folder_mapping = self._ensure_folder_mapping()
+            sent_folder = folder_mapping.get("sent", "Sent")
+
+            # Ensure Sent folder exists
+            if sent_folder not in self.list_folders():
+                logger.info(f"Creating Sent folder: {sent_folder}")
+                self.connection.create(sent_folder)
+
+            # Select Sent folder
+            self._select_folder(sent_folder)
+
+            # Append message to Sent folder with \Seen flag
+            result = self.connection.append(
+                sent_folder,
+                "\\Seen",
+                None,  # Internal date (server will set)
+                mime_message,
+            )
+
+            if result[0] == "OK":
+                logger.info(f"Stored sent message in {sent_folder}")
+                # Return a message ID in our format
+                # Extract UID from APPEND response if possible
+                return f"{self.account_id}:{sent_folder}:{message_id}"
+            else:
+                logger.warning(f"Failed to store message in Sent folder: {result}")
+                return message_id
+
+        except Exception as e:
+            logger.warning(f"Failed to store sent message in IMAP: {e}")
+            # Return message ID even if storage failed
+            return message_id
+
+    def list_attachments(self, message_id: str) -> List[Dict[str, str]]:
+        """List attachments for an IMAP message.
+
+        Args:
+            message_id: IMAP message ID (format: account_id:folder:uid)
+
+        Returns:
+            List of attachment metadata dicts
+
+        Raises:
+            RuntimeError: If message not found or fetch fails
+        """
+        if not self.connection:
+            self.authenticate()
+
+        try:
+            # Parse message ID to get folder and UID
+            folder, uid = self._parse_message_id(message_id)
+
+            # Select folder and fetch message
+            self._select_folder(folder)
+            typ, data = self.connection.uid("FETCH", uid, "(RFC822)")
+
+            if typ != "OK" or not data[0]:
+                raise RuntimeError(f"Message {message_id} not found")
+
+            # Parse email
+            raw_email = data[0][1]
+            email_message = email.message_from_bytes(raw_email)
+
+            # Extract attachments
+            attachments = []
+            attachment_index = 0
+
+            for part in email_message.walk():
+                # Skip multipart containers
+                if part.get_content_maintype() == "multipart":
+                    continue
+
+                # Check for filename (attachment indicator)
+                filename = part.get_filename()
+                if not filename:
+                    continue
+
+                # Decode filename if needed
+                if filename:
+                    decoded_parts = decode_header(filename)
+                    filename = "".join(
+                        [
+                            text.decode(encoding or "utf-8") if isinstance(text, bytes) else text
+                            for text, encoding in decoded_parts
+                        ]
+                    )
+
+                # Get content type
+                content_type = part.get_content_type()
+
+                # Check if inline
+                disposition = part.get("Content-Disposition", "")
+                is_inline = disposition.startswith("inline")
+
+                # Calculate size
+                payload = part.get_payload(decode=False)
+                size = len(payload.encode() if isinstance(payload, str) else payload)
+
+                # Use part index as attachment ID
+                attachment_id = f"part_{attachment_index}"
+
+                attachments.append({
+                    "id": attachment_id,
+                    "filename": filename,
+                    "content_type": content_type,
+                    "size": str(size),
+                    "is_inline": is_inline,
+                })
+
+                attachment_index += 1
+
+            logger.debug(f"Found {len(attachments)} attachments in message {message_id}")
+            return attachments
+
+        except Exception as e:
+            error_msg = f"Failed to list attachments for {message_id}: {e}"
+            logger.error(error_msg)
+            raise RuntimeError(error_msg)
+
+    def get_attachment(self, message_id: str, attachment_id: str) -> bytes:
+        """Download attachment data from IMAP message.
+
+        Args:
+            message_id: IMAP message ID (format: account_id:folder:uid)
+            attachment_id: Attachment ID from list_attachments (e.g., "part_0")
+
+        Returns:
+            Binary attachment data
+
+        Raises:
+            RuntimeError: If attachment not found or download fails
+        """
+        if not self.connection:
+            self.authenticate()
+
+        try:
+            # Parse message ID to get folder and UID
+            folder, uid = self._parse_message_id(message_id)
+
+            # Select folder and fetch message
+            self._select_folder(folder)
+            typ, data = self.connection.uid("FETCH", uid, "(RFC822)")
+
+            if typ != "OK" or not data[0]:
+                raise RuntimeError(f"Message {message_id} not found")
+
+            # Parse email
+            raw_email = data[0][1]
+            email_message = email.message_from_bytes(raw_email)
+
+            # Extract attachment by index
+            attachment_index = int(attachment_id.split("_")[1])
+            current_index = 0
+
+            for part in email_message.walk():
+                # Skip multipart containers
+                if part.get_content_maintype() == "multipart":
+                    continue
+
+                # Check for filename
+                filename = part.get_filename()
+                if not filename:
+                    continue
+
+                # Check if this is the requested attachment
+                if current_index == attachment_index:
+                    # Get payload and decode
+                    payload = part.get_payload(decode=True)
+                    if payload:
+                        logger.debug(f"Downloaded attachment {attachment_id} ({len(payload)} bytes)")
+                        return payload
+                    else:
+                        raise RuntimeError(f"Attachment {attachment_id} has no data")
+
+                current_index += 1
+
+            raise RuntimeError(f"Attachment {attachment_id} not found in message")
+
+        except Exception as e:
+            error_msg = f"Failed to download attachment {attachment_id}: {e}"
+            logger.error(error_msg)
+            raise RuntimeError(error_msg)

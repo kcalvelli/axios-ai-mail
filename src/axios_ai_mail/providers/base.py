@@ -148,6 +148,50 @@ class EmailProvider(Protocol):
         """
         ...
 
+    def send_message(self, mime_message: bytes, thread_id: Optional[str] = None) -> str:
+        """Send a message via the provider.
+
+        Args:
+            mime_message: RFC822 MIME message as bytes
+            thread_id: Optional thread ID for replies
+
+        Returns:
+            Sent message ID
+
+        Raises:
+            RuntimeError: If send fails
+        """
+        ...
+
+    def list_attachments(self, message_id: str) -> List[Dict[str, str]]:
+        """List attachments for a message.
+
+        Args:
+            message_id: Provider-specific message ID
+
+        Returns:
+            List of attachment metadata dicts with keys: id, filename, content_type, size
+
+        Raises:
+            RuntimeError: If message not found or fetch fails
+        """
+        ...
+
+    def get_attachment(self, message_id: str, attachment_id: str) -> bytes:
+        """Download attachment data.
+
+        Args:
+            message_id: Provider-specific message ID
+            attachment_id: Attachment identifier
+
+        Returns:
+            Binary attachment data
+
+        Raises:
+            RuntimeError: If attachment not found or download fails
+        """
+        ...
+
 
 class BaseEmailProvider(ABC):
     """Abstract base class for email providers with common functionality."""
@@ -229,6 +273,53 @@ class BaseEmailProvider(ABC):
 
         Raises:
             RuntimeError: If the operation fails
+        """
+        pass
+
+    @abstractmethod
+    def send_message(self, mime_message: bytes, thread_id: Optional[str] = None) -> str:
+        """Send a message via the provider.
+
+        Args:
+            mime_message: RFC822 MIME message as bytes
+            thread_id: Optional thread ID for replies
+
+        Returns:
+            Sent message ID
+
+        Raises:
+            RuntimeError: If send fails
+        """
+        pass
+
+    @abstractmethod
+    def list_attachments(self, message_id: str) -> List[Dict[str, str]]:
+        """List attachments for a message.
+
+        Args:
+            message_id: Provider-specific message ID
+
+        Returns:
+            List of attachment metadata dicts with keys: id, filename, content_type, size
+
+        Raises:
+            RuntimeError: If message not found or fetch fails
+        """
+        pass
+
+    @abstractmethod
+    def get_attachment(self, message_id: str, attachment_id: str) -> bytes:
+        """Download attachment data.
+
+        Args:
+            message_id: Provider-specific message ID
+            attachment_id: Attachment identifier
+
+        Returns:
+            Binary attachment data
+
+        Raises:
+            RuntimeError: If attachment not found or download fails
         """
         pass
 

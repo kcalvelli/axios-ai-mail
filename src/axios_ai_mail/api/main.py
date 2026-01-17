@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 from ..config.loader import ConfigLoader
 from ..db.database import Database
-from .routes import accounts, messages, stats, sync
+from .routes import accounts, attachments, drafts, messages, send, stats, sync
 from .websocket import router as websocket_router
 
 logger = logging.getLogger(__name__)
@@ -48,6 +48,9 @@ app.include_router(messages.router, prefix="/api", tags=["messages"])
 app.include_router(accounts.router, prefix="/api", tags=["accounts"])
 app.include_router(stats.router, prefix="/api", tags=["stats"])
 app.include_router(sync.router, prefix="/api", tags=["sync"])
+app.include_router(drafts.router, prefix="/api", tags=["drafts"])
+app.include_router(attachments.router, prefix="/api", tags=["attachments"])
+app.include_router(send.router, prefix="/api", tags=["send"])
 app.include_router(websocket_router, tags=["websocket"])
 
 # Serve static files (frontend build) if they exist

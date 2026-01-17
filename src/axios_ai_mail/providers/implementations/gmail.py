@@ -42,7 +42,11 @@ class GmailProvider(BaseEmailProvider):
     """Gmail API provider implementation."""
 
     # Gmail API scopes
-    SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
+    SCOPES = [
+        "https://www.googleapis.com/auth/gmail.modify",
+        "https://www.googleapis.com/auth/gmail.send",
+        "https://www.googleapis.com/auth/gmail.readonly",
+    ]
 
     def __init__(self, config: GmailConfig):
         """Initialize Gmail provider.
@@ -436,6 +440,150 @@ class GmailProvider(BaseEmailProvider):
                 error_msg = f"Message {message_id} not found"
             else:
                 error_msg = f"Failed to permanently delete message {message_id}: {e}"
+            logger.error(error_msg)
+            raise RuntimeError(error_msg)
+
+    def send_message(self, mime_message: bytes, thread_id: Optional[str] = None) -> str:
+        """Send a message via Gmail API.
+
+        Args:
+            mime_message: RFC822 MIME message as bytes
+            thread_id: Optional thread ID for replies
+
+        Returns:
+            Sent message ID
+
+        Raises:
+            RuntimeError: If send fails or quota exceeded
+        """
+        import base64
+
+        if not self.service:
+            self.authenticate()
+
+        try:
+            # Validate size (Gmail limit is 25MB)
+            size_mb = len(mime_message) / (1024 * 1024)
+            if size_mb > 25:
+                raise RuntimeError(f"Message exceeds 25MB limit ({size_mb:.2f}MB)")
+
+            # Encode message as base64 URL-safe
+            encoded_message = base64.urlsafe_b64encode(mime_message).decode("utf-8")
+
+            # Build request body
+            body = {"raw": encoded_message}
+            if thread_id:
+                body["threadId"] = thread_id
+
+            # Send via Gmail API
+            result = self.service.users().messages().send(
+                userId="me", body=body
+            ).execute()
+
+            message_id = result["id"]
+            logger.info(f"Sent Gmail message {message_id}")
+            return message_id
+
+        except HttpError as e:
+            if e.resp.status == 429:
+                error_msg = "Send quota exceeded"
+            elif e.resp.status == 413:
+                error_msg = f"Message too large ({size_mb:.2f}MB)"
+            else:
+                error_msg = f"Failed to send message: {e}"
+            logger.error(error_msg)
+            raise RuntimeError(error_msg)
+
+    def list_attachments(self, message_id: str) -> List[Dict[str, str]]:
+        """List attachments for a Gmail message.
+
+        Args:
+            message_id: Gmail message ID
+
+        Returns:
+            List of attachment metadata dicts
+
+        Raises:
+            RuntimeError: If message not found or fetch fails
+        """
+        if not self.service:
+            self.authenticate()
+
+        try:
+            # Fetch message with payload
+            message = self.service.users().messages().get(
+                userId="me", id=message_id, format="full"
+            ).execute()
+
+            attachments = []
+            payload = message.get("payload", {})
+
+            # Recursively find all parts with filenames
+            def extract_attachments(part):
+                if "filename" in part and part["filename"]:
+                    attachment_id = part["body"].get("attachmentId")
+                    if attachment_id:
+                        attachments.append({
+                            "id": attachment_id,
+                            "filename": part["filename"],
+                            "content_type": part.get("mimeType", "application/octet-stream"),
+                            "size": str(part["body"].get("size", 0)),
+                            "is_inline": part.get("headers", {}).get("Content-Disposition", "").startswith("inline"),
+                        })
+
+                # Recurse into multipart parts
+                if "parts" in part:
+                    for subpart in part["parts"]:
+                        extract_attachments(subpart)
+
+            extract_attachments(payload)
+
+            logger.debug(f"Found {len(attachments)} attachments in message {message_id}")
+            return attachments
+
+        except HttpError as e:
+            if e.resp.status == 404:
+                error_msg = f"Message {message_id} not found"
+            else:
+                error_msg = f"Failed to list attachments for {message_id}: {e}"
+            logger.error(error_msg)
+            raise RuntimeError(error_msg)
+
+    def get_attachment(self, message_id: str, attachment_id: str) -> bytes:
+        """Download attachment data from Gmail.
+
+        Args:
+            message_id: Gmail message ID
+            attachment_id: Attachment ID from list_attachments
+
+        Returns:
+            Binary attachment data
+
+        Raises:
+            RuntimeError: If attachment not found or download fails
+        """
+        import base64
+
+        if not self.service:
+            self.authenticate()
+
+        try:
+            # Download attachment via Gmail API
+            attachment = self.service.users().messages().attachments().get(
+                userId="me", messageId=message_id, id=attachment_id
+            ).execute()
+
+            # Decode base64 data
+            data = base64.urlsafe_b64decode(attachment["data"])
+
+            logger.debug(f"Downloaded attachment {attachment_id} ({len(data)} bytes)")
+            return data
+
+        except HttpError as e:
+            if e.resp.status == 404:
+                error_msg = f"Attachment {attachment_id} not found"
+            else:
+                error_msg = f"Failed to download attachment {attachment_id}: {e}"
             logger.error(error_msg)
             raise RuntimeError(error_msg)
 

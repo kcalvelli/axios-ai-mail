@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Dict, List, Optional
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, LargeBinary, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -109,3 +109,61 @@ class Feedback(Base):
 
     def __repr__(self) -> str:
         return f"<Feedback(id={self.id}, message_id={self.message_id!r})>"
+
+
+class Draft(Base):
+    """Email draft for composition."""
+
+    __tablename__ = "drafts"
+
+    id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    account_id: Mapped[str] = mapped_column(
+        String(255), ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False
+    )
+    thread_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    in_reply_to: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    subject: Mapped[str] = mapped_column(String(500), nullable=False)
+    to_emails: Mapped[List[str]] = mapped_column(JSON, nullable=False)
+    cc_emails: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
+    bcc_emails: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True)
+    body_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    body_html: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    account: Mapped["Account"] = relationship()
+    attachments: Mapped[List["Attachment"]] = relationship(
+        back_populates="draft",
+        cascade="all, delete-orphan",
+        foreign_keys="[Attachment.draft_id]"
+    )
+
+    def __repr__(self) -> str:
+        return f"<Draft(id={self.id!r}, subject={self.subject!r})>"
+
+
+class Attachment(Base):
+    """Email attachment for drafts and messages."""
+
+    __tablename__ = "attachments"
+
+    id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    draft_id: Mapped[Optional[str]] = mapped_column(
+        String(255), ForeignKey("drafts.id", ondelete="CASCADE"), nullable=True
+    )
+    message_id: Mapped[Optional[str]] = mapped_column(
+        String(255), ForeignKey("messages.id", ondelete="CASCADE"), nullable=True
+    )
+    filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    size: Mapped[int] = mapped_column(Integer, nullable=False)
+    data: Mapped[Optional[bytes]] = mapped_column(LargeBinary, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+
+    # Relationships
+    draft: Mapped[Optional["Draft"]] = relationship(back_populates="attachments", foreign_keys=[draft_id])
+    message: Mapped[Optional["Message"]] = relationship(foreign_keys=[message_id])
+
+    def __repr__(self) -> str:
+        return f"<Attachment(id={self.id!r}, filename={self.filename!r}, size={self.size})>"

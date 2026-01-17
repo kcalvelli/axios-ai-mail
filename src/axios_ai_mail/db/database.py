@@ -10,7 +10,7 @@ from sqlalchemy import create_engine, event, select, String
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from .models import Account, Base, Classification, Feedback, Message
+from .models import Account, Attachment, Base, Classification, Draft, Feedback, Message
 
 logger = logging.getLogger(__name__)
 
@@ -511,6 +511,223 @@ class Database:
         with self.session() as session:
             total_feedback = session.query(Feedback).count()
             return {"total_corrections": total_feedback}
+
+    # Draft operations
+
+    def create_draft(
+        self,
+        draft_id: str,
+        account_id: str,
+        subject: str,
+        to_emails: List[str],
+        cc_emails: Optional[List[str]] = None,
+        bcc_emails: Optional[List[str]] = None,
+        body_text: Optional[str] = None,
+        body_html: Optional[str] = None,
+        thread_id: Optional[str] = None,
+        in_reply_to: Optional[str] = None,
+    ) -> Draft:
+        """Create a new draft.
+
+        Args:
+            draft_id: Unique draft ID
+            account_id: Account ID to send from
+            subject: Email subject
+            to_emails: List of recipient emails
+            cc_emails: List of CC emails
+            bcc_emails: List of BCC emails
+            body_text: Plain text body
+            body_html: HTML body
+            thread_id: Thread ID for replies
+            in_reply_to: Message ID being replied to
+
+        Returns:
+            Created draft
+        """
+        with self.session() as session:
+            draft = Draft(
+                id=draft_id,
+                account_id=account_id,
+                subject=subject,
+                to_emails=to_emails,
+                cc_emails=cc_emails,
+                bcc_emails=bcc_emails,
+                body_text=body_text,
+                body_html=body_html,
+                thread_id=thread_id,
+                in_reply_to=in_reply_to,
+            )
+            session.add(draft)
+            session.commit()
+            session.refresh(draft)
+            return draft
+
+    def get_draft(self, draft_id: str) -> Optional[Draft]:
+        """Get draft by ID."""
+        with self.session() as session:
+            return session.get(Draft, draft_id)
+
+    def update_draft(
+        self,
+        draft_id: str,
+        subject: Optional[str] = None,
+        to_emails: Optional[List[str]] = None,
+        cc_emails: Optional[List[str]] = None,
+        bcc_emails: Optional[List[str]] = None,
+        body_text: Optional[str] = None,
+        body_html: Optional[str] = None,
+    ) -> Optional[Draft]:
+        """Update an existing draft.
+
+        Args:
+            draft_id: Draft ID to update
+            subject: Updated subject (if provided)
+            to_emails: Updated recipients (if provided)
+            cc_emails: Updated CC list (if provided)
+            bcc_emails: Updated BCC list (if provided)
+            body_text: Updated plain text body (if provided)
+            body_html: Updated HTML body (if provided)
+
+        Returns:
+            Updated draft or None if not found
+        """
+        with self.session() as session:
+            draft = session.get(Draft, draft_id)
+            if draft:
+                if subject is not None:
+                    draft.subject = subject
+                if to_emails is not None:
+                    draft.to_emails = to_emails
+                if cc_emails is not None:
+                    draft.cc_emails = cc_emails
+                if bcc_emails is not None:
+                    draft.bcc_emails = bcc_emails
+                if body_text is not None:
+                    draft.body_text = body_text
+                if body_html is not None:
+                    draft.body_html = body_html
+                draft.updated_at = datetime.utcnow()
+                session.commit()
+                session.refresh(draft)
+                return draft
+            return None
+
+    def delete_draft(self, draft_id: str) -> bool:
+        """Delete a draft.
+
+        Args:
+            draft_id: Draft ID to delete
+
+        Returns:
+            True if deleted, False if not found
+        """
+        with self.session() as session:
+            draft = session.get(Draft, draft_id)
+            if draft:
+                session.delete(draft)
+                session.commit()
+                return True
+            return False
+
+    def list_drafts(self, account_id: Optional[str] = None) -> List[Draft]:
+        """List drafts, optionally filtered by account.
+
+        Args:
+            account_id: Filter by account ID (optional)
+
+        Returns:
+            List of drafts ordered by updated_at (newest first)
+        """
+        with self.session() as session:
+            query = select(Draft)
+            if account_id:
+                query = query.where(Draft.account_id == account_id)
+            query = query.order_by(Draft.updated_at.desc())
+            return list(session.execute(query).scalars().all())
+
+    # Attachment operations
+
+    def add_attachment(
+        self,
+        attachment_id: str,
+        filename: str,
+        content_type: str,
+        size: int,
+        data: bytes,
+        draft_id: Optional[str] = None,
+        message_id: Optional[str] = None,
+    ) -> Attachment:
+        """Add an attachment to a draft or message.
+
+        Args:
+            attachment_id: Unique attachment ID
+            filename: Original filename
+            content_type: MIME content type
+            size: File size in bytes
+            data: Binary file data
+            draft_id: Draft ID (for draft attachments)
+            message_id: Message ID (for message attachments)
+
+        Returns:
+            Created attachment
+        """
+        with self.session() as session:
+            attachment = Attachment(
+                id=attachment_id,
+                filename=filename,
+                content_type=content_type,
+                size=size,
+                data=data,
+                draft_id=draft_id,
+                message_id=message_id,
+            )
+            session.add(attachment)
+            session.commit()
+            session.refresh(attachment)
+            return attachment
+
+    def get_attachment(self, attachment_id: str) -> Optional[Attachment]:
+        """Get attachment by ID."""
+        with self.session() as session:
+            return session.get(Attachment, attachment_id)
+
+    def delete_attachment(self, attachment_id: str) -> bool:
+        """Delete an attachment.
+
+        Args:
+            attachment_id: Attachment ID to delete
+
+        Returns:
+            True if deleted, False if not found
+        """
+        with self.session() as session:
+            attachment = session.get(Attachment, attachment_id)
+            if attachment:
+                session.delete(attachment)
+                session.commit()
+                return True
+            return False
+
+    def list_attachments(
+        self, draft_id: Optional[str] = None, message_id: Optional[str] = None
+    ) -> List[Attachment]:
+        """List attachments for a draft or message.
+
+        Args:
+            draft_id: Filter by draft ID
+            message_id: Filter by message ID
+
+        Returns:
+            List of attachments ordered by created_at
+        """
+        with self.session() as session:
+            query = select(Attachment)
+            if draft_id:
+                query = query.where(Attachment.draft_id == draft_id)
+            elif message_id:
+                query = query.where(Attachment.message_id == message_id)
+            query = query.order_by(Attachment.created_at.asc())
+            return list(session.execute(query).scalars().all())
 
     # Utility methods
 
