@@ -5,7 +5,12 @@ from pathlib import Path
 import sys
 
 # Add project root to path
-project_root = Path(__file__).parent.parent.parent
+# __file__ = .../src/axios_ai_mail/db/migrate.py
+# parent = .../src/axios_ai_mail/db
+# parent.parent = .../src/axios_ai_mail
+# parent.parent.parent = .../src
+# parent.parent.parent.parent = .../axios-ai-mail (project root)
+project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 from alembic.config import Config
@@ -22,7 +27,14 @@ def run_migrations(db_path: Path) -> None:
     """
     # Create alembic config
     alembic_ini = project_root / "alembic.ini"
+
+    if not alembic_ini.exists():
+        raise FileNotFoundError(f"alembic.ini not found at {alembic_ini}")
+
     alembic_cfg = Config(str(alembic_ini))
+
+    # Set script location (where migration files are)
+    alembic_cfg.set_main_option("script_location", str(project_root / "alembic"))
 
     # Set database path
     alembic_cfg.set_main_option("sqlalchemy.url", f"sqlite:///{db_path}")
