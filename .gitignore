@@ -62,3 +62,7 @@ Thumbs.db
 *.log
 /tmp/
 axios-ai-mail.png
+
+# Web frontend
+web/node_modules/
+web/dist/
