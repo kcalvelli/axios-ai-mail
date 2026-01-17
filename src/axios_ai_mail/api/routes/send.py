@@ -64,8 +64,12 @@ async def send_message(send_request: SendRequest, request: Request):
 
     try:
         # Build MIME message
-        account_name = account.name
-        mime_message = MIMEBuilder.build_from_draft(draft, attachments, account_name)
+        mime_message = MIMEBuilder.build_from_draft(
+            draft=draft,
+            attachments=attachments,
+            from_name=account.name,
+            from_email=account.email,
+        )
 
         # Validate size for Gmail (25MB limit)
         if account.provider == "gmail":

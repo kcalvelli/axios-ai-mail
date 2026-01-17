@@ -20,7 +20,10 @@ class MIMEBuilder:
 
     @staticmethod
     def build_from_draft(
-        draft: Draft, attachments: Optional[List[Attachment]] = None, from_name: Optional[str] = None
+        draft: Draft,
+        attachments: Optional[List[Attachment]] = None,
+        from_name: Optional[str] = None,
+        from_email: Optional[str] = None,
     ) -> EmailMessage:
         """Build a MIME message from a draft.
 
@@ -28,6 +31,7 @@ class MIMEBuilder:
             draft: Draft to build message from
             attachments: List of attachments to include
             from_name: Display name for From header (uses email if not provided)
+            from_email: Email address for From header (required to avoid lazy loading)
 
         Returns:
             EmailMessage ready to send
@@ -62,7 +66,7 @@ class MIMEBuilder:
             msg = MIMEText(draft.body_text or "", "plain", "utf-8")
 
         # Set headers
-        MIMEBuilder._set_headers(msg, draft, from_name)
+        MIMEBuilder._set_headers(msg, draft, from_name, from_email)
 
         return msg
 
@@ -121,16 +125,20 @@ class MIMEBuilder:
         return part
 
     @staticmethod
-    def _set_headers(msg: EmailMessage, draft: Draft, from_name: Optional[str] = None) -> None:
+    def _set_headers(
+        msg: EmailMessage, draft: Draft, from_name: Optional[str] = None, from_email: Optional[str] = None
+    ) -> None:
         """Set email headers on message.
 
         Args:
             msg: Message to set headers on
             draft: Draft with header information
             from_name: Display name for From header
+            from_email: Email address for From header
         """
-        # Get account email from draft relationship
-        from_email = draft.account.email
+        # Use provided email or raise error
+        if not from_email:
+            raise ValueError("from_email is required to avoid lazy loading issues")
 
         # From header with optional display name
         if from_name:
