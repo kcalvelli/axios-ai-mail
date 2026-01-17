@@ -220,6 +220,38 @@ async def bulk_restore(request: Request, body: BulkDeleteRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/messages/bulk/permanent-delete")
+async def bulk_permanent_delete(request: Request, body: BulkDeleteRequest):
+    """Permanently delete multiple messages (cannot be undone)."""
+    db = request.app.state.db
+
+    try:
+        deleted_count = 0
+        errors = []
+
+        for message_id in body.message_ids:
+            try:
+                # Permanently delete from database
+                success = db.delete_message(message_id)
+                if success:
+                    deleted_count += 1
+                else:
+                    errors.append({"message_id": message_id, "error": "Not found"})
+            except Exception as e:
+                errors.append({"message_id": message_id, "error": str(e)})
+                logger.error(f"Error permanently deleting message {message_id}: {e}")
+
+        return {
+            "deleted": deleted_count,
+            "total": len(body.message_ids),
+            "errors": errors,
+        }
+
+    except Exception as e:
+        logger.error(f"Error in bulk permanent delete: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/messages/{message_id}", response_model=MessageResponse)
 async def get_message(request: Request, message_id: str):
     """Get a single message by ID."""

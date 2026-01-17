@@ -23,10 +23,12 @@ import {
   useBulkDelete,
   useBulkMarkRead,
   useBulkRestore,
+  useBulkPermanentDelete,
   useClearTrash,
 } from '../hooks/useMessages';
 import { useAppStore } from '../store/appStore';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useToast } from '../hooks/useToast';
 
 export function MessageList() {
   const navigate = useNavigate();
@@ -44,9 +46,12 @@ export function MessageList() {
   const bulkDelete = useBulkDelete();
   const bulkMarkRead = useBulkMarkRead();
   const bulkRestore = useBulkRestore();
+  const bulkPermanentDelete = useBulkPermanentDelete();
   const clearTrash = useClearTrash();
+  const toast = useToast();
 
   const [clearTrashDialogOpen, setClearTrashDialogOpen] = useState(false);
+  const [permanentDeleteDialogOpen, setPermanentDeleteDialogOpen] = useState(false);
 
   // Get folder from URL query params (default to inbox)
   const folder = searchParams.get('folder') || 'inbox';
@@ -60,6 +65,15 @@ export function MessageList() {
     bulkDelete.mutate(messageIds, {
       onSuccess: () => {
         clearSelection();
+        toast.success(
+          `Moved ${messageIds.length} ${messageIds.length === 1 ? 'message' : 'messages'} to trash`,
+          {
+            label: 'Undo',
+            onClick: () => {
+              bulkRestore.mutate(messageIds);
+            },
+          }
+        );
       },
     });
   };
@@ -73,6 +87,9 @@ export function MessageList() {
       {
         onSuccess: () => {
           clearSelection();
+          toast.success(
+            `Marked ${messageIds.length} ${messageIds.length === 1 ? 'message' : 'messages'} as read`
+          );
         },
       }
     );
@@ -87,6 +104,9 @@ export function MessageList() {
       {
         onSuccess: () => {
           clearSelection();
+          toast.success(
+            `Marked ${messageIds.length} ${messageIds.length === 1 ? 'message' : 'messages'} as unread`
+          );
         },
       }
     );
@@ -99,6 +119,28 @@ export function MessageList() {
     bulkRestore.mutate(messageIds, {
       onSuccess: () => {
         clearSelection();
+        toast.success(
+          `Restored ${messageIds.length} ${messageIds.length === 1 ? 'message' : 'messages'}`
+        );
+      },
+    });
+  };
+
+  const handleBulkPermanentDelete = () => {
+    setPermanentDeleteDialogOpen(true);
+  };
+
+  const handlePermanentDeleteConfirm = () => {
+    const messageIds = Array.from(selectedMessageIds);
+    if (messageIds.length === 0) return;
+
+    bulkPermanentDelete.mutate(messageIds, {
+      onSuccess: () => {
+        clearSelection();
+        setPermanentDeleteDialogOpen(false);
+        toast.success(
+          `Permanently deleted ${messageIds.length} ${messageIds.length === 1 ? 'message' : 'messages'}`
+        );
       },
     });
   };
@@ -125,6 +167,7 @@ export function MessageList() {
     clearTrash.mutate(undefined, {
       onSuccess: () => {
         setClearTrashDialogOpen(false);
+        toast.success('Trash cleared successfully');
       },
     });
   };
@@ -264,6 +307,7 @@ export function MessageList() {
         onMarkRead={handleBulkMarkRead}
         onMarkUnread={handleBulkMarkUnread}
         onRestore={handleBulkRestore}
+        onPermanentDelete={handleBulkPermanentDelete}
         isTrash={isTrash}
       />
 
@@ -285,6 +329,28 @@ export function MessageList() {
             disabled={clearTrash.isPending}
           >
             {clearTrash.isPending ? 'Deleting...' : 'Permanently Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Permanent Delete Selected Confirmation Dialog */}
+      <Dialog open={permanentDeleteDialogOpen} onClose={() => setPermanentDeleteDialogOpen(false)}>
+        <DialogTitle>Permanently Delete Selected?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to permanently delete {selectedMessageIds.size} selected {selectedMessageIds.size === 1 ? 'message' : 'messages'}?
+            This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPermanentDeleteDialogOpen(false)}>Cancel</Button>
+          <Button
+            onClick={handlePermanentDeleteConfirm}
+            color="error"
+            variant="contained"
+            disabled={bulkPermanentDelete.isPending}
+          >
+            {bulkPermanentDelete.isPending ? 'Deleting...' : 'Permanently Delete'}
           </Button>
         </DialogActions>
       </Dialog>

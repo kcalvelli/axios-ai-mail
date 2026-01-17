@@ -183,6 +183,20 @@ export function useBulkRestore() {
   });
 }
 
+export function useBulkPermanentDelete() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (messageIds: string[]) =>
+      messages.bulkPermanentDelete({ message_ids: messageIds }),
+    onSuccess: () => {
+      // Invalidate and refetch messages
+      queryClient.invalidateQueries({ queryKey: messageKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: messageKeys.details() });
+    },
+  });
+}
+
 export function useClearTrash() {
   const queryClient = useQueryClient();
 

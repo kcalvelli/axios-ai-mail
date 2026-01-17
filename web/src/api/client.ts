@@ -77,6 +77,9 @@ export const messages = {
   bulkRestore: (data: { message_ids: string[] }) =>
     api.post<{ restored: number; total: number; errors: any[] }>('/messages/bulk/restore', data).then((r) => r.data),
 
+  bulkPermanentDelete: (data: { message_ids: string[] }) =>
+    api.post<{ deleted: number; total: number; errors: any[] }>('/messages/bulk/permanent-delete', data).then((r) => r.data),
+
   // Restore a single message from trash
   restore: (id: string) =>
     api.post<Message>(`/messages/${id}/restore`).then((r) => r.data),

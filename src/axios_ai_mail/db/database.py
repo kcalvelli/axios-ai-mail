@@ -227,6 +227,8 @@ class Database:
         with self.session() as session:
             message = session.get(Message, message_id)
             if message:
+                # Save current folder so we can restore later
+                message.original_folder = message.folder
                 message.folder = "trash"
                 session.commit()
                 session.refresh(message)
@@ -234,7 +236,7 @@ class Database:
             return None
 
     def restore_from_trash(self, message_id: str) -> Optional[Message]:
-        """Restore a message from trash to inbox.
+        """Restore a message from trash to its original folder.
 
         Args:
             message_id: Message ID to restore
@@ -245,7 +247,9 @@ class Database:
         with self.session() as session:
             message = session.get(Message, message_id)
             if message and message.folder == "trash":
-                message.folder = "inbox"
+                # Restore to original folder, default to inbox if not set
+                message.folder = message.original_folder or "inbox"
+                message.original_folder = None  # Clear the saved folder
                 session.commit()
                 session.refresh(message)
                 return message

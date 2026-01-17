@@ -25,6 +25,7 @@ interface BulkActionBarProps {
   onMarkRead: () => void;
   onMarkUnread: () => void;
   onRestore?: () => void;
+  onPermanentDelete?: () => void;
   isTrash?: boolean;
 }
 
@@ -33,6 +34,7 @@ export function BulkActionBar({
   onMarkRead,
   onMarkUnread,
   onRestore,
+  onPermanentDelete,
   isTrash = false,
 }: BulkActionBarProps) {
   const { selectedMessageIds, clearSelection } = useAppStore();
@@ -81,13 +83,26 @@ export function BulkActionBar({
           // Trash folder actions
           <>
             {/* Restore */}
-            <Tooltip title="Restore to inbox">
+            <Tooltip title="Restore to original folder">
               <IconButton
                 size="small"
                 color="primary"
                 onClick={onRestore}
               >
                 <RestoreFromTrash />
+              </IconButton>
+            </Tooltip>
+
+            <Divider orientation="vertical" flexItem />
+
+            {/* Permanent Delete */}
+            <Tooltip title="Permanently delete selected">
+              <IconButton
+                size="small"
+                color="error"
+                onClick={onPermanentDelete}
+              >
+                <Delete />
               </IconButton>
             </Tooltip>
           </>

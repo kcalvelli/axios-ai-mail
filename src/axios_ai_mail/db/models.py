@@ -50,6 +50,7 @@ class Message(Base):
     is_unread: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     provider_labels: Mapped[List[str]] = mapped_column(JSON, nullable=False, default=list)
     folder: Mapped[str] = mapped_column(String(100), nullable=False, default="inbox")
+    original_folder: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     body_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     body_html: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
