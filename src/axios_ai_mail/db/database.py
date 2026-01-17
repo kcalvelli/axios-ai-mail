@@ -171,6 +171,27 @@ class Database:
             session.refresh(message)
             return message
 
+    def update_message_read_status(
+        self, message_id: str, is_unread: bool
+    ) -> Optional[Message]:
+        """Update read status of a message.
+
+        Args:
+            message_id: Message ID
+            is_unread: True if unread, False if read
+
+        Returns:
+            Updated message or None if not found
+        """
+        with self.session() as session:
+            message = session.get(Message, message_id)
+            if message:
+                message.is_unread = is_unread
+                session.commit()
+                session.refresh(message)
+                return message
+            return None
+
     def query_messages(
         self,
         account_id: Optional[str] = None,

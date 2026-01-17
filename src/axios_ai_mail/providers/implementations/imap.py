@@ -278,6 +278,52 @@ class IMAPProvider(BaseEmailProvider):
         logger.info(f"Successfully fetched {len(messages)} messages")
         return messages
 
+    def mark_as_read(self, message_id: str) -> None:
+        """
+        Mark a message as read by setting the \Seen flag.
+
+        Args:
+            message_id: Message ID (format: account_id:uid)
+        """
+        if not self.connection:
+            raise RuntimeError("Not authenticated")
+
+        # Extract IMAP UID from message_id (format: account_id:uid)
+        uid = message_id.split(":")[-1]
+
+        try:
+            typ, data = self.connection.store(uid, "+FLAGS", "\\Seen")
+            if typ != "OK":
+                raise RuntimeError(f"IMAP STORE failed: {data}")
+            logger.debug(f"Marked message {uid} as read")
+
+        except Exception as e:
+            logger.error(f"Failed to mark message {uid} as read: {e}")
+            raise
+
+    def mark_as_unread(self, message_id: str) -> None:
+        """
+        Mark a message as unread by removing the \Seen flag.
+
+        Args:
+            message_id: Message ID (format: account_id:uid)
+        """
+        if not self.connection:
+            raise RuntimeError("Not authenticated")
+
+        # Extract IMAP UID from message_id (format: account_id:uid)
+        uid = message_id.split(":")[-1]
+
+        try:
+            typ, data = self.connection.store(uid, "-FLAGS", "\\Seen")
+            if typ != "OK":
+                raise RuntimeError(f"IMAP STORE failed: {data}")
+            logger.debug(f"Marked message {uid} as unread")
+
+        except Exception as e:
+            logger.error(f"Failed to mark message {uid} as unread: {e}")
+            raise
+
     def update_labels(
         self, message_id: str, add_labels: Set[str], remove_labels: Set[str]
     ) -> None:
