@@ -11,7 +11,7 @@ let
       pname = "axios-ai-mail-web";
       version = "2.0.0";
       src = ../../web;
-      npmDepsHash = "sha256-XTZ7hZaJ5n9R5etODt/7ftMk0b/O6XTXWS8nM5Q3P74=";
+      npmDepsHash = "sha256-dS+CvlPbhGGPcLTkCgUAV69S0yMkh6HKF0dgcadpLQA=";
       buildPhase = "npm run build";
       installPhase = ''
         mkdir -p $out

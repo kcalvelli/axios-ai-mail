@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box,
@@ -13,6 +13,10 @@ import {
   Alert,
   CircularProgress,
   Tooltip,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import {
   Send as SendIcon,
@@ -25,7 +29,14 @@ import {
 } from '@mui/icons-material';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import Placeholder from '@tiptap/extension-placeholder';
 import axios from 'axios';
+
+interface Account {
+  id: string;
+  name: string;
+  email: string;
+}
 
 interface Attachment {
   id: string;
@@ -44,6 +55,10 @@ export default function Compose() {
   const defaultSubject = searchParams.get('subject') || '';
   const defaultTo = searchParams.get('to') || '';
 
+  // Account state
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
+
   // Form state
   const [to, setTo] = useState(defaultTo);
   const [cc, setCc] = useState('');
@@ -60,15 +75,34 @@ export default function Compose() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
+  // Fetch accounts on mount
+  useEffect(() => {
+    const fetchAccounts = async () => {
+      try {
+        const response = await axios.get('/api/accounts');
+        const accountList = response.data.accounts || [];
+        setAccounts(accountList);
+        if (accountList.length > 0) {
+          setSelectedAccountId(accountList[0].id);
+        }
+      } catch (err) {
+        console.error('Failed to fetch accounts:', err);
+        setError('Failed to load accounts');
+      }
+    };
+    fetchAccounts();
+  }, []);
+
   // Rich text editor
   const editor = useEditor({
-    extensions: [StarterKit],
+    extensions: [
+      StarterKit,
+      Placeholder.configure({
+        placeholder: 'Compose your message...',
+      }),
+    ],
     content: '',
-    editorProps: {
-      attributes: {
-        class: 'prose prose-sm focus:outline-none min-h-[300px] p-4',
-      },
-    },
+    autofocus: true,
   });
 
   // Parse email addresses from comma-separated string
@@ -80,14 +114,14 @@ export default function Compose() {
   };
 
   // Create or update draft
-  const saveDraft = async () => {
-    if (!to) return;
+  const saveDraft = async (): Promise<string | null> => {
+    if (!to || !selectedAccountId) return null;
 
     const htmlContent = editor?.getHTML() || '';
     const textContent = editor?.getText() || '';
 
     const draftData = {
-      account_id: 'default', // TODO: Get from account selection
+      account_id: selectedAccountId,
       subject,
       to_emails: parseEmails(to),
       cc_emails: showCc ? parseEmails(cc) : undefined,
@@ -102,14 +136,18 @@ export default function Compose() {
       if (draftId) {
         // Update existing draft
         await axios.patch(`/api/drafts/${draftId}`, draftData);
+        return draftId;
       } else {
         // Create new draft
         const response = await axios.post('/api/drafts', draftData);
-        setDraftId(response.data.id);
+        const newDraftId = response.data.id;
+        setDraftId(newDraftId);
+        return newDraftId;
       }
     } catch (err) {
       console.error('Failed to save draft:', err);
       setError('Failed to save draft');
+      return null;
     }
   };
 
@@ -173,25 +211,35 @@ export default function Compose() {
       return;
     }
 
+    if (!selectedAccountId) {
+      setError('Please select an account to send from');
+      return;
+    }
+
     setSending(true);
     setError(null);
 
     try {
       // Save draft first if not already saved
-      if (!draftId) {
-        await saveDraft();
+      let currentDraftId = draftId;
+      if (!currentDraftId) {
+        currentDraftId = await saveDraft();
+      }
+
+      if (!currentDraftId) {
+        setError('Failed to create draft');
+        setSending(false);
+        return;
       }
 
       // Send the draft
-      if (draftId) {
-        await axios.post('/api/send', { draft_id: draftId });
-        setSuccess(true);
+      await axios.post('/api/send', { draft_id: currentDraftId });
+      setSuccess(true);
 
-        // Redirect to inbox after short delay
-        setTimeout(() => {
-          navigate('/');
-        }, 1500);
-      }
+      // Redirect to inbox after short delay
+      setTimeout(() => {
+        navigate('/');
+      }, 1500);
     } catch (err: any) {
       console.error('Failed to send message:', err);
       setError(err.response?.data?.detail || 'Failed to send message');
@@ -244,6 +292,23 @@ export default function Compose() {
           </Alert>
         )}
 
+        {/* From (account selector) */}
+        <FormControl fullWidth sx={{ mb: 2 }}>
+          <InputLabel id="from-account-label">From</InputLabel>
+          <Select
+            labelId="from-account-label"
+            value={selectedAccountId}
+            label="From"
+            onChange={(e) => setSelectedAccountId(e.target.value)}
+          >
+            {accounts.map(account => (
+              <MenuItem key={account.id} value={account.id}>
+                {account.name} &lt;{account.email}&gt;
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
         {/* To field */}
         <TextField
           fullWidth
@@ -252,7 +317,7 @@ export default function Compose() {
           onChange={(e) => setTo(e.target.value)}
           placeholder="recipient@example.com"
           sx={{ mb: 2 }}
-          onBlur={saveDraft}
+          onBlur={() => saveDraft()}
         />
 
         {/* Cc/Bcc toggle */}
@@ -276,7 +341,7 @@ export default function Compose() {
             onChange={(e) => setCc(e.target.value)}
             placeholder="cc@example.com"
             sx={{ mb: 2 }}
-            onBlur={saveDraft}
+            onBlur={() => saveDraft()}
           />
         )}
 
@@ -289,7 +354,7 @@ export default function Compose() {
             onChange={(e) => setBcc(e.target.value)}
             placeholder="bcc@example.com"
             sx={{ mb: 2 }}
-            onBlur={saveDraft}
+            onBlur={() => saveDraft()}
           />
         )}
 
@@ -300,7 +365,7 @@ export default function Compose() {
           value={subject}
           onChange={(e) => setSubject(e.target.value)}
           sx={{ mb: 2 }}
-          onBlur={saveDraft}
+          onBlur={() => saveDraft()}
         />
 
         {/* Rich text editor toolbar */}
@@ -345,7 +410,32 @@ export default function Compose() {
           </Box>
 
           {/* Editor content */}
-          <Box sx={{ minHeight: 300 }}>
+          <Box
+            sx={{
+              minHeight: 300,
+              cursor: 'text',
+              '& .ProseMirror': {
+                minHeight: 300,
+                padding: 2,
+                outline: 'none',
+                '&:focus': {
+                  outline: 'none',
+                },
+                '& p': {
+                  margin: 0,
+                  marginBottom: 1,
+                },
+                '& p.is-editor-empty:first-child::before': {
+                  content: 'attr(data-placeholder)',
+                  color: 'text.disabled',
+                  float: 'left',
+                  height: 0,
+                  pointerEvents: 'none',
+                },
+              },
+            }}
+            onClick={() => editor?.chain().focus().run()}
+          >
             <EditorContent editor={editor} />
           </Box>
         </Paper>
