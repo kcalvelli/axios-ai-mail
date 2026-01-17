@@ -110,8 +110,35 @@ async def list_messages(
             classification = db.get_classification(message.id)
             serialized.append(serialize_message(message, classification))
 
-        # Count total (approximate - same as returned if no filters)
-        total = offset + len(messages) + (1 if has_more else 0)
+        # Get actual total count with same filters
+        total = db.count_messages(
+            account_id=account_id,
+            tag=tag,
+            tags=tags,
+            is_unread=is_unread,
+            folder=folder,
+        )
+
+        # If search filter was applied, adjust total count
+        # (search is client-side filtered, so count only what matched)
+        if search:
+            # Re-count after search filter
+            search_lower = search.lower()
+            all_messages = db.query_messages(
+                account_id=account_id,
+                tag=tag,
+                tags=tags,
+                is_unread=is_unread,
+                folder=folder,
+                limit=10000,  # Large limit to get all for count
+                offset=0,
+            )
+            total = sum(
+                1 for m in all_messages
+                if search_lower in m.subject.lower()
+                or search_lower in m.from_email.lower()
+                or search_lower in m.snippet.lower()
+            )
 
         return MessagesListResponse(
             messages=serialized,

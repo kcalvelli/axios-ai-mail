@@ -359,6 +359,87 @@ class Database:
 
             return list(session.execute(query).scalars().all())
 
+    def count_messages(
+        self,
+        account_id: Optional[str] = None,
+        tag: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+        is_unread: Optional[bool] = None,
+        folder: Optional[str] = None,
+    ) -> int:
+        """Count messages matching the given filters.
+
+        Args:
+            account_id: Filter by account ID
+            tag: Single tag filter (for backward compatibility)
+            tags: Multiple tags filter (OR logic - match any)
+            is_unread: Filter by read status
+            folder: Filter by folder (inbox, sent, trash)
+
+        Returns:
+            Total count of matching messages
+        """
+        from sqlalchemy import func
+
+        with self.session() as session:
+            query = select(func.count(Message.id))
+
+            # Handle tag filtering - support both single tag and multiple tags
+            tags_to_filter = tags if tags else ([tag] if tag else None)
+
+            # Separate account tags (emails) from AI tags
+            account_emails = []
+            ai_tags = []
+
+            if tags_to_filter:
+                # Get all accounts to match emails
+                accounts = session.execute(select(Account)).scalars().all()
+                account_email_set = {acc.email for acc in accounts}
+
+                # Separate tags into account emails and AI tags
+                for t in tags_to_filter:
+                    if t in account_email_set:
+                        account_emails.append(t)
+                    else:
+                        ai_tags.append(t)
+
+            # Apply account filtering (OR logic if multiple accounts)
+            if account_id:
+                query = query.where(Message.account_id == account_id)
+            elif account_emails:
+                # Get account IDs from emails
+                accounts = session.execute(
+                    select(Account).where(Account.email.in_(account_emails))
+                ).scalars().all()
+                account_ids = [acc.id for acc in accounts]
+
+                if account_ids:
+                    from sqlalchemy import or_
+                    query = query.where(or_(*[Message.account_id == aid for aid in account_ids]))
+
+            if is_unread is not None:
+                query = query.where(Message.is_unread == is_unread)
+
+            # Apply folder filtering
+            if folder:
+                query = query.where(Message.folder == folder)
+
+            # Apply AI tag filtering (OR logic - match any)
+            if ai_tags:
+                from sqlalchemy import or_
+                from sqlalchemy.sql.expression import cast
+                from sqlalchemy.types import String
+
+                tag_conditions = [
+                    Classification.tags.cast(String).like(f'%"{t}"%')
+                    for t in ai_tags
+                ]
+
+                query = query.select_from(Message).join(Classification).where(or_(*tag_conditions))
+
+            result = session.execute(query).scalar()
+            return result or 0
+
     # Classification operations
 
     def has_classification(self, message_id: str) -> bool:
