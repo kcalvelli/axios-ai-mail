@@ -1,0 +1,402 @@
+import { useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import {
+  Box,
+  Button,
+  Container,
+  IconButton,
+  Paper,
+  TextField,
+  Typography,
+  Chip,
+  Stack,
+  Alert,
+  CircularProgress,
+  Tooltip,
+} from '@mui/material';
+import {
+  Send as SendIcon,
+  AttachFile as AttachFileIcon,
+  Close as CloseIcon,
+  FormatBold as BoldIcon,
+  FormatItalic as FormatItalicIcon,
+  FormatListBulleted as BulletListIcon,
+  FormatListNumbered as NumberedListIcon,
+} from '@mui/icons-material';
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import axios from 'axios';
+
+interface Attachment {
+  id: string;
+  filename: string;
+  size: number;
+  content_type: string;
+}
+
+export default function Compose() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // Get query parameters for reply/forward context
+  const replyTo = searchParams.get('reply_to');
+  const threadId = searchParams.get('thread_id');
+  const defaultSubject = searchParams.get('subject') || '';
+  const defaultTo = searchParams.get('to') || '';
+
+  // Form state
+  const [to, setTo] = useState(defaultTo);
+  const [cc, setCc] = useState('');
+  const [bcc, setBcc] = useState('');
+  const [subject, setSubject] = useState(defaultSubject);
+  const [showCc, setShowCc] = useState(false);
+  const [showBcc, setShowBcc] = useState(false);
+
+  // Draft and attachment state
+  const [draftId, setDraftId] = useState<string | null>(null);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
+  // Rich text editor
+  const editor = useEditor({
+    extensions: [StarterKit],
+    content: '',
+    editorProps: {
+      attributes: {
+        class: 'prose prose-sm focus:outline-none min-h-[300px] p-4',
+      },
+    },
+  });
+
+  // Parse email addresses from comma-separated string
+  const parseEmails = (emailString: string): string[] => {
+    return emailString
+      .split(',')
+      .map(email => email.trim())
+      .filter(email => email.length > 0);
+  };
+
+  // Create or update draft
+  const saveDraft = async () => {
+    if (!to) return;
+
+    const htmlContent = editor?.getHTML() || '';
+    const textContent = editor?.getText() || '';
+
+    const draftData = {
+      account_id: 'default', // TODO: Get from account selection
+      subject,
+      to_emails: parseEmails(to),
+      cc_emails: showCc ? parseEmails(cc) : undefined,
+      bcc_emails: showBcc ? parseEmails(bcc) : undefined,
+      body_html: htmlContent,
+      body_text: textContent,
+      thread_id: threadId || undefined,
+      in_reply_to: replyTo || undefined,
+    };
+
+    try {
+      if (draftId) {
+        // Update existing draft
+        await axios.patch(`/api/drafts/${draftId}`, draftData);
+      } else {
+        // Create new draft
+        const response = await axios.post('/api/drafts', draftData);
+        setDraftId(response.data.id);
+      }
+    } catch (err) {
+      console.error('Failed to save draft:', err);
+      setError('Failed to save draft');
+    }
+  };
+
+  // Handle file upload
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    // Ensure draft is created first
+    if (!draftId) {
+      await saveDraft();
+      if (!draftId) {
+        setError('Please fill in recipient and subject before adding attachments');
+        return;
+      }
+    }
+
+    setUploading(true);
+    setError(null);
+
+    try {
+      for (const file of Array.from(files)) {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await axios.post(
+          `/api/attachments/drafts/${draftId}/attachments`,
+          formData,
+          {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            },
+          }
+        );
+
+        setAttachments(prev => [...prev, response.data]);
+      }
+    } catch (err) {
+      console.error('Failed to upload attachment:', err);
+      setError('Failed to upload attachment');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Remove attachment
+  const removeAttachment = async (attachmentId: string) => {
+    try {
+      await axios.delete(`/api/attachments/${attachmentId}`);
+      setAttachments(prev => prev.filter(att => att.id !== attachmentId));
+    } catch (err) {
+      console.error('Failed to remove attachment:', err);
+      setError('Failed to remove attachment');
+    }
+  };
+
+  // Send message
+  const handleSend = async () => {
+    if (!to || !subject) {
+      setError('Please fill in recipient and subject');
+      return;
+    }
+
+    setSending(true);
+    setError(null);
+
+    try {
+      // Save draft first if not already saved
+      if (!draftId) {
+        await saveDraft();
+      }
+
+      // Send the draft
+      if (draftId) {
+        await axios.post('/api/send', { draft_id: draftId });
+        setSuccess(true);
+
+        // Redirect to inbox after short delay
+        setTimeout(() => {
+          navigate('/');
+        }, 1500);
+      }
+    } catch (err: any) {
+      console.error('Failed to send message:', err);
+      setError(err.response?.data?.detail || 'Failed to send message');
+      setSending(false);
+    }
+  };
+
+  // Discard draft
+  const handleDiscard = async () => {
+    if (draftId) {
+      try {
+        await axios.delete(`/api/drafts/${draftId}`);
+      } catch (err) {
+        console.error('Failed to delete draft:', err);
+      }
+    }
+    navigate('/');
+  };
+
+  // Format file size
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  if (!editor) {
+    return null;
+  }
+
+  return (
+    <Container maxWidth="md" sx={{ py: 4 }}>
+      <Paper elevation={3} sx={{ p: 3 }}>
+        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="h5">New Message</Typography>
+          <IconButton onClick={handleDiscard} size="small">
+            <CloseIcon />
+          </IconButton>
+        </Box>
+
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+            {error}
+          </Alert>
+        )}
+
+        {success && (
+          <Alert severity="success" sx={{ mb: 2 }}>
+            Message sent successfully!
+          </Alert>
+        )}
+
+        {/* To field */}
+        <TextField
+          fullWidth
+          label="To"
+          value={to}
+          onChange={(e) => setTo(e.target.value)}
+          placeholder="recipient@example.com"
+          sx={{ mb: 2 }}
+          onBlur={saveDraft}
+        />
+
+        {/* Cc/Bcc toggle */}
+        {!showCc && !showBcc && (
+          <Box sx={{ mb: 2 }}>
+            <Button size="small" onClick={() => setShowCc(true)}>
+              + Cc
+            </Button>
+            <Button size="small" onClick={() => setShowBcc(true)}>
+              + Bcc
+            </Button>
+          </Box>
+        )}
+
+        {/* Cc field */}
+        {showCc && (
+          <TextField
+            fullWidth
+            label="Cc"
+            value={cc}
+            onChange={(e) => setCc(e.target.value)}
+            placeholder="cc@example.com"
+            sx={{ mb: 2 }}
+            onBlur={saveDraft}
+          />
+        )}
+
+        {/* Bcc field */}
+        {showBcc && (
+          <TextField
+            fullWidth
+            label="Bcc"
+            value={bcc}
+            onChange={(e) => setBcc(e.target.value)}
+            placeholder="bcc@example.com"
+            sx={{ mb: 2 }}
+            onBlur={saveDraft}
+          />
+        )}
+
+        {/* Subject field */}
+        <TextField
+          fullWidth
+          label="Subject"
+          value={subject}
+          onChange={(e) => setSubject(e.target.value)}
+          sx={{ mb: 2 }}
+          onBlur={saveDraft}
+        />
+
+        {/* Rich text editor toolbar */}
+        <Paper variant="outlined" sx={{ mb: 2 }}>
+          <Box sx={{ p: 1, borderBottom: 1, borderColor: 'divider', display: 'flex', gap: 1 }}>
+            <Tooltip title="Bold">
+              <IconButton
+                size="small"
+                onClick={() => editor.chain().focus().toggleBold().run()}
+                color={editor.isActive('bold') ? 'primary' : 'default'}
+              >
+                <BoldIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Italic">
+              <IconButton
+                size="small"
+                onClick={() => editor.chain().focus().toggleItalic().run()}
+                color={editor.isActive('italic') ? 'primary' : 'default'}
+              >
+                <FormatItalicIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Bullet List">
+              <IconButton
+                size="small"
+                onClick={() => editor.chain().focus().toggleBulletList().run()}
+                color={editor.isActive('bulletList') ? 'primary' : 'default'}
+              >
+                <BulletListIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Numbered List">
+              <IconButton
+                size="small"
+                onClick={() => editor.chain().focus().toggleOrderedList().run()}
+                color={editor.isActive('orderedList') ? 'primary' : 'default'}
+              >
+                <NumberedListIcon />
+              </IconButton>
+            </Tooltip>
+          </Box>
+
+          {/* Editor content */}
+          <Box sx={{ minHeight: 300 }}>
+            <EditorContent editor={editor} />
+          </Box>
+        </Paper>
+
+        {/* Attachments */}
+        {attachments.length > 0 && (
+          <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap' }}>
+            {attachments.map(att => (
+              <Chip
+                key={att.id}
+                label={`${att.filename} (${formatFileSize(att.size)})`}
+                onDelete={() => removeAttachment(att.id)}
+                size="small"
+              />
+            ))}
+          </Stack>
+        )}
+
+        {/* Actions */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Box>
+            <Button
+              variant="contained"
+              startIcon={sending ? <CircularProgress size={20} /> : <SendIcon />}
+              onClick={handleSend}
+              disabled={sending || !to || !subject}
+              sx={{ mr: 2 }}
+            >
+              {sending ? 'Sending...' : 'Send'}
+            </Button>
+
+            <Button
+              component="label"
+              startIcon={uploading ? <CircularProgress size={20} /> : <AttachFileIcon />}
+              disabled={uploading}
+            >
+              Attach
+              <input
+                type="file"
+                hidden
+                multiple
+                onChange={handleFileUpload}
+              />
+            </Button>
+          </Box>
+
+          <Button variant="outlined" onClick={handleDiscard}>
+            Discard
+          </Button>
+        </Box>
+      </Paper>
+    </Container>
+  );
+}

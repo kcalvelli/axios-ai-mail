@@ -21,7 +21,7 @@ import {
   DialogActions,
   Divider,
 } from '@mui/material';
-import { ArrowBack, Mail, MailOutline, Delete } from '@mui/icons-material';
+import { ArrowBack, Mail, MailOutline, Delete, Reply, Forward } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import DOMPurify from 'dompurify';
@@ -113,6 +113,29 @@ export function MessageDetailPage() {
     }
   };
 
+  const handleReply = () => {
+    if (message) {
+      // Navigate to compose page with reply parameters
+      const params = new URLSearchParams({
+        reply_to: message.id,
+        to: message.from_email,
+        subject: message.subject.startsWith('Re: ') ? message.subject : `Re: ${message.subject}`,
+        thread_id: message.thread_id || '',
+      });
+      navigate(`/compose?${params.toString()}`);
+    }
+  };
+
+  const handleForward = () => {
+    if (message) {
+      // Navigate to compose page with forward parameters
+      const params = new URLSearchParams({
+        subject: message.subject.startsWith('Fwd: ') ? message.subject : `Fwd: ${message.subject}`,
+      });
+      navigate(`/compose?${params.toString()}`);
+    }
+  };
+
   if (isLoading) {
     return (
       <Box display="flex" justifyContent="center" p={4}>
@@ -181,6 +204,22 @@ export function MessageDetailPage() {
         <Typography variant="h5" flex={1}>
           Message
         </Typography>
+        <Button
+          variant="outlined"
+          startIcon={<Reply />}
+          onClick={handleReply}
+          sx={{ mr: 1 }}
+        >
+          Reply
+        </Button>
+        <Button
+          variant="outlined"
+          startIcon={<Forward />}
+          onClick={handleForward}
+          sx={{ mr: 2 }}
+        >
+          Forward
+        </Button>
         <IconButton onClick={handleMarkRead} sx={{ mr: 1 }}>
           {message.is_unread ? (
             <Mail color="primary" />

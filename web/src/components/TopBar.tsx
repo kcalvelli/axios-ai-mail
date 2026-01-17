@@ -11,13 +11,16 @@ import {
   Box,
   CircularProgress,
   Tooltip,
+  Button,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
   Sync as SyncIcon,
   Search as SearchIcon,
+  Edit as EditIcon,
 } from '@mui/icons-material';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/appStore';
 import { useTriggerSync, useSyncStatus } from '../hooks/useStats';
 
@@ -26,6 +29,7 @@ interface TopBarProps {
 }
 
 export function TopBar({ onMenuClick }: TopBarProps) {
+  const navigate = useNavigate();
   const { searchQuery, setSearchQuery, syncStatus } = useAppStore();
   const [searchOpen, setSearchOpen] = useState(false);
   const triggerSync = useTriggerSync();
@@ -33,6 +37,10 @@ export function TopBar({ onMenuClick }: TopBarProps) {
 
   const handleSync = () => {
     triggerSync.mutate({});
+  };
+
+  const handleCompose = () => {
+    navigate('/compose');
   };
 
   const isSyncing = syncStatus === 'syncing' || syncStatusData?.is_syncing;
@@ -52,6 +60,17 @@ export function TopBar({ onMenuClick }: TopBarProps) {
         <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
           axios-ai-mail
         </Typography>
+
+        {/* Compose Button */}
+        <Button
+          variant="contained"
+          color="secondary"
+          startIcon={<EditIcon />}
+          onClick={handleCompose}
+          sx={{ mr: 2 }}
+        >
+          Compose
+        </Button>
 
         {/* Search */}
         <Box sx={{ display: 'flex', alignItems: 'center', mr: 2 }}>
