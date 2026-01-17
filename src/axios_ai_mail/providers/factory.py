@@ -42,8 +42,7 @@ class ProviderFactory:
             return ProviderRegistry.get_provider("gmail", config)
 
         elif account.provider == "imap":
-            # Will be implemented in Step 4
-            # For now, import dynamically to avoid circular imports
+            # Import dynamically to avoid circular imports
             from .implementations.imap import IMAPConfig
 
             config = IMAPConfig(
@@ -54,6 +53,11 @@ class ProviderFactory:
                 port=account.settings.get("imap_port", 993),
                 use_ssl=account.settings.get("imap_tls", True),
                 folder=account.settings.get("imap_folder", "INBOX"),
+                # SMTP settings for sending
+                smtp_host=account.settings.get("smtp_host"),
+                smtp_port=account.settings.get("smtp_port", 587),
+                smtp_tls=account.settings.get("smtp_tls", True),
+                smtp_password_file=account.settings.get("smtp_password_file"),
             )
             logger.debug(f"Creating IMAP provider for {account.email}")
             return ProviderRegistry.get_provider("imap", config)
