@@ -243,6 +243,7 @@ class Database:
         tag: Optional[str] = None,
         tags: Optional[List[str]] = None,
         is_unread: Optional[bool] = None,
+        folder: Optional[str] = None,
         limit: int = 50,
         offset: int = 0,
     ) -> List[Message]:
@@ -253,6 +254,7 @@ class Database:
             tag: Single tag filter (for backward compatibility)
             tags: Multiple tags filter (OR logic - match any)
             is_unread: Filter by read status
+            folder: Filter by folder (inbox, sent, trash)
             limit: Maximum number of results
             offset: Pagination offset
         """
@@ -294,6 +296,10 @@ class Database:
 
             if is_unread is not None:
                 query = query.where(Message.is_unread == is_unread)
+
+            # Apply folder filtering
+            if folder:
+                query = query.where(Message.folder == folder)
 
             # Apply AI tag filtering (OR logic - match any)
             if ai_tags:

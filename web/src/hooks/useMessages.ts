@@ -19,7 +19,9 @@ export const messageKeys = {
 export function useMessages(filters: {
   account_id?: string;
   tag?: string;
+  tags?: string[];
   is_unread?: boolean;
+  folder?: string;
   search?: string;
   limit?: number;
   offset?: number;

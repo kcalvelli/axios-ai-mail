@@ -8,10 +8,11 @@ import { MessageCard } from './MessageCard';
 import { BulkActionBar } from './BulkActionBar';
 import { useMessages, useBulkDelete, useBulkMarkRead } from '../hooks/useMessages';
 import { useAppStore } from '../store/appStore';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 export function MessageList() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const {
     selectedAccount,
     selectedTags,
@@ -23,6 +24,9 @@ export function MessageList() {
 
   const bulkDelete = useBulkDelete();
   const bulkMarkRead = useBulkMarkRead();
+
+  // Get folder from URL query params (default to inbox)
+  const folder = searchParams.get('folder') || 'inbox';
 
   // Bulk operation handlers
   const handleBulkDelete = () => {
@@ -70,6 +74,7 @@ export function MessageList() {
   const filters: any = {
     limit: 50,
     offset: 0,
+    folder: folder,
   };
 
   if (selectedAccount) {
