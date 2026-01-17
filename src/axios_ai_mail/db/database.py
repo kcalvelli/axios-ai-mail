@@ -216,7 +216,7 @@ class Database:
             return None
 
     def move_to_trash(self, message_id: str) -> Optional[Message]:
-        """Move a message to trash folder.
+        """Move a message to trash folder (soft delete).
 
         Args:
             message_id: Message ID to move to trash
@@ -228,6 +228,24 @@ class Database:
             message = session.get(Message, message_id)
             if message:
                 message.folder = "trash"
+                session.commit()
+                session.refresh(message)
+                return message
+            return None
+
+    def restore_from_trash(self, message_id: str) -> Optional[Message]:
+        """Restore a message from trash to inbox.
+
+        Args:
+            message_id: Message ID to restore
+
+        Returns:
+            Updated message if successful, None if not found
+        """
+        with self.session() as session:
+            message = session.get(Message, message_id)
+            if message and message.folder == "trash":
+                message.folder = "inbox"
                 session.commit()
                 session.refresh(message)
                 return message

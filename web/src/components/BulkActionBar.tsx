@@ -16,6 +16,7 @@ import {
   Close,
   MarkEmailRead,
   MarkEmailUnread,
+  RestoreFromTrash,
 } from '@mui/icons-material';
 import { useAppStore } from '../store/appStore';
 
@@ -23,12 +24,16 @@ interface BulkActionBarProps {
   onDelete: () => void;
   onMarkRead: () => void;
   onMarkUnread: () => void;
+  onRestore?: () => void;
+  isTrash?: boolean;
 }
 
 export function BulkActionBar({
   onDelete,
   onMarkRead,
   onMarkUnread,
+  onRestore,
+  isTrash = false,
 }: BulkActionBarProps) {
   const { selectedMessageIds, clearSelection } = useAppStore();
 
@@ -72,40 +77,59 @@ export function BulkActionBar({
 
         <Divider orientation="vertical" flexItem />
 
-        {/* Mark as Read */}
-        <Tooltip title="Mark as read">
-          <IconButton
-            size="small"
-            color="primary"
-            onClick={onMarkRead}
-          >
-            <MarkEmailRead />
-          </IconButton>
-        </Tooltip>
+        {isTrash ? (
+          // Trash folder actions
+          <>
+            {/* Restore */}
+            <Tooltip title="Restore to inbox">
+              <IconButton
+                size="small"
+                color="primary"
+                onClick={onRestore}
+              >
+                <RestoreFromTrash />
+              </IconButton>
+            </Tooltip>
+          </>
+        ) : (
+          // Normal folder actions
+          <>
+            {/* Mark as Read */}
+            <Tooltip title="Mark as read">
+              <IconButton
+                size="small"
+                color="primary"
+                onClick={onMarkRead}
+              >
+                <MarkEmailRead />
+              </IconButton>
+            </Tooltip>
 
-        {/* Mark as Unread */}
-        <Tooltip title="Mark as unread">
-          <IconButton
-            size="small"
-            color="primary"
-            onClick={onMarkUnread}
-          >
-            <MarkEmailUnread />
-          </IconButton>
-        </Tooltip>
+            {/* Mark as Unread */}
+            <Tooltip title="Mark as unread">
+              <IconButton
+                size="small"
+                color="primary"
+                onClick={onMarkUnread}
+              >
+                <MarkEmailUnread />
+              </IconButton>
+            </Tooltip>
 
-        <Divider orientation="vertical" flexItem />
+            <Divider orientation="vertical" flexItem />
 
-        {/* Delete */}
-        <Tooltip title="Delete selected">
-          <IconButton
-            size="small"
-            color="error"
-            onClick={onDelete}
-          >
-            <Delete />
-          </IconButton>
-        </Tooltip>
+            {/* Delete (moves to trash) */}
+            <Tooltip title="Move to trash">
+              <IconButton
+                size="small"
+                color="error"
+                onClick={onDelete}
+              >
+                <Delete />
+              </IconButton>
+            </Tooltip>
+          </>
+        )}
 
         <Divider orientation="vertical" flexItem />
 

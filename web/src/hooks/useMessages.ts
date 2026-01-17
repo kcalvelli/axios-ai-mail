@@ -168,3 +168,30 @@ export function useDeleteAll() {
     },
   });
 }
+
+export function useBulkRestore() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (messageIds: string[]) =>
+      messages.bulkRestore({ message_ids: messageIds }),
+    onSuccess: () => {
+      // Invalidate and refetch messages
+      queryClient.invalidateQueries({ queryKey: messageKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: messageKeys.details() });
+    },
+  });
+}
+
+export function useClearTrash() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => messages.clearTrash(),
+    onSuccess: () => {
+      // Invalidate and refetch messages
+      queryClient.invalidateQueries({ queryKey: messageKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: messageKeys.details() });
+    },
+  });
+}

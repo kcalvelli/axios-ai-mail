@@ -72,9 +72,16 @@ export const messages = {
     api.post<{ updated: number; total: number; errors: any[] }>('/messages/bulk/read', data).then((r) => r.data),
 
   bulkDelete: (data: { message_ids: string[] }) =>
-    api.post<{ deleted: number; total: number; errors: any[] }>('/messages/bulk/delete', data).then((r) => r.data),
+    api.post<{ moved_to_trash: number; total: number; errors: any[] }>('/messages/bulk/delete', data).then((r) => r.data),
 
-  // Delete all messages matching filters
+  bulkRestore: (data: { message_ids: string[] }) =>
+    api.post<{ restored: number; total: number; errors: any[] }>('/messages/bulk/restore', data).then((r) => r.data),
+
+  // Restore a single message from trash
+  restore: (id: string) =>
+    api.post<Message>(`/messages/${id}/restore`).then((r) => r.data),
+
+  // Delete all messages matching filters (moves to trash)
   deleteAll: (params?: {
     account_id?: string;
     tags?: string[];
@@ -82,7 +89,11 @@ export const messages = {
     folder?: string;
     search?: string;
   }) =>
-    api.post<{ deleted: number; total: number; errors: any[] }>('/messages/delete-all', null, { params }).then((r) => r.data),
+    api.post<{ moved_to_trash: number; total: number; errors: any[] }>('/messages/delete-all', null, { params }).then((r) => r.data),
+
+  // Clear trash (permanently delete all messages in trash)
+  clearTrash: () =>
+    api.post<{ deleted: number; total: number; errors: any[] }>('/messages/clear-trash').then((r) => r.data),
 };
 
 // Account endpoints

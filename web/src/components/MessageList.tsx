@@ -18,7 +18,14 @@ import { InboxOutlined, DeleteSweep } from '@mui/icons-material';
 import { useState } from 'react';
 import { MessageCard } from './MessageCard';
 import { BulkActionBar } from './BulkActionBar';
-import { useMessages, useBulkDelete, useBulkMarkRead, useDeleteAll } from '../hooks/useMessages';
+import {
+  useMessages,
+  useBulkDelete,
+  useBulkMarkRead,
+  useDeleteAll,
+  useBulkRestore,
+  useClearTrash,
+} from '../hooks/useMessages';
 import { useAppStore } from '../store/appStore';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
@@ -36,12 +43,16 @@ export function MessageList() {
 
   const bulkDelete = useBulkDelete();
   const bulkMarkRead = useBulkMarkRead();
+  const bulkRestore = useBulkRestore();
   const deleteAll = useDeleteAll();
+  const clearTrash = useClearTrash();
 
   const [deleteAllDialogOpen, setDeleteAllDialogOpen] = useState(false);
+  const [clearTrashDialogOpen, setClearTrashDialogOpen] = useState(false);
 
   // Get folder from URL query params (default to inbox)
   const folder = searchParams.get('folder') || 'inbox';
+  const isTrash = folder === 'trash';
 
   // Bulk operation handlers
   const handleBulkDelete = () => {
@@ -85,8 +96,23 @@ export function MessageList() {
     );
   };
 
+  const handleBulkRestore = () => {
+    const messageIds = Array.from(selectedMessageIds);
+    if (messageIds.length === 0) return;
+
+    bulkRestore.mutate(messageIds, {
+      onSuccess: () => {
+        clearSelection();
+      },
+    });
+  };
+
   const handleDeleteAll = () => {
     setDeleteAllDialogOpen(true);
+  };
+
+  const handleClearTrash = () => {
+    setClearTrashDialogOpen(true);
   };
 
   const handleDeleteAllConfirm = () => {
@@ -114,6 +140,14 @@ export function MessageList() {
     deleteAll.mutate(deleteFilters, {
       onSuccess: () => {
         setDeleteAllDialogOpen(false);
+      },
+    });
+  };
+
+  const handleClearTrashConfirm = () => {
+    clearTrash.mutate(undefined, {
+      onSuccess: () => {
+        setClearTrashDialogOpen(false);
       },
     });
   };
@@ -214,17 +248,29 @@ export function MessageList() {
             {data.total} {data.total === 1 ? 'message' : 'messages'}
           </Typography>
 
-          {/* Delete All button - show if there are any filters active or messages exist */}
+          {/* Clear Trash or Delete All button */}
           {data.total > 0 && (
-            <Button
-              size="small"
-              color="error"
-              startIcon={<DeleteSweep />}
-              onClick={handleDeleteAll}
-              variant="outlined"
-            >
-              Delete All
-            </Button>
+            isTrash ? (
+              <Button
+                size="small"
+                color="error"
+                startIcon={<DeleteSweep />}
+                onClick={handleClearTrash}
+                variant="outlined"
+              >
+                Clear Trash
+              </Button>
+            ) : (
+              <Button
+                size="small"
+                color="error"
+                startIcon={<DeleteSweep />}
+                onClick={handleDeleteAll}
+                variant="outlined"
+              >
+                Delete All
+              </Button>
+            )
           )}
         </Box>
 
@@ -242,15 +288,17 @@ export function MessageList() {
         onDelete={handleBulkDelete}
         onMarkRead={handleBulkMarkRead}
         onMarkUnread={handleBulkMarkUnread}
+        onRestore={handleBulkRestore}
+        isTrash={isTrash}
       />
 
       {/* Delete All Confirmation Dialog */}
       <Dialog open={deleteAllDialogOpen} onClose={() => setDeleteAllDialogOpen(false)}>
-        <DialogTitle>Delete All Messages?</DialogTitle>
+        <DialogTitle>Move All to Trash?</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Are you sure you want to delete {data.total} {data.total === 1 ? 'message' : 'messages'}
-            {getFilterDescription()}? This action cannot be undone.
+            Are you sure you want to move {data.total} {data.total === 1 ? 'message' : 'messages'}
+            {getFilterDescription()} to trash? You can restore them later from the Trash folder.
           </DialogContentText>
         </DialogContent>
         <DialogActions>
@@ -261,7 +309,29 @@ export function MessageList() {
             variant="contained"
             disabled={deleteAll.isPending}
           >
-            {deleteAll.isPending ? 'Deleting...' : 'Delete All'}
+            {deleteAll.isPending ? 'Moving...' : 'Move to Trash'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Clear Trash Confirmation Dialog */}
+      <Dialog open={clearTrashDialogOpen} onClose={() => setClearTrashDialogOpen(false)}>
+        <DialogTitle>Permanently Delete All?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to permanently delete all {data.total} {data.total === 1 ? 'message' : 'messages'} in Trash?
+            This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setClearTrashDialogOpen(false)}>Cancel</Button>
+          <Button
+            onClick={handleClearTrashConfirm}
+            color="error"
+            variant="contained"
+            disabled={clearTrash.isPending}
+          >
+            {clearTrash.isPending ? 'Deleting...' : 'Permanently Delete'}
           </Button>
         </DialogActions>
       </Dialog>
