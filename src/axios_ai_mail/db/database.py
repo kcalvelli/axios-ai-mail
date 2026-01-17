@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Generator, List, Optional
 
-from sqlalchemy import create_engine, event, select
+from sqlalchemy import create_engine, event, select, String
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -182,7 +182,11 @@ class Database:
 
             if tag:
                 # Join with classifications to filter by tag
-                query = query.join(Classification).where(Classification.tags.contains([tag]))
+                # Use LIKE pattern for SQLite JSON compatibility: ["tag1", "tag2"] contains "work"
+                # Match "work" surrounded by quotes to avoid partial matches
+                query = query.join(Classification).where(
+                    Classification.tags.cast(String).like(f'%"{tag}"%')
+                )
 
             query = query.order_by(Message.date.desc()).limit(limit).offset(offset)
 
