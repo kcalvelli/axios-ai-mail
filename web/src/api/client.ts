@@ -65,6 +65,13 @@ export const messages = {
 
   delete: (id: string) =>
     api.delete<{ status: string; message_id: string }>(`/messages/${id}`).then((r) => r.data),
+
+  // Bulk operations
+  bulkMarkRead: (data: { message_ids: string[]; is_unread: boolean }) =>
+    api.post<{ updated: number; total: number; errors: any[] }>('/messages/bulk/read', data).then((r) => r.data),
+
+  bulkDelete: (data: { message_ids: string[] }) =>
+    api.post<{ deleted: number; total: number; errors: any[] }>('/messages/bulk/delete', data).then((r) => r.data),
 };
 
 // Account endpoints

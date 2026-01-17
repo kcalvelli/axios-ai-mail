@@ -15,6 +15,9 @@ interface AppState {
   syncStatus: 'idle' | 'syncing' | 'error';
   drawerOpen: boolean;
 
+  // Bulk selection
+  selectedMessageIds: Set<string>;
+
   // Actions
   setSelectedAccount: (accountId: string | null) => void;
   toggleTag: (tag: string) => void;
@@ -24,9 +27,15 @@ interface AppState {
   setSyncStatus: (status: 'idle' | 'syncing' | 'error') => void;
   setDrawerOpen: (open: boolean) => void;
   toggleDrawer: () => void;
+
+  // Bulk selection actions
+  toggleMessageSelection: (id: string) => void;
+  selectAllMessages: (ids: string[]) => void;
+  clearSelection: () => void;
+  isMessageSelected: (id: string) => boolean;
 }
 
-export const useAppStore = create<AppState>((set) => ({
+export const useAppStore = create<AppState>((set, get) => ({
   // Initial state
   selectedAccount: null,
   selectedTags: [],
@@ -34,6 +43,7 @@ export const useAppStore = create<AppState>((set) => ({
   isUnreadOnly: false,
   syncStatus: 'idle',
   drawerOpen: true,
+  selectedMessageIds: new Set<string>(),
 
   // Actions
   setSelectedAccount: (accountId) => set({ selectedAccount: accountId }),
@@ -56,4 +66,23 @@ export const useAppStore = create<AppState>((set) => ({
   setDrawerOpen: (open) => set({ drawerOpen: open }),
 
   toggleDrawer: () => set((state) => ({ drawerOpen: !state.drawerOpen })),
+
+  // Bulk selection actions
+  toggleMessageSelection: (id) =>
+    set((state) => {
+      const newSelection = new Set(state.selectedMessageIds);
+      if (newSelection.has(id)) {
+        newSelection.delete(id);
+      } else {
+        newSelection.add(id);
+      }
+      return { selectedMessageIds: newSelection };
+    }),
+
+  selectAllMessages: (ids) =>
+    set({ selectedMessageIds: new Set(ids) }),
+
+  clearSelection: () => set({ selectedMessageIds: new Set<string>() }),
+
+  isMessageSelected: (id) => get().selectedMessageIds.has(id),
 }));

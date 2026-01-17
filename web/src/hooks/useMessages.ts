@@ -87,3 +87,57 @@ export function useDeleteMessage() {
     },
   });
 }
+
+export function useBulkMarkRead() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ messageIds, isUnread }: { messageIds: string[]; isUnread: boolean }) =>
+      messages.bulkMarkRead({ message_ids: messageIds, is_unread: isUnread }),
+    onSuccess: () => {
+      // Invalidate and refetch messages
+      queryClient.invalidateQueries({ queryKey: messageKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: messageKeys.details() });
+    },
+  });
+}
+
+export function useBulkDelete() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (messageIds: string[]) =>
+      messages.bulkDelete({ message_ids: messageIds }),
+    onMutate: async (messageIds) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: messageKeys.lists() });
+
+      // Snapshot previous value
+      const previousQueries = queryClient.getQueriesData({ queryKey: messageKeys.lists() });
+
+      // Optimistically update - remove messages from all list queries
+      queryClient.setQueriesData({ queryKey: messageKeys.lists() }, (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          messages: old.messages.filter((m: any) => !messageIds.includes(m.id)),
+        };
+      });
+
+      return { previousQueries };
+    },
+    onError: (err, variables, context) => {
+      // Rollback on error
+      if (context?.previousQueries) {
+        context.previousQueries.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+    },
+    onSuccess: () => {
+      // Invalidate to refetch fresh data
+      queryClient.invalidateQueries({ queryKey: messageKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: messageKeys.details() });
+    },
+  });
+}

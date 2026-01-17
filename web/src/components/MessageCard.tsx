@@ -9,6 +9,7 @@ import {
   Box,
   Stack,
   IconButton,
+  Checkbox,
 } from '@mui/material';
 import { Mail, MailOutline } from '@mui/icons-material';
 import { TagChip } from './TagChip';
@@ -22,8 +23,15 @@ interface MessageCardProps {
 }
 
 export function MessageCard({ message, onClick }: MessageCardProps) {
-  const { toggleTag } = useAppStore();
+  const { toggleTag, toggleMessageSelection, isMessageSelected } = useAppStore();
   const markRead = useMarkRead();
+
+  const isSelected = isMessageSelected(message.id);
+
+  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.stopPropagation();
+    toggleMessageSelection(message.id);
+  };
 
   const handleMarkRead = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -67,12 +75,21 @@ export function MessageCard({ message, onClick }: MessageCardProps) {
       sx={{
         cursor: 'pointer',
         mb: 1,
-        backgroundColor: message.is_unread ? '#f5f5f5' : '#fff',
+        backgroundColor: isSelected ? '#e3f2fd' : message.is_unread ? '#f5f5f5' : '#fff',
         borderLeft: message.is_unread ? '4px solid #1976d2' : 'none',
+        border: isSelected ? '2px solid #1976d2' : 'none',
       }}
     >
       <CardContent>
         <Box display="flex" justifyContent="space-between" alignItems="start">
+          {/* Checkbox */}
+          <Checkbox
+            checked={isSelected}
+            onChange={handleCheckboxChange}
+            onClick={(e) => e.stopPropagation()}
+            sx={{ p: 0, mr: 2 }}
+          />
+
           <Box flex={1}>
             {/* From and Date */}
             <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>

@@ -5,7 +5,8 @@
 import { Box, Typography, CircularProgress, Alert } from '@mui/material';
 import { InboxOutlined } from '@mui/icons-material';
 import { MessageCard } from './MessageCard';
-import { useMessages } from '../hooks/useMessages';
+import { BulkActionBar } from './BulkActionBar';
+import { useMessages, useBulkDelete, useBulkMarkRead } from '../hooks/useMessages';
 import { useAppStore } from '../store/appStore';
 import { useNavigate } from 'react-router-dom';
 
@@ -16,7 +17,54 @@ export function MessageList() {
     selectedTags,
     searchQuery,
     isUnreadOnly,
+    selectedMessageIds,
+    clearSelection,
   } = useAppStore();
+
+  const bulkDelete = useBulkDelete();
+  const bulkMarkRead = useBulkMarkRead();
+
+  // Bulk operation handlers
+  const handleBulkDelete = () => {
+    const messageIds = Array.from(selectedMessageIds);
+    if (messageIds.length === 0) return;
+
+    if (confirm(`Delete ${messageIds.length} message(s)?`)) {
+      bulkDelete.mutate(messageIds, {
+        onSuccess: () => {
+          clearSelection();
+        },
+      });
+    }
+  };
+
+  const handleBulkMarkRead = () => {
+    const messageIds = Array.from(selectedMessageIds);
+    if (messageIds.length === 0) return;
+
+    bulkMarkRead.mutate(
+      { messageIds, isUnread: false },
+      {
+        onSuccess: () => {
+          clearSelection();
+        },
+      }
+    );
+  };
+
+  const handleBulkMarkUnread = () => {
+    const messageIds = Array.from(selectedMessageIds);
+    if (messageIds.length === 0) return;
+
+    bulkMarkRead.mutate(
+      { messageIds, isUnread: true },
+      {
+        onSuccess: () => {
+          clearSelection();
+        },
+      }
+    );
+  };
 
   // Build filters
   const filters: any = {
@@ -96,18 +144,27 @@ export function MessageList() {
 
   // Render messages
   return (
-    <Box p={2}>
-      <Typography variant="body2" color="text.secondary" mb={2}>
-        {data.total} {data.total === 1 ? 'message' : 'messages'}
-      </Typography>
+    <>
+      <Box p={2}>
+        <Typography variant="body2" color="text.secondary" mb={2}>
+          {data.total} {data.total === 1 ? 'message' : 'messages'}
+        </Typography>
 
-      {data.messages.map((message) => (
-        <MessageCard
-          key={message.id}
-          message={message}
-          onClick={() => navigate(`/messages/${message.id}`)}
-        />
-      ))}
-    </Box>
+        {data.messages.map((message) => (
+          <MessageCard
+            key={message.id}
+            message={message}
+            onClick={() => navigate(`/messages/${message.id}`)}
+          />
+        ))}
+      </Box>
+
+      {/* Bulk Action Bar */}
+      <BulkActionBar
+        onDelete={handleBulkDelete}
+        onMarkRead={handleBulkMarkRead}
+        onMarkUnread={handleBulkMarkUnread}
+      />
+    </>
   );
 }
