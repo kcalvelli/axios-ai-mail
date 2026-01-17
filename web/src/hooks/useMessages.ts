@@ -45,9 +45,10 @@ export function useUpdateTags() {
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: UpdateTagsRequest }) =>
       messages.updateTags(id, data),
-    onSuccess: () => {
-      // Invalidate and refetch messages
+    onSuccess: (_, variables) => {
+      // Invalidate and refetch both message lists and the specific message detail
       queryClient.invalidateQueries({ queryKey: messageKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: messageKeys.detail(variables.id) });
     },
   });
 }
