@@ -42,12 +42,26 @@
         pythonImportsCheck = [ "ollama" ];
         doCheck = false;
       };
-      # Fetch npm dependencies for web frontend
-      npmDeps = pkgs.fetchNpmDeps {
+      # Build web frontend separately
+      web-frontend = pkgs.buildNpmPackage {
+        pname = "axios-ai-mail-web";
+        version = "2.0.0";
+
         src = ./web;
-        hash = "sha256-0PyMKTQ3DyfqBb5/eOTZXDDXaO6FL8I5iDdDe2WBy6c=";
+
+        npmDepsHash = "sha256-0PyMKTQ3DyfqBb5/eOTZXDDXaO6FL8I5iDdDe2WBy6c=";
+
+        npmBuildScript = "build";
+
+        installPhase = ''
+          mkdir -p $out
+          cp -r dist/* $out/
+        '';
       };
     in {
+      # Export web frontend package
+      web = web-frontend;
+
       default = pkgs.python3Packages.buildPythonApplication {
         pname = "axios-ai-mail";
         version = "2.0.0";
@@ -57,13 +71,9 @@
         format = "pyproject";
 
         nativeBuildInputs = with pkgs; [
-          nodejs
-          npmHooks.npmConfigHook
           python3Packages.setuptools
           python3Packages.wheel
         ];
-
-        inherit npmDeps;
 
         propagatedBuildInputs = with pkgs.python3Packages; [
           # Core dependencies
@@ -98,18 +108,12 @@
           websockets
         ];
 
-        npmRoot = "web";
-
         # Build frontend before building Python package
         preBuild = ''
-          echo "Building frontend..."
-          cd web
-          npm run build
-          cd ..
-
+          echo "Copying pre-built frontend..."
           # Create directory for web assets in package
           mkdir -p src/axios_ai_mail/web_assets
-          cp -r web/dist/* src/axios_ai_mail/web_assets/
+          cp -r ${web-frontend}/* src/axios_ai_mail/web_assets/
         '';
 
         # Skip tests for now (no tests written yet)
