@@ -42,6 +42,11 @@
         pythonImportsCheck = [ "ollama" ];
         doCheck = false;
       };
+      # Fetch npm dependencies for web frontend
+      npmDeps = pkgs.fetchNpmDeps {
+        src = ./web;
+        hash = "sha256-0PyMKTQ3DyfqBb5/eOTZXDDXaO6FL8I5iDdDe2WBy6c=";
+      };
     in {
       default = pkgs.python3Packages.buildPythonApplication {
         pname = "axios-ai-mail";
@@ -53,9 +58,12 @@
 
         nativeBuildInputs = with pkgs; [
           nodejs
+          npmHooks.npmConfigHook
           python3Packages.setuptools
           python3Packages.wheel
         ];
+
+        inherit npmDeps;
 
         propagatedBuildInputs = with pkgs.python3Packages; [
           # Core dependencies
@@ -90,11 +98,12 @@
           websockets
         ];
 
+        npmRoot = "web";
+
         # Build frontend before building Python package
         preBuild = ''
           echo "Building frontend..."
           cd web
-          npm ci --ignore-scripts
           npm run build
           cd ..
 
