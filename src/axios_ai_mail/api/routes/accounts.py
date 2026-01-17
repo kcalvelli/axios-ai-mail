@@ -73,3 +73,47 @@ async def get_account_stats(request: Request, account_id: str):
     except Exception as e:
         logger.error(f"Error getting stats for account {account_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/folders")
+async def list_folders(request: Request):
+    """List available folders for all accounts.
+
+    Returns folders grouped by account with message counts.
+    """
+    db = request.app.state.db
+
+    try:
+        # Get all accounts
+        accounts = db.list_accounts()
+
+        folders_by_account = {}
+
+        for account in accounts:
+            # Get unique folders for this account
+            with db.session() as session:
+                from sqlalchemy import func
+                from ...db.models import Message
+
+                folder_counts = (
+                    session.query(Message.folder, func.count(Message.id))
+                    .where(Message.account_id == account.id)
+                    .group_by(Message.folder)
+                    .all()
+                )
+
+                folders_by_account[account.id] = [
+                    {
+                        "name": folder,
+                        "count": count,
+                    }
+                    for folder, count in folder_counts
+                ]
+
+        return {
+            "folders": folders_by_account,
+        }
+
+    except Exception as e:
+        logger.error(f"Error listing folders: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
