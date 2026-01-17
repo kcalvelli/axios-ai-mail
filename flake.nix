@@ -49,7 +49,7 @@
 
         src = ./web;
 
-        npmDepsHash = "sha256-0PyMKTQ3DyfqBb5/eOTZXDDXaO6FL8I5iDdDe2WBy6c=";
+        npmDepsHash = pkgs.lib.fakeHash;
 
         npmBuildScript = "build";
 
