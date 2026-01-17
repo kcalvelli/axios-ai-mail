@@ -92,40 +92,18 @@ export function useBulkMarkRead() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ messageIds, isUnread }: { messageIds: string[]; isUnread: boolean }) =>
-      messages.bulkMarkRead({ message_ids: messageIds, is_unread: isUnread }),
-    onMutate: async ({ messageIds, isUnread }) => {
-      // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: messageKeys.lists() });
-
-      // Snapshot previous value
-      const previousQueries = queryClient.getQueriesData({ queryKey: messageKeys.lists() });
-
-      // Optimistically update - change is_unread status for selected messages
-      queryClient.setQueriesData({ queryKey: messageKeys.lists() }, (old: any) => {
-        if (!old) return old;
-        return {
-          ...old,
-          messages: old.messages.map((m: any) =>
-            messageIds.includes(m.id) ? { ...m, is_unread: isUnread } : m
-          ),
-        };
-      });
-
-      return { previousQueries };
+    mutationFn: ({ messageIds, isUnread }: { messageIds: string[]; isUnread: boolean }) => {
+      console.log('useBulkMarkRead mutation called with:', { messageIds, isUnread });
+      return messages.bulkMarkRead({ message_ids: messageIds, is_unread: isUnread });
     },
-    onError: (_err, _variables, context) => {
-      // Rollback on error
-      if (context?.previousQueries) {
-        context.previousQueries.forEach(([queryKey, data]) => {
-          queryClient.setQueryData(queryKey, data);
-        });
-      }
-    },
-    onSettled: () => {
-      // Invalidate details to ensure individual message views are updated
-      // But don't invalidate lists since optimistic update already has correct state
+    onSuccess: (data) => {
+      console.log('useBulkMarkRead success:', data);
+      // Force refetch after backend confirms update
+      queryClient.invalidateQueries({ queryKey: messageKeys.lists() });
       queryClient.invalidateQueries({ queryKey: messageKeys.details() });
+    },
+    onError: (error) => {
+      console.error('useBulkMarkRead error:', error);
     },
   });
 }
