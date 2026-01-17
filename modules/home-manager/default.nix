@@ -235,7 +235,7 @@ let
 
     src = ../../web;
 
-    npmDepsHash = "sha256-Rc290mHkgyEZ7ktL2rC4k+x6d8FMr2AH6WYRqH1899Q=";
+    npmDepsHash = "sha256-0PyMKTQ3DyfqBb5/eOTZXDDXaO6FL8I5iDdDe2WBy6c=";
 
     buildPhase = ''
       npm run build
