@@ -52,6 +52,7 @@ export default function Compose() {
   // Get query parameters for reply/forward context
   const replyTo = searchParams.get('reply_to');
   const threadId = searchParams.get('thread_id');
+  const existingDraftId = searchParams.get('draft_id');
   const defaultSubject = searchParams.get('subject') || '';
   const defaultTo = searchParams.get('to') || '';
 
@@ -68,21 +69,23 @@ export default function Compose() {
   const [showBcc, setShowBcc] = useState(false);
 
   // Draft and attachment state
-  const [draftId, setDraftId] = useState<string | null>(null);
+  const [draftId, setDraftId] = useState<string | null>(existingDraftId);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [loadingDraft, setLoadingDraft] = useState(!!existingDraftId);
 
   // Fetch accounts on mount
   useEffect(() => {
     const fetchAccounts = async () => {
       try {
         const response = await axios.get('/api/accounts');
-        const accountList = response.data.accounts || [];
+        // API returns array directly, not { accounts: [...] }
+        const accountList = Array.isArray(response.data) ? response.data : [];
         setAccounts(accountList);
-        if (accountList.length > 0) {
+        if (accountList.length > 0 && !selectedAccountId) {
           setSelectedAccountId(accountList[0].id);
         }
       } catch (err) {
@@ -92,6 +95,47 @@ export default function Compose() {
     };
     fetchAccounts();
   }, []);
+
+  // Load existing draft if draft_id is provided
+  useEffect(() => {
+    const loadDraft = async () => {
+      if (!existingDraftId) return;
+
+      try {
+        setLoadingDraft(true);
+        const response = await axios.get(`/api/drafts/${existingDraftId}`);
+        const draft = response.data;
+
+        setTo(draft.to_emails?.join(', ') || '');
+        setCc(draft.cc_emails?.join(', ') || '');
+        setBcc(draft.bcc_emails?.join(', ') || '');
+        setSubject(draft.subject || '');
+        setSelectedAccountId(draft.account_id);
+        setShowCc(!!(draft.cc_emails && draft.cc_emails.length > 0));
+        setShowBcc(!!(draft.bcc_emails && draft.bcc_emails.length > 0));
+
+        // Set editor content after it's ready
+        if (editor && draft.body_html) {
+          editor.commands.setContent(draft.body_html);
+        }
+
+        // Load attachments
+        try {
+          const attachResponse = await axios.get(`/api/attachments/drafts/${existingDraftId}/attachments`);
+          setAttachments(attachResponse.data);
+        } catch {
+          // No attachments or failed to load
+        }
+      } catch (err) {
+        console.error('Failed to load draft:', err);
+        setError('Failed to load draft');
+      } finally {
+        setLoadingDraft(false);
+      }
+    };
+
+    loadDraft();
+  }, [existingDraftId, editor]);
 
   // Rich text editor
   const editor = useEditor({
@@ -266,8 +310,12 @@ export default function Compose() {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  if (!editor) {
-    return null;
+  if (!editor || loadingDraft) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
+        <CircularProgress />
+      </Box>
+    );
   }
 
   return (

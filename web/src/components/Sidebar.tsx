@@ -24,6 +24,7 @@ import {
   AccountCircle,
   Send,
   Delete,
+  Drafts,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { TagChip } from './TagChip';
@@ -50,6 +51,7 @@ export function Sidebar({ open }: SidebarProps) {
 
   const folderItems = [
     { text: 'Inbox', icon: <Inbox />, path: '/', folder: 'inbox' },
+    { text: 'Drafts', icon: <Drafts />, path: '/drafts', folder: null },
     { text: 'Sent', icon: <Send />, path: '/?folder=sent', folder: 'sent' },
     { text: 'Trash', icon: <Delete />, path: '/?folder=trash', folder: 'trash' },
   ];
@@ -81,7 +83,11 @@ export function Sidebar({ open }: SidebarProps) {
           {folderItems.map((item) => (
             <ListItem key={item.text} disablePadding>
               <ListItemButton
-                selected={location.pathname === '/' && location.search === (item.folder === 'inbox' ? '' : `?folder=${item.folder}`)}
+                selected={
+                  item.folder === null
+                    ? location.pathname === item.path
+                    : location.pathname === '/' && location.search === (item.folder === 'inbox' ? '' : `?folder=${item.folder}`)
+                }
                 onClick={() => navigate(item.path)}
               >
                 <ListItemIcon>{item.icon}</ListItemIcon>

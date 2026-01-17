@@ -14,6 +14,7 @@ import { AccountsPage } from './pages/AccountsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { StatsPage } from './pages/StatsPage';
 import Compose from './pages/Compose';
+import DraftsPage from './pages/DraftsPage';
 import { ToastContainer } from './components/ToastContainer';
 import { useWebSocket } from './hooks/useWebSocket';
 
@@ -53,6 +54,7 @@ function AppContent() {
           <Route path="messages" element={<DashboardPage />} />
           <Route path="messages/:id" element={<MessageDetailPage />} />
           <Route path="compose" element={<Compose />} />
+          <Route path="drafts" element={<DraftsPage />} />
           <Route path="accounts" element={<AccountsPage />} />
           <Route path="stats" element={<StatsPage />} />
           <Route path="settings" element={<SettingsPage />} />
