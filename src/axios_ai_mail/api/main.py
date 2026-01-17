@@ -71,6 +71,8 @@ async def startup_event():
     logger.info("Loading configuration on API startup")
     config = ConfigLoader.load_config()
     if config:
+        # Store config in app state for access in routes
+        app.state.config = config
         ConfigLoader.sync_to_database(app.state.db, config)
         logger.info("Configuration synced to database")
 
