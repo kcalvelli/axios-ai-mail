@@ -57,7 +57,7 @@
 
         src = ./web;
 
-        npmDepsHash = "sha256-0PyMKTQ3DyfqBb5/eOTZXDDXaO6FL8I5iDdDe2WBy6c=";
+        npmDepsHash = "sha256-XTZ7hZaJ5n9R5etODt/7ftMk0b/O6XTXWS8nM5Q3P74=";
 
         npmBuildScript = "build";
 
