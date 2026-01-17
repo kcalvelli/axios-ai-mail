@@ -1,7 +1,7 @@
 """Pydantic models for API request/response validation."""
 
 from datetime import datetime
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -90,6 +90,7 @@ class StatsResponse(BaseModel):
     classification_rate: float
     accounts_count: int
     top_tags: List[TagResponse]
+    accounts_breakdown: Dict[str, int] = {}  # Map of account_id to message count
 
 
 class SyncStatusResponse(BaseModel):

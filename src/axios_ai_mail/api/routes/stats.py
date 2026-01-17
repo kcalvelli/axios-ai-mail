@@ -112,6 +112,12 @@ async def get_stats(request: Request):
                 percentage=percentage,
             ))
 
+        # Calculate accounts breakdown
+        accounts_breakdown = {}
+        for message in all_messages:
+            account_id = message.account_id
+            accounts_breakdown[account_id] = accounts_breakdown.get(account_id, 0) + 1
+
         return StatsResponse(
             total_messages=total_count,
             classified_messages=classified_count,
@@ -119,6 +125,7 @@ async def get_stats(request: Request):
             classification_rate=classification_rate,
             accounts_count=len(accounts),
             top_tags=top_tags,
+            accounts_breakdown=accounts_breakdown,
         )
 
     except Exception as e:
