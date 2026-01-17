@@ -94,6 +94,34 @@ export function useBulkMarkRead() {
   return useMutation({
     mutationFn: ({ messageIds, isUnread }: { messageIds: string[]; isUnread: boolean }) =>
       messages.bulkMarkRead({ message_ids: messageIds, is_unread: isUnread }),
+    onMutate: async ({ messageIds, isUnread }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: messageKeys.lists() });
+
+      // Snapshot previous value
+      const previousQueries = queryClient.getQueriesData({ queryKey: messageKeys.lists() });
+
+      // Optimistically update - change is_unread status for selected messages
+      queryClient.setQueriesData({ queryKey: messageKeys.lists() }, (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          messages: old.messages.map((m: any) =>
+            messageIds.includes(m.id) ? { ...m, is_unread: isUnread } : m
+          ),
+        };
+      });
+
+      return { previousQueries };
+    },
+    onError: (_err, _variables, context) => {
+      // Rollback on error
+      if (context?.previousQueries) {
+        context.previousQueries.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+    },
     onSuccess: () => {
       // Invalidate and refetch messages
       queryClient.invalidateQueries({ queryKey: messageKeys.lists() });
