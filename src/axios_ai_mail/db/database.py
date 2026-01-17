@@ -134,6 +134,7 @@ class Database:
         folder: str = "inbox",
         body_text: Optional[str] = None,
         body_html: Optional[str] = None,
+        imap_folder: Optional[str] = None,
     ) -> Message:
         """Create or update a message."""
         with self.session() as session:
@@ -150,6 +151,7 @@ class Database:
                 message.folder = folder
                 message.body_text = body_text
                 message.body_html = body_html
+                message.imap_folder = imap_folder
             else:
                 message = Message(
                     id=message_id,
@@ -165,6 +167,7 @@ class Database:
                     folder=folder,
                     body_text=body_text,
                     body_html=body_html,
+                    imap_folder=imap_folder,
                 )
                 session.add(message)
             session.commit()

@@ -34,6 +34,7 @@ class IMAPProvider(BaseEmailProvider):
         self.connection: Optional[imaplib.IMAP4_SSL] = None
         self._supports_keywords: Optional[bool] = None
         self._current_folder: Optional[str] = None
+        self._folder_mapping: Optional[Dict[str, str]] = None  # Cache discovered folder mapping
 
     def authenticate(self) -> None:
         """Authenticate with IMAP server using password."""
@@ -61,6 +62,42 @@ class IMAPProvider(BaseEmailProvider):
                 f"IMAP KEYWORD extension: {'supported' if self._supports_keywords else 'not supported'}"
             )
 
+    def _parse_message_id(self, message_id: str) -> tuple[str, str]:
+        """
+        Parse message ID to extract IMAP folder and UID.
+
+        Message ID format: account_id:folder:uid
+        Example: calvelli_dev:INBOX.Sent:123
+
+        Args:
+            message_id: Full message ID
+
+        Returns:
+            Tuple of (folder, uid)
+        """
+        parts = message_id.split(":", 2)
+        if len(parts) == 3:
+            # New format: account_id:folder:uid
+            return parts[1], parts[2]
+        elif len(parts) == 2:
+            # Old format: account_id:uid (assume INBOX for backwards compatibility)
+            logger.warning(f"Message ID in old format (missing folder): {message_id}")
+            return "INBOX", parts[1]
+        else:
+            raise ValueError(f"Invalid message ID format: {message_id}")
+
+    def _ensure_folder_mapping(self) -> Dict[str, str]:
+        """
+        Ensure folder mapping is cached and return it.
+
+        Returns:
+            Dictionary mapping logical names to actual folder names
+        """
+        if self._folder_mapping is None:
+            available_folders = self.list_folders()
+            self._folder_mapping = self._discover_folder_mapping(available_folders)
+        return self._folder_mapping
+
     def fetch_body(self, message_id: str) -> tuple[Optional[str], Optional[str]]:
         """
         Fetch full body (text and HTML) for a specific message.
@@ -68,7 +105,7 @@ class IMAPProvider(BaseEmailProvider):
         Useful for lazy loading message bodies on demand.
 
         Args:
-            message_id: Message ID (format: account_id:uid)
+            message_id: Message ID (format: account_id:folder:uid)
 
         Returns:
             Tuple of (body_text, body_html)
@@ -76,15 +113,20 @@ class IMAPProvider(BaseEmailProvider):
         if not self.connection:
             raise RuntimeError("Not authenticated. Call authenticate() first.")
 
-        # Extract IMAP UID from message_id (format: account_id:uid)
-        uid = message_id.split(":")[-1]
+        # Parse message ID to extract folder and UID
+        folder, uid = self._parse_message_id(message_id)
 
         try:
+            # Select the correct folder
+            if not self._select_folder(folder):
+                logger.error(f"Failed to select folder {folder} for message {message_id}")
+                return None, None
+
             # Fetch message
             typ, msg_data = self.connection.fetch(uid, "(RFC822)")
 
             if typ != "OK" or not msg_data or not msg_data[0]:
-                logger.warning(f"Failed to fetch body for message {uid}")
+                logger.warning(f"Failed to fetch body for message {uid} in {folder}")
                 return None, None
 
             # Parse email
@@ -96,7 +138,7 @@ class IMAPProvider(BaseEmailProvider):
             return body_text, body_html
 
         except Exception as e:
-            logger.error(f"Error fetching body for message {uid}: {e}")
+            logger.error(f"Error fetching body for message {uid} in {folder}: {e}")
             return None, None
 
     def list_folders(self) -> List[str]:
@@ -453,22 +495,26 @@ class IMAPProvider(BaseEmailProvider):
         Mark a message as read by setting the \Seen flag.
 
         Args:
-            message_id: Message ID (format: account_id:uid)
+            message_id: Message ID (format: account_id:folder:uid)
         """
         if not self.connection:
             raise RuntimeError("Not authenticated")
 
-        # Extract IMAP UID from message_id (format: account_id:uid)
-        uid = message_id.split(":")[-1]
+        # Parse message ID to extract folder and UID
+        folder, uid = self._parse_message_id(message_id)
 
         try:
+            # Select the correct folder
+            if not self._select_folder(folder):
+                raise RuntimeError(f"Failed to select folder {folder}")
+
             typ, data = self.connection.store(uid, "+FLAGS", "\\Seen")
             if typ != "OK":
                 raise RuntimeError(f"IMAP STORE failed: {data}")
-            logger.debug(f"Marked message {uid} as read")
+            logger.debug(f"Marked message {uid} in {folder} as read")
 
         except Exception as e:
-            logger.error(f"Failed to mark message {uid} as read: {e}")
+            logger.error(f"Failed to mark message {uid} in {folder} as read: {e}")
             raise
 
     def mark_as_unread(self, message_id: str) -> None:
@@ -476,22 +522,26 @@ class IMAPProvider(BaseEmailProvider):
         Mark a message as unread by removing the \Seen flag.
 
         Args:
-            message_id: Message ID (format: account_id:uid)
+            message_id: Message ID (format: account_id:folder:uid)
         """
         if not self.connection:
             raise RuntimeError("Not authenticated")
 
-        # Extract IMAP UID from message_id (format: account_id:uid)
-        uid = message_id.split(":")[-1]
+        # Parse message ID to extract folder and UID
+        folder, uid = self._parse_message_id(message_id)
 
         try:
+            # Select the correct folder
+            if not self._select_folder(folder):
+                raise RuntimeError(f"Failed to select folder {folder}")
+
             typ, data = self.connection.store(uid, "-FLAGS", "\\Seen")
             if typ != "OK":
                 raise RuntimeError(f"IMAP STORE failed: {data}")
-            logger.debug(f"Marked message {uid} as unread")
+            logger.debug(f"Marked message {uid} in {folder} as unread")
 
         except Exception as e:
-            logger.error(f"Failed to mark message {uid} as unread: {e}")
+            logger.error(f"Failed to mark message {uid} in {folder} as unread: {e}")
             raise
 
     def delete_message(self, message_id: str, permanent: bool = False) -> None:
@@ -499,16 +549,20 @@ class IMAPProvider(BaseEmailProvider):
         Delete a message by moving to Trash or permanently deleting.
 
         Args:
-            message_id: Message ID (format: account_id:uid)
+            message_id: Message ID (format: account_id:folder:uid)
             permanent: If True, permanently delete. If False, move to Trash folder.
         """
         if not self.connection:
             raise RuntimeError("Not authenticated")
 
-        # Extract IMAP UID from message_id (format: account_id:uid)
-        uid = message_id.split(":")[-1]
+        # Parse message ID to extract folder and UID
+        folder, uid = self._parse_message_id(message_id)
 
         try:
+            # Select the correct folder first
+            if not self._select_folder(folder):
+                raise RuntimeError(f"Failed to select folder {folder}")
+
             if permanent:
                 # Permanent delete: mark as deleted and expunge
                 typ, data = self.connection.store(uid, "+FLAGS", "\\Deleted")
@@ -517,22 +571,12 @@ class IMAPProvider(BaseEmailProvider):
 
                 # Expunge to permanently remove deleted messages
                 self.connection.expunge()
-                logger.info(f"Permanently deleted message {uid}")
+                logger.info(f"Permanently deleted message {uid} from {folder}")
 
             else:
-                # Move to Trash folder
-                # First, try common Trash folder names
-                trash_folders = ["Trash", "Deleted Items", "Deleted Messages", "INBOX.Trash"]
-
-                # Get available folders
-                available_folders = self.list_folders()
-
-                # Find the trash folder
-                trash_folder = None
-                for folder_name in trash_folders:
-                    if folder_name in available_folders:
-                        trash_folder = folder_name
-                        break
+                # Move to Trash folder using discovered folder mapping
+                folder_mapping = self._ensure_folder_mapping()
+                trash_folder = folder_mapping.get("trash")
 
                 if not trash_folder:
                     # If no trash folder found, fall back to permanent delete
@@ -552,10 +596,10 @@ class IMAPProvider(BaseEmailProvider):
 
                 # Expunge to remove from current folder
                 self.connection.expunge()
-                logger.info(f"Moved message {uid} to {trash_folder}")
+                logger.info(f"Moved message {uid} from {folder} to {trash_folder}")
 
         except Exception as e:
-            logger.error(f"Failed to delete message {uid}: {e}")
+            logger.error(f"Failed to delete message {uid} from {folder}: {e}")
             raise
 
     def update_labels(
@@ -565,7 +609,7 @@ class IMAPProvider(BaseEmailProvider):
         Update IMAP keywords for a message.
 
         Args:
-            message_id: Message ID (format: account_id:uid)
+            message_id: Message ID (format: account_id:folder:uid)
             add_labels: Labels to add
             remove_labels: Labels to remove
         """
@@ -578,17 +622,21 @@ class IMAPProvider(BaseEmailProvider):
         if not self.connection:
             raise RuntimeError("Not authenticated")
 
-        # Extract IMAP UID from message_id (format: account_id:uid)
-        uid = message_id.split(":")[-1]
+        # Parse message ID to extract folder and UID
+        folder, uid = self._parse_message_id(message_id)
 
         try:
+            # Select the correct folder
+            if not self._select_folder(folder):
+                raise RuntimeError(f"Failed to select folder {folder}")
+
             # Add keywords
             if add_labels:
                 keywords = " ".join(
                     f"{self.config.keyword_prefix}{label}" for label in add_labels
                 )
                 self.connection.store(uid, "+FLAGS", f"({keywords})")
-                logger.debug(f"Added keywords to message {uid}: {keywords}")
+                logger.debug(f"Added keywords to message {uid} in {folder}: {keywords}")
 
             # Remove keywords
             if remove_labels:
@@ -596,10 +644,10 @@ class IMAPProvider(BaseEmailProvider):
                     f"{self.config.keyword_prefix}{label}" for label in remove_labels
                 )
                 self.connection.store(uid, "-FLAGS", f"({keywords})")
-                logger.debug(f"Removed keywords from message {uid}: {keywords}")
+                logger.debug(f"Removed keywords from message {uid} in {folder}: {keywords}")
 
         except Exception as e:
-            logger.error(f"Failed to update labels for message {uid}: {e}")
+            logger.error(f"Failed to update labels for message {uid} in {folder}: {e}")
             raise
 
     def create_label(self, name: str, color: Optional[str] = None) -> str:
@@ -691,7 +739,7 @@ class IMAPProvider(BaseEmailProvider):
         logical_folder = self._normalize_folder_name(imap_folder)
 
         return Message(
-            id=f"{self.config.account_id}:{msg_id}",
+            id=f"{self.config.account_id}:{imap_folder}:{msg_id}",  # Include folder in message ID
             thread_id=thread_id,
             subject=subject,
             from_email=from_email,
@@ -703,6 +751,7 @@ class IMAPProvider(BaseEmailProvider):
             labels=keywords,
             is_unread=is_unread,
             folder=logical_folder,
+            imap_folder=imap_folder,  # Store actual IMAP folder name
         )
 
     def _decode_header(self, header: str) -> str:

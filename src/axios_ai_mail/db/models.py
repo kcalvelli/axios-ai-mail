@@ -51,6 +51,7 @@ class Message(Base):
     provider_labels: Mapped[List[str]] = mapped_column(JSON, nullable=False, default=list)
     folder: Mapped[str] = mapped_column(String(100), nullable=False, default="inbox")
     original_folder: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    imap_folder: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # Actual IMAP folder name (e.g., "INBOX.Sent")
     body_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     body_html: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 

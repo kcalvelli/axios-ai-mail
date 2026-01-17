@@ -118,6 +118,7 @@ class SyncEngine:
                         folder=message.folder,
                         body_text=message.body_text,
                         body_html=message.body_html,
+                        imap_folder=message.imap_folder,
                     )
                 except Exception as e:
                     error_msg = f"Failed to store message {message.id}: {e}"

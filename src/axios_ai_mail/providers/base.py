@@ -22,6 +22,7 @@ class Message:
     labels: Set[str] = field(default_factory=set)
     is_unread: bool = True
     folder: str = "inbox"
+    imap_folder: Optional[str] = None  # Actual IMAP folder name (e.g., "INBOX.Sent")
 
     def __post_init__(self) -> None:
         """Ensure labels is a set."""
