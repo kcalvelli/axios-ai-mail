@@ -351,7 +351,7 @@ export default function Compose() {
           >
             {accounts.map(account => (
               <MenuItem key={account.id} value={account.id}>
-                {account.name} &lt;{account.email}&gt;
+                {account.email}
               </MenuItem>
             ))}
           </Select>
