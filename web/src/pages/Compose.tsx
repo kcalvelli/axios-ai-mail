@@ -77,6 +77,18 @@ export default function Compose() {
   const [success, setSuccess] = useState(false);
   const [loadingDraft, setLoadingDraft] = useState(!!existingDraftId);
 
+  // Rich text editor - declared early so it can be used in effects
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      Placeholder.configure({
+        placeholder: 'Compose your message...',
+      }),
+    ],
+    content: '',
+    autofocus: !existingDraftId, // Don't autofocus if loading a draft
+  });
+
   // Fetch accounts on mount
   useEffect(() => {
     const fetchAccounts = async () => {
@@ -99,7 +111,7 @@ export default function Compose() {
   // Load existing draft if draft_id is provided
   useEffect(() => {
     const loadDraft = async () => {
-      if (!existingDraftId) return;
+      if (!existingDraftId || !editor) return;
 
       try {
         setLoadingDraft(true);
@@ -114,8 +126,8 @@ export default function Compose() {
         setShowCc(!!(draft.cc_emails && draft.cc_emails.length > 0));
         setShowBcc(!!(draft.bcc_emails && draft.bcc_emails.length > 0));
 
-        // Set editor content after it's ready
-        if (editor && draft.body_html) {
+        // Set editor content
+        if (draft.body_html) {
           editor.commands.setContent(draft.body_html);
         }
 
@@ -136,18 +148,6 @@ export default function Compose() {
 
     loadDraft();
   }, [existingDraftId, editor]);
-
-  // Rich text editor
-  const editor = useEditor({
-    extensions: [
-      StarterKit,
-      Placeholder.configure({
-        placeholder: 'Compose your message...',
-      }),
-    ],
-    content: '',
-    autofocus: true,
-  });
 
   // Parse email addresses from comma-separated string
   const parseEmails = (emailString: string): string[] => {
