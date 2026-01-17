@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Request, Query
 from pydantic import BaseModel
 
 from ...db.models import Message, Classification
+from ...providers.factory import ProviderFactory
 from ..models import (
     MessageResponse,
     MessagesListResponse,
@@ -190,22 +191,43 @@ async def bulk_delete(request: Request, body: BulkDeleteRequest):
 
     try:
         moved_to_trash_count = 0
+        provider_synced_count = 0
+        provider_failed_count = 0
         errors = []
 
         for message_id in body.message_ids:
             try:
-                # Always move to trash
+                # Phase 1: Get message and move to trash in database
+                message = db.get_message(message_id)
+                if not message:
+                    errors.append({"message_id": message_id, "error": "Not found"})
+                    continue
+
                 updated = db.move_to_trash(message_id)
                 if updated:
                     moved_to_trash_count += 1
+
+                    # Phase 2: Sync to provider (best effort)
+                    try:
+                        account = db.get_account(message.account_id)
+                        if account:
+                            provider = ProviderFactory.create_from_account(account)
+                            provider.authenticate()
+                            provider.move_to_trash(message_id)
+                            provider_synced_count += 1
+                    except Exception as e:
+                        provider_failed_count += 1
+                        logger.error(f"Provider sync failed for {message_id}: {e}")
                 else:
-                    errors.append({"message_id": message_id, "error": "Not found"})
+                    errors.append({"message_id": message_id, "error": "Failed to move to trash"})
             except Exception as e:
                 errors.append({"message_id": message_id, "error": str(e)})
                 logger.error(f"Error deleting message {message_id}: {e}")
 
         return {
             "moved_to_trash": moved_to_trash_count,
+            "provider_synced": provider_synced_count,
+            "provider_failed": provider_failed_count,
             "total": len(body.message_ids),
             "errors": errors,
         }
@@ -222,14 +244,33 @@ async def bulk_restore(request: Request, body: BulkDeleteRequest):
 
     try:
         restored_count = 0
+        provider_synced_count = 0
+        provider_failed_count = 0
         errors = []
 
         for message_id in body.message_ids:
             try:
-                # Restore from trash
+                # Phase 1: Get message and restore from trash in database
+                message = db.get_message(message_id)
+                if not message:
+                    errors.append({"message_id": message_id, "error": "Not found"})
+                    continue
+
                 updated = db.restore_from_trash(message_id)
                 if updated:
                     restored_count += 1
+
+                    # Phase 2: Sync to provider (best effort)
+                    try:
+                        account = db.get_account(message.account_id)
+                        if account:
+                            provider = ProviderFactory.create_from_account(account)
+                            provider.authenticate()
+                            provider.restore_from_trash(message_id)
+                            provider_synced_count += 1
+                    except Exception as e:
+                        provider_failed_count += 1
+                        logger.error(f"Provider sync failed for {message_id}: {e}")
                 else:
                     errors.append({"message_id": message_id, "error": "Not found in trash"})
             except Exception as e:
@@ -238,6 +279,8 @@ async def bulk_restore(request: Request, body: BulkDeleteRequest):
 
         return {
             "restored": restored_count,
+            "provider_synced": provider_synced_count,
+            "provider_failed": provider_failed_count,
             "total": len(body.message_ids),
             "errors": errors,
         }
@@ -254,22 +297,44 @@ async def bulk_permanent_delete(request: Request, body: BulkDeleteRequest):
 
     try:
         deleted_count = 0
+        provider_synced_count = 0
+        provider_failed_count = 0
         errors = []
 
         for message_id in body.message_ids:
             try:
-                # Permanently delete from database
+                # Phase 1: Get message before deletion
+                message = db.get_message(message_id)
+                if not message:
+                    errors.append({"message_id": message_id, "error": "Not found"})
+                    continue
+
+                # Phase 2: Sync to provider first (permanent delete)
+                try:
+                    account = db.get_account(message.account_id)
+                    if account:
+                        provider = ProviderFactory.create_from_account(account)
+                        provider.authenticate()
+                        provider.delete_message(message_id, permanent=True)
+                        provider_synced_count += 1
+                except Exception as e:
+                    provider_failed_count += 1
+                    logger.error(f"Provider permanent delete failed for {message_id}: {e}")
+
+                # Phase 3: Delete from database
                 success = db.delete_message(message_id)
                 if success:
                     deleted_count += 1
                 else:
-                    errors.append({"message_id": message_id, "error": "Not found"})
+                    errors.append({"message_id": message_id, "error": "Failed to delete"})
             except Exception as e:
                 errors.append({"message_id": message_id, "error": str(e)})
                 logger.error(f"Error permanently deleting message {message_id}: {e}")
 
         return {
             "deleted": deleted_count,
+            "provider_synced": provider_synced_count,
+            "provider_failed": provider_failed_count,
             "total": len(body.message_ids),
             "errors": errors,
         }
@@ -461,11 +526,31 @@ async def delete_message(request: Request, message_id: str):
         if not message:
             raise HTTPException(status_code=404, detail="Message not found")
 
-        # Always move to trash (never permanently delete)
+        # Phase 1: Update database (always succeeds)
         updated_message = db.move_to_trash(message_id)
         if not updated_message:
             raise HTTPException(status_code=500, detail="Failed to move message to trash")
-        return {"status": "moved_to_trash", "message_id": message_id}
+
+        # Phase 2: Sync to provider (best effort)
+        provider_synced = False
+        try:
+            # Get account and create provider
+            account = db.get_account(message.account_id)
+            if account:
+                provider = ProviderFactory.create_from_account(account)
+                provider.authenticate()
+                provider.move_to_trash(message_id)
+                provider_synced = True
+                logger.info(f"Synced delete to provider for message {message_id}")
+        except Exception as e:
+            logger.error(f"Provider sync failed for message {message_id}: {e}", exc_info=True)
+            # Don't fail the request - database operation succeeded
+
+        return {
+            "status": "moved_to_trash",
+            "message_id": message_id,
+            "provider_synced": provider_synced,
+        }
 
     except HTTPException:
         raise
@@ -480,13 +565,34 @@ async def restore_message(request: Request, message_id: str):
     db = request.app.state.db
 
     try:
-        # Restore from trash
+        # Get message before restore (to get account_id)
+        message = db.get_message(message_id)
+        if not message:
+            raise HTTPException(status_code=404, detail="Message not found")
+
+        # Phase 1: Restore from trash in database
         updated_message = db.restore_from_trash(message_id)
         if not updated_message:
             raise HTTPException(status_code=404, detail="Message not found in trash")
 
+        # Phase 2: Sync to provider (best effort)
+        provider_synced = False
+        try:
+            account = db.get_account(message.account_id)
+            if account:
+                provider = ProviderFactory.create_from_account(account)
+                provider.authenticate()
+                provider.restore_from_trash(message_id)
+                provider_synced = True
+                logger.info(f"Synced restore to provider for message {message_id}")
+        except Exception as e:
+            logger.error(f"Provider sync failed for message {message_id}: {e}", exc_info=True)
+            # Don't fail the request - database operation succeeded
+
         classification = db.get_classification(message_id)
-        return serialize_message(updated_message, classification)
+        response = serialize_message(updated_message, classification)
+        response["provider_synced"] = provider_synced
+        return response
 
     except HTTPException:
         raise
@@ -566,10 +672,25 @@ async def clear_trash(request: Request):
 
         # Permanently delete all trash messages
         deleted_count = 0
+        provider_synced_count = 0
+        provider_failed_count = 0
         errors = []
 
         for message in trash_messages:
             try:
+                # Phase 1: Sync to provider first (permanent delete)
+                try:
+                    account = db.get_account(message.account_id)
+                    if account:
+                        provider = ProviderFactory.create_from_account(account)
+                        provider.authenticate()
+                        provider.delete_message(message.id, permanent=True)
+                        provider_synced_count += 1
+                except Exception as e:
+                    provider_failed_count += 1
+                    logger.error(f"Provider permanent delete failed for {message.id}: {e}")
+
+                # Phase 2: Delete from database
                 success = db.delete_message(message.id)
                 if success:
                     deleted_count += 1
@@ -581,6 +702,8 @@ async def clear_trash(request: Request):
 
         return {
             "deleted": deleted_count,
+            "provider_synced": provider_synced_count,
+            "provider_failed": provider_failed_count,
             "total": len(trash_messages),
             "errors": errors,
         }
