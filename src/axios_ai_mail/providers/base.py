@@ -18,6 +18,7 @@ class Message:
     date: datetime
     snippet: str
     body_text: Optional[str] = None
+    body_html: Optional[str] = None
     labels: Set[str] = field(default_factory=set)
     is_unread: bool = True
     folder: str = "inbox"

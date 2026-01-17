@@ -117,6 +117,7 @@ class SyncEngine:
                         provider_labels=list(message.labels),
                         folder=message.folder,
                         body_text=message.body_text,
+                        body_html=message.body_html,
                     )
                 except Exception as e:
                     error_msg = f"Failed to store message {message.id}: {e}"
@@ -280,6 +281,7 @@ class SyncEngine:
                         date=db_message.date,
                         snippet=db_message.snippet,
                         body_text=db_message.body_text,
+                        body_html=db_message.body_html,
                         labels=set(db_message.provider_labels),
                         is_unread=db_message.is_unread,
                         folder=db_message.folder,

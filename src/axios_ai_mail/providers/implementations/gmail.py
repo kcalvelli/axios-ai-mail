@@ -168,17 +168,31 @@ class GmailProvider(BaseEmailProvider):
         """
         headers = {h["name"]: h["value"] for h in msg_detail["payload"]["headers"]}
 
-        # Extract email body (simplified - prefer text/plain)
+        # Extract email body (text and HTML)
+        import base64
         body_text = None
+        body_html = None
+
         if "parts" in msg_detail["payload"]:
             for part in msg_detail["payload"]["parts"]:
-                if part["mimeType"] == "text/plain":
+                if part["mimeType"] == "text/plain" and not body_text:
                     body_data = part["body"].get("data", "")
                     if body_data:
-                        import base64
-
                         body_text = base64.urlsafe_b64decode(body_data).decode("utf-8")
-                        break
+                elif part["mimeType"] == "text/html" and not body_html:
+                    body_data = part["body"].get("data", "")
+                    if body_data:
+                        body_html = base64.urlsafe_b64decode(body_data).decode("utf-8")
+        else:
+            # Non-multipart message
+            body_data = msg_detail["payload"]["body"].get("data", "")
+            if body_data:
+                decoded = base64.urlsafe_b64decode(body_data).decode("utf-8")
+                mime_type = msg_detail["payload"].get("mimeType", "text/plain")
+                if mime_type == "text/html":
+                    body_html = decoded
+                else:
+                    body_text = decoded
 
         # Extract labels
         label_ids = msg_detail.get("labelIds", [])
@@ -196,6 +210,7 @@ class GmailProvider(BaseEmailProvider):
             date=date,
             snippet=msg_detail.get("snippet", ""),
             body_text=body_text,
+            body_html=body_html,
             labels=labels,
             is_unread="UNREAD" in label_ids,
             folder="inbox",  # Gmail uses labels, default to inbox

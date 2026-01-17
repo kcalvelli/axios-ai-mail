@@ -61,6 +61,44 @@ class IMAPProvider(BaseEmailProvider):
                 f"IMAP KEYWORD extension: {'supported' if self._supports_keywords else 'not supported'}"
             )
 
+    def fetch_body(self, message_id: str) -> tuple[Optional[str], Optional[str]]:
+        """
+        Fetch full body (text and HTML) for a specific message.
+
+        Useful for lazy loading message bodies on demand.
+
+        Args:
+            message_id: Message ID (format: account_id:uid)
+
+        Returns:
+            Tuple of (body_text, body_html)
+        """
+        if not self.connection:
+            raise RuntimeError("Not authenticated. Call authenticate() first.")
+
+        # Extract IMAP UID from message_id (format: account_id:uid)
+        uid = message_id.split(":")[-1]
+
+        try:
+            # Fetch message
+            typ, msg_data = self.connection.fetch(uid, "(RFC822)")
+
+            if typ != "OK" or not msg_data or not msg_data[0]:
+                logger.warning(f"Failed to fetch body for message {uid}")
+                return None, None
+
+            # Parse email
+            raw_email = msg_data[0][1]
+            email_message = email.message_from_bytes(raw_email)
+
+            # Extract bodies
+            body_text, body_html = self._extract_body(email_message)
+            return body_text, body_html
+
+        except Exception as e:
+            logger.error(f"Error fetching body for message {uid}: {e}")
+            return None, None
+
     def list_folders(self) -> List[str]:
         """
         List all available IMAP folders.
@@ -350,8 +388,8 @@ class IMAPProvider(BaseEmailProvider):
         except Exception:
             date = datetime.utcnow()
 
-        # Get body text
-        body_text = self._extract_body(email_message)
+        # Get body text and HTML
+        body_text, body_html = self._extract_body(email_message)
 
         # Extract snippet (first 200 chars)
         snippet = (body_text[:200] + "...") if len(body_text) > 200 else body_text
@@ -381,6 +419,7 @@ class IMAPProvider(BaseEmailProvider):
             date=date,
             snippet=snippet,
             body_text=body_text,
+            body_html=body_html,
             labels=keywords,
             is_unread=is_unread,
             folder=logical_folder,
@@ -413,17 +452,18 @@ class IMAPProvider(BaseEmailProvider):
 
         return decoded_str.strip()
 
-    def _extract_body(self, email_message) -> str:
+    def _extract_body(self, email_message) -> tuple[str, Optional[str]]:
         """
-        Extract plain text body from email message.
+        Extract plain text and HTML body from email message.
 
         Args:
             email_message: Parsed email.message object
 
         Returns:
-            Plain text body
+            Tuple of (body_text, body_html)
         """
-        body = ""
+        body_text = ""
+        body_html = None
 
         if email_message.is_multipart():
             # Extract from multipart message
@@ -435,40 +475,70 @@ class IMAPProvider(BaseEmailProvider):
                 if "attachment" in disposition:
                     continue
 
-                # Prefer text/plain
-                if content_type == "text/plain":
+                # Extract text/plain
+                if content_type == "text/plain" and not body_text:
                     try:
                         payload = part.get_payload(decode=True)
                         if payload:
-                            body = payload.decode("utf-8", errors="ignore")
-                            break
+                            # Try different encodings
+                            for encoding in ["utf-8", "iso-8859-1", "windows-1252"]:
+                                try:
+                                    body_text = payload.decode(encoding)
+                                    break
+                                except (UnicodeDecodeError, AttributeError):
+                                    continue
+                            else:
+                                body_text = payload.decode("utf-8", errors="ignore")
                     except Exception as e:
                         logger.warning(f"Failed to decode text/plain part: {e}")
                         continue
 
-            # Fallback to text/html if text/plain not found
-            if not body:
-                for part in email_message.walk():
-                    if part.get_content_type() == "text/html":
-                        try:
-                            payload = part.get_payload(decode=True)
-                            if payload:
-                                # Simple HTML stripping (basic, not perfect)
-                                html_body = payload.decode("utf-8", errors="ignore")
-                                body = re.sub(r"<[^>]+>", "", html_body)
-                                break
-                        except Exception:
-                            continue
+                # Extract text/html
+                if content_type == "text/html" and not body_html:
+                    try:
+                        payload = part.get_payload(decode=True)
+                        if payload:
+                            # Try different encodings
+                            for encoding in ["utf-8", "iso-8859-1", "windows-1252"]:
+                                try:
+                                    body_html = payload.decode(encoding)
+                                    break
+                                except (UnicodeDecodeError, AttributeError):
+                                    continue
+                            else:
+                                body_html = payload.decode("utf-8", errors="ignore")
+                    except Exception as e:
+                        logger.warning(f"Failed to decode text/html part: {e}")
+                        continue
         else:
             # Non-multipart message
             try:
                 payload = email_message.get_payload(decode=True)
                 if payload:
-                    body = payload.decode("utf-8", errors="ignore")
+                    content_type = email_message.get_content_type()
+                    # Try different encodings
+                    for encoding in ["utf-8", "iso-8859-1", "windows-1252"]:
+                        try:
+                            decoded = payload.decode(encoding)
+                            break
+                        except (UnicodeDecodeError, AttributeError):
+                            continue
+                    else:
+                        decoded = payload.decode("utf-8", errors="ignore")
+
+                    if content_type == "text/html":
+                        body_html = decoded
+                    else:
+                        body_text = decoded
             except Exception as e:
                 logger.warning(f"Failed to decode message body: {e}")
 
-        return body.strip()
+        # If no plain text but have HTML, create plain text version
+        if not body_text and body_html:
+            # Simple HTML stripping (basic, not perfect)
+            body_text = re.sub(r"<[^>]+>", "", body_html)
+
+        return body_text.strip() if body_text else "", body_html
 
     def _parse_flags(self, flags_str: str) -> Set[str]:
         """
