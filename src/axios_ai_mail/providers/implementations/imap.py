@@ -123,12 +123,22 @@ class IMAPProvider(BaseEmailProvider):
                 # Parse folder line: '(\\HasNoChildren) "/" "INBOX"'
                 # The folder name is the last quoted string
                 folder_str = folder_info.decode("utf-8", errors="ignore")
+                logger.debug(f"Raw folder line: {folder_str}")
+
+                # Try to extract folder name - handle both quoted and unquoted formats
                 match = re.search(r'"([^"]+)"$', folder_str)
                 if match:
                     folder_name = match.group(1)
                     folders.append(folder_name)
+                else:
+                    # Fallback: try to extract last word if no quotes
+                    parts = folder_str.split()
+                    if parts:
+                        folder_name = parts[-1].strip('"\'')
+                        logger.debug(f"Using fallback parsing, got: {folder_name}")
+                        folders.append(folder_name)
 
-            logger.info(f"Found {len(folders)} folders")
+            logger.info(f"Found {len(folders)} folders: {folders}")
             return folders
 
         except Exception as e:
