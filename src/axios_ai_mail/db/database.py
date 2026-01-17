@@ -192,6 +192,29 @@ class Database:
                 return message
             return None
 
+    def update_message_body(
+        self, message_id: str, body_text: Optional[str], body_html: Optional[str]
+    ) -> Optional[Message]:
+        """Update body content of a message.
+
+        Args:
+            message_id: Message ID
+            body_text: Plain text body
+            body_html: HTML body
+
+        Returns:
+            Updated message or None if not found
+        """
+        with self.session() as session:
+            message = session.get(Message, message_id)
+            if message:
+                message.body_text = body_text
+                message.body_html = body_html
+                session.commit()
+                session.refresh(message)
+                return message
+            return None
+
     def delete_message(self, message_id: str) -> bool:
         """Delete a message from the database.
 

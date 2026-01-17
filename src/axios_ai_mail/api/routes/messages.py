@@ -192,11 +192,47 @@ async def update_message_tags(
 async def get_message_body(request: Request, message_id: str):
     """Get full message body (text and HTML)."""
     db = request.app.state.db
+    config = request.app.state.config
 
     try:
         message = db.get_message(message_id)
         if not message:
             raise HTTPException(status_code=404, detail="Message not found")
+
+        # If body is not in database, fetch it from provider on-demand
+        if not message.body_text and not message.body_html:
+            logger.info(f"Body not in DB for {message_id}, fetching from provider")
+
+            try:
+                # Get provider for this account
+                from ...providers.factory import ProviderFactory
+                from ...config.loader import AccountConfig
+
+                # Find account config
+                account_config = None
+                for acc in config.accounts:
+                    if acc.id == message.account_id:
+                        account_config = acc
+                        break
+
+                if account_config:
+                    # Create provider and fetch body
+                    provider = ProviderFactory.create_provider(account_config)
+                    body_text, body_html = provider.fetch_body(message.id)
+
+                    # Update database with fetched body
+                    db.update_message_body(message.id, body_text, body_html)
+
+                    # Update in-memory message object
+                    message.body_text = body_text
+                    message.body_html = body_html
+
+                    logger.info(f"Fetched and cached body for {message_id}")
+                else:
+                    logger.warning(f"Account config not found for {message.account_id}")
+            except Exception as fetch_error:
+                logger.error(f"Failed to fetch body for {message_id}: {fetch_error}", exc_info=True)
+                # Continue and return what we have (might be None)
 
         return {
             "id": message.id,
