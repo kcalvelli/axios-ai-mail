@@ -48,6 +48,7 @@ export interface Tag {
   name: string;
   count: number;
   percentage: number;
+  type: 'ai' | 'account';
 }
 
 export interface TagsListResponse {

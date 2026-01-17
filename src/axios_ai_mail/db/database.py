@@ -259,23 +259,49 @@ class Database:
         with self.session() as session:
             query = select(Message)
 
+            # Handle tag filtering - support both single tag and multiple tags
+            tags_to_filter = tags if tags else ([tag] if tag else None)
+
+            # Separate account tags (emails) from AI tags
+            account_emails = []
+            ai_tags = []
+
+            if tags_to_filter:
+                # Get all accounts to match emails
+                accounts = session.execute(select(Account)).scalars().all()
+                account_email_set = {acc.email for acc in accounts}
+
+                # Separate tags into account emails and AI tags
+                for t in tags_to_filter:
+                    if t in account_email_set:
+                        account_emails.append(t)
+                    else:
+                        ai_tags.append(t)
+
+            # Apply account filtering (OR logic if multiple accounts)
             if account_id:
                 query = query.where(Message.account_id == account_id)
+            elif account_emails:
+                # Get account IDs from emails
+                accounts = session.execute(
+                    select(Account).where(Account.email.in_(account_emails))
+                ).scalars().all()
+                account_ids = [acc.id for acc in accounts]
+
+                if account_ids:
+                    from sqlalchemy import or_
+                    query = query.where(or_(*[Message.account_id == aid for aid in account_ids]))
 
             if is_unread is not None:
                 query = query.where(Message.is_unread == is_unread)
 
-            # Handle tag filtering - support both single tag and multiple tags
-            tags_to_filter = tags if tags else ([tag] if tag else None)
-
-            if tags_to_filter:
-                # Join with classifications to filter by tags
-                # Use OR logic: match messages that have ANY of the selected tags
+            # Apply AI tag filtering (OR logic - match any)
+            if ai_tags:
                 from sqlalchemy import or_
 
                 tag_conditions = [
                     Classification.tags.cast(String).like(f'%"{t}"%')
-                    for t in tags_to_filter
+                    for t in ai_tags
                 ]
 
                 query = query.join(Classification).where(or_(*tag_conditions))

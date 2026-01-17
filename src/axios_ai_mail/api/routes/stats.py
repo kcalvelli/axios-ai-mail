@@ -13,14 +13,15 @@ router = APIRouter()
 
 @router.get("/tags", response_model=TagsListResponse)
 async def list_tags(request: Request):
-    """List all tags with counts and percentages."""
+    """List all tags (AI + account) with counts and percentages."""
     db = request.app.state.db
 
     try:
         # Get all messages
         all_messages = db.query_messages(limit=100000)
+        total_messages = len(all_messages)
 
-        # Count tags
+        # Count AI tags
         tag_counts = {}
         total_classified = 0
 
@@ -31,7 +32,7 @@ async def list_tags(request: Request):
                 for tag in classification.tags:
                     tag_counts[tag] = tag_counts.get(tag, 0) + 1
 
-        # Build tag responses
+        # Build AI tag responses
         tags = []
         for tag_name, count in sorted(tag_counts.items(), key=lambda x: x[1], reverse=True):
             percentage = (count / total_classified * 100) if total_classified > 0 else 0
@@ -39,7 +40,30 @@ async def list_tags(request: Request):
                 name=tag_name,
                 count=count,
                 percentage=percentage,
+                type="ai",
             ))
+
+        # Count messages per account (account tags)
+        account_counts = {}
+        for message in all_messages:
+            account_id = message.account_id
+            account_counts[account_id] = account_counts.get(account_id, 0) + 1
+
+        # Get account details to include email as tag name
+        accounts = db.list_accounts()
+        account_map = {acc.id: acc for acc in accounts}
+
+        # Build account tag responses
+        for account_id, count in sorted(account_counts.items(), key=lambda x: x[1], reverse=True):
+            account = account_map.get(account_id)
+            if account:
+                percentage = (count / total_messages * 100) if total_messages > 0 else 0
+                tags.append(TagResponse(
+                    name=account.email,  # Use email as tag name
+                    count=count,
+                    percentage=percentage,
+                    type="account",
+                ))
 
         return TagsListResponse(
             tags=tags,

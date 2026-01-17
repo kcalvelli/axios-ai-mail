@@ -71,6 +71,7 @@ class TagResponse(BaseModel):
     name: str
     count: int
     percentage: float
+    type: str = "ai"  # 'ai' or 'account'
 
 
 class TagsListResponse(BaseModel):

@@ -3,6 +3,7 @@
  */
 
 import { Chip } from '@mui/material';
+import { Email } from '@mui/icons-material';
 import { tagColors } from '../theme';
 
 interface TagChipProps {
@@ -11,10 +12,12 @@ interface TagChipProps {
   onDelete?: () => void;
   size?: 'small' | 'medium';
   selected?: boolean;
+  isAccountTag?: boolean;
 }
 
-export function TagChip({ tag, onClick, onDelete, size = 'small', selected = false }: TagChipProps) {
-  const color = tagColors[tag.toLowerCase()] || tagColors.newsletter;
+export function TagChip({ tag, onClick, onDelete, size = 'small', selected = false, isAccountTag = false }: TagChipProps) {
+  // Use a neutral color for account tags
+  const color = isAccountTag ? '#607d8b' : (tagColors[tag.toLowerCase()] || tagColors.newsletter);
 
   return (
     <Chip
@@ -22,6 +25,7 @@ export function TagChip({ tag, onClick, onDelete, size = 'small', selected = fal
       size={size}
       onClick={onClick}
       onDelete={onDelete}
+      icon={isAccountTag ? <Email sx={{ fontSize: 16 }} /> : undefined}
       variant={selected ? 'filled' : 'outlined'}
       sx={{
         backgroundColor: selected ? color : 'transparent',
@@ -38,6 +42,9 @@ export function TagChip({ tag, onClick, onDelete, size = 'small', selected = fal
           '&:hover': {
             color: selected ? '#fff' : color,
           },
+        },
+        '& .MuiChip-icon': {
+          color: selected ? '#fff' : color,
         },
       }}
     />

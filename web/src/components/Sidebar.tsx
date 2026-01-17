@@ -22,6 +22,8 @@ import {
   BarChart,
   Settings,
   AccountCircle,
+  Send,
+  Delete,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { TagChip } from './TagChip';
@@ -46,8 +48,13 @@ export function Sidebar({ open }: SidebarProps) {
     setIsUnreadOnly,
   } = useAppStore();
 
+  const folderItems = [
+    { text: 'inbox', icon: <Inbox />, path: '/', folder: 'inbox' },
+    { text: 'sent', icon: <Send />, path: '/?folder=sent', folder: 'sent' },
+    { text: 'trash', icon: <Delete />, path: '/?folder=trash', folder: 'trash' },
+  ];
+
   const menuItems = [
-    { text: 'Inbox', icon: <Inbox />, path: '/' },
     { text: 'Accounts', icon: <AccountCircle />, path: '/accounts' },
     { text: 'Statistics', icon: <BarChart />, path: '/stats' },
     { text: 'Settings', icon: <Settings />, path: '/settings' },
@@ -69,6 +76,26 @@ export function Sidebar({ open }: SidebarProps) {
       <Toolbar />
 
       <Box sx={{ overflow: 'auto', p: 2 }}>
+        {/* Folders */}
+        <List>
+          {folderItems.map((item) => (
+            <ListItem key={item.text} disablePadding>
+              <ListItemButton
+                selected={location.pathname === '/' && location.search === (item.folder === 'inbox' ? '' : `?folder=${item.folder}`)}
+                onClick={() => navigate(item.path)}
+              >
+                <ListItemIcon>{item.icon}</ListItemIcon>
+                <ListItemText
+                  primary={item.text}
+                  primaryTypographyProps={{ sx: { textTransform: 'lowercase' } }}
+                />
+              </ListItemButton>
+            </ListItem>
+          ))}
+        </List>
+
+        <Divider sx={{ my: 2 }} />
+
         {/* Navigation */}
         <List>
           {menuItems.map((item) => (
@@ -145,6 +172,7 @@ export function Sidebar({ open }: SidebarProps) {
                   onClick={() => toggleTag(tag.name)}
                   size="small"
                   selected={selectedTags.includes(tag.name)}
+                  isAccountTag={tag.type === 'account'}
                 />
                 <Typography variant="caption" color="text.secondary">
                   {tag.count}
