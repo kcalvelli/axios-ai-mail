@@ -49,6 +49,9 @@ class Message(Base):
     snippet: Mapped[str] = mapped_column(Text, nullable=False)
     is_unread: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     provider_labels: Mapped[List[str]] = mapped_column(JSON, nullable=False, default=list)
+    folder: Mapped[str] = mapped_column(String(100), nullable=False, default="inbox")
+    body_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    body_html: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # Relationships
     account: Mapped["Account"] = relationship(back_populates="messages")
