@@ -55,7 +55,8 @@ def serialize_message(message: Message, classification: Optional[Classification]
 async def list_messages(
     request: Request,
     account_id: Optional[str] = Query(None, description="Filter by account ID"),
-    tag: Optional[str] = Query(None, description="Filter by tag"),
+    tag: Optional[str] = Query(None, description="Filter by single tag (deprecated)"),
+    tags: Optional[List[str]] = Query(None, description="Filter by multiple tags (OR logic)"),
     is_unread: Optional[bool] = Query(None, description="Filter by read status"),
     search: Optional[str] = Query(None, description="Search in subject, from, snippet"),
     limit: int = Query(50, ge=1, le=200, description="Page size"),
@@ -69,6 +70,7 @@ async def list_messages(
         messages = db.query_messages(
             account_id=account_id,
             tag=tag,
+            tags=tags,
             is_unread=is_unread,
             limit=limit + 1,  # Fetch one extra to check if there are more
             offset=offset,

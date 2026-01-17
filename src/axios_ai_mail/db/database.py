@@ -241,11 +241,21 @@ class Database:
         self,
         account_id: Optional[str] = None,
         tag: Optional[str] = None,
+        tags: Optional[List[str]] = None,
         is_unread: Optional[bool] = None,
         limit: int = 50,
         offset: int = 0,
     ) -> List[Message]:
-        """Query messages with filters."""
+        """Query messages with filters.
+
+        Args:
+            account_id: Filter by account ID
+            tag: Single tag filter (for backward compatibility)
+            tags: Multiple tags filter (OR logic - match any)
+            is_unread: Filter by read status
+            limit: Maximum number of results
+            offset: Pagination offset
+        """
         with self.session() as session:
             query = select(Message)
 
@@ -255,13 +265,20 @@ class Database:
             if is_unread is not None:
                 query = query.where(Message.is_unread == is_unread)
 
-            if tag:
-                # Join with classifications to filter by tag
-                # Use LIKE pattern for SQLite JSON compatibility: ["tag1", "tag2"] contains "work"
-                # Match "work" surrounded by quotes to avoid partial matches
-                query = query.join(Classification).where(
-                    Classification.tags.cast(String).like(f'%"{tag}"%')
-                )
+            # Handle tag filtering - support both single tag and multiple tags
+            tags_to_filter = tags if tags else ([tag] if tag else None)
+
+            if tags_to_filter:
+                # Join with classifications to filter by tags
+                # Use OR logic: match messages that have ANY of the selected tags
+                from sqlalchemy import or_
+
+                tag_conditions = [
+                    Classification.tags.cast(String).like(f'%"{t}"%')
+                    for t in tags_to_filter
+                ]
+
+                query = query.join(Classification).where(or_(*tag_conditions))
 
             query = query.order_by(Message.date.desc()).limit(limit).offset(offset)
 

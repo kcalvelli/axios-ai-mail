@@ -29,8 +29,8 @@ export function MessageList() {
   }
 
   if (selectedTags.length > 0) {
-    // For now, filter by first selected tag (backend supports single tag)
-    filters.tag = selectedTags[0];
+    // Pass all selected tags (backend uses OR logic - matches any tag)
+    filters.tags = selectedTags;
   }
 
   if (isUnreadOnly) {
