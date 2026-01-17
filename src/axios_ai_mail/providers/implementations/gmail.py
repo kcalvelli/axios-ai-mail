@@ -198,6 +198,7 @@ class GmailProvider(BaseEmailProvider):
             body_text=body_text,
             labels=labels,
             is_unread="UNREAD" in label_ids,
+            folder="inbox",  # Gmail uses labels, default to inbox
         )
 
     def update_labels(

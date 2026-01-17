@@ -20,6 +20,7 @@ class Message:
     body_text: Optional[str] = None
     labels: Set[str] = field(default_factory=set)
     is_unread: bool = True
+    folder: str = "inbox"
 
     def __post_init__(self) -> None:
         """Ensure labels is a set."""

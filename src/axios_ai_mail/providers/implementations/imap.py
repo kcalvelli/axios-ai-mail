@@ -33,6 +33,7 @@ class IMAPProvider(BaseEmailProvider):
         super().__init__(config)
         self.connection: Optional[imaplib.IMAP4_SSL] = None
         self._supports_keywords: Optional[bool] = None
+        self._current_folder: Optional[str] = None
 
     def authenticate(self) -> None:
         """Authenticate with IMAP server using password."""
@@ -51,9 +52,6 @@ class IMAPProvider(BaseEmailProvider):
         self.connection.login(self.config.email, password)
         logger.info(f"IMAP authentication successful for {self.config.email}")
 
-        # Select folder
-        self.connection.select(self.config.folder)
-
         # Check for KEYWORD capability
         typ, capabilities = self.connection.capability()
         if typ == "OK":
@@ -63,8 +61,109 @@ class IMAPProvider(BaseEmailProvider):
                 f"IMAP KEYWORD extension: {'supported' if self._supports_keywords else 'not supported'}"
             )
 
+    def list_folders(self) -> List[str]:
+        """
+        List all available IMAP folders.
+
+        Returns:
+            List of folder names
+        """
+        if not self.connection:
+            raise RuntimeError("Not authenticated. Call authenticate() first.")
+
+        try:
+            typ, folders_data = self.connection.list()
+            if typ != "OK":
+                logger.error("IMAP LIST command failed")
+                return []
+
+            folders = []
+            for folder_info in folders_data:
+                if not folder_info:
+                    continue
+
+                # Parse folder line: '(\\HasNoChildren) "/" "INBOX"'
+                # The folder name is the last quoted string
+                folder_str = folder_info.decode("utf-8", errors="ignore")
+                match = re.search(r'"([^"]+)"$', folder_str)
+                if match:
+                    folder_name = match.group(1)
+                    folders.append(folder_name)
+
+            logger.info(f"Found {len(folders)} folders")
+            return folders
+
+        except Exception as e:
+            logger.error(f"Failed to list folders: {e}")
+            return []
+
+    def _select_folder(self, folder: str) -> bool:
+        """
+        Select a specific IMAP folder.
+
+        Args:
+            folder: Folder name to select
+
+        Returns:
+            True if successful, False otherwise
+        """
+        if not self.connection:
+            raise RuntimeError("Not authenticated")
+
+        try:
+            # Only select if we're not already in this folder
+            if self._current_folder != folder:
+                typ, data = self.connection.select(folder)
+                if typ != "OK":
+                    logger.error(f"Failed to select folder: {folder}")
+                    return False
+                self._current_folder = folder
+                logger.debug(f"Selected folder: {folder}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Error selecting folder {folder}: {e}")
+            return False
+
+    def _normalize_folder_name(self, imap_folder: str) -> str:
+        """
+        Normalize IMAP folder name to logical folder name.
+
+        Maps common IMAP folder names to standard logical names:
+        - INBOX -> inbox
+        - Sent/Sent Items/Sent Mail -> sent
+        - Drafts -> drafts
+        - Trash/Deleted Items -> trash
+        - Archive/All Mail -> archive
+
+        Args:
+            imap_folder: IMAP folder name
+
+        Returns:
+            Normalized logical folder name
+        """
+        # Case-insensitive mapping
+        folder_lower = imap_folder.lower()
+
+        if folder_lower == "inbox":
+            return "inbox"
+        elif folder_lower in ("sent", "sent items", "sent mail"):
+            return "sent"
+        elif folder_lower == "drafts":
+            return "drafts"
+        elif folder_lower in ("trash", "deleted items", "deleted messages"):
+            return "trash"
+        elif folder_lower in ("archive", "all mail"):
+            return "archive"
+        else:
+            # Keep original for custom folders
+            return imap_folder
+
     def fetch_messages(
-        self, since: Optional[datetime] = None, max_results: int = 100
+        self,
+        since: Optional[datetime] = None,
+        max_results: int = 100,
+        folder: Optional[str] = None,
     ) -> List[Message]:
         """
         Fetch messages via IMAP SEARCH.
@@ -72,6 +171,7 @@ class IMAPProvider(BaseEmailProvider):
         Args:
             since: Only fetch messages after this date
             max_results: Maximum number of messages to fetch
+            folder: Folder to fetch from (defaults to config.folder)
 
         Returns:
             List of normalized Message objects
@@ -79,7 +179,15 @@ class IMAPProvider(BaseEmailProvider):
         if not self.connection:
             raise RuntimeError("Not authenticated. Call authenticate() first.")
 
-        logger.info(f"Fetching messages from IMAP (max: {max_results})")
+        # Use default folder if not specified
+        folder = folder or self.config.folder
+
+        # Select the folder
+        if not self._select_folder(folder):
+            logger.error(f"Failed to select folder {folder}, skipping fetch")
+            return []
+
+        logger.info(f"Fetching messages from IMAP folder '{folder}' (max: {max_results})")
 
         # Build IMAP search query
         if since:
@@ -122,7 +230,7 @@ class IMAPProvider(BaseEmailProvider):
                 flags = self._parse_flags(flags_str)
 
                 # Parse into normalized Message object
-                message = self._parse_message(msg_id.decode(), email_message, flags)
+                message = self._parse_message(msg_id.decode(), email_message, flags, folder)
                 messages.append(message)
 
             except Exception as e:
@@ -213,7 +321,7 @@ class IMAPProvider(BaseEmailProvider):
         return {}
 
     def _parse_message(
-        self, msg_id: str, email_message, flags: Set[str]
+        self, msg_id: str, email_message, flags: Set[str], imap_folder: str
     ) -> Message:
         """
         Parse IMAP message into normalized Message object.
@@ -222,6 +330,7 @@ class IMAPProvider(BaseEmailProvider):
             msg_id: IMAP UID
             email_message: Parsed email.message object
             flags: Set of IMAP flags/keywords
+            imap_folder: IMAP folder name the message was fetched from
 
         Returns:
             Normalized Message object
@@ -260,6 +369,9 @@ class IMAPProvider(BaseEmailProvider):
         # Get thread ID from Message-ID header
         thread_id = email_message.get("Message-ID", f"thread-{msg_id}")
 
+        # Normalize folder name to logical name
+        logical_folder = self._normalize_folder_name(imap_folder)
+
         return Message(
             id=f"{self.config.account_id}:{msg_id}",
             thread_id=thread_id,
@@ -271,6 +383,7 @@ class IMAPProvider(BaseEmailProvider):
             body_text=body_text,
             labels=keywords,
             is_unread=is_unread,
+            folder=logical_folder,
         )
 
     def _decode_header(self, header: str) -> str:

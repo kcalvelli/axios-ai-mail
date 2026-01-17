@@ -131,6 +131,9 @@ class Database:
         snippet: str,
         is_unread: bool,
         provider_labels: List[str],
+        folder: str = "inbox",
+        body_text: Optional[str] = None,
+        body_html: Optional[str] = None,
     ) -> Message:
         """Create or update a message."""
         with self.session() as session:
@@ -144,6 +147,9 @@ class Database:
                 message.snippet = snippet
                 message.is_unread = is_unread
                 message.provider_labels = provider_labels
+                message.folder = folder
+                message.body_text = body_text
+                message.body_html = body_html
             else:
                 message = Message(
                     id=message_id,
@@ -156,6 +162,9 @@ class Database:
                     snippet=snippet,
                     is_unread=is_unread,
                     provider_labels=provider_labels,
+                    folder=folder,
+                    body_text=body_text,
+                    body_html=body_html,
                 )
                 session.add(message)
             session.commit()
