@@ -192,6 +192,28 @@ class Database:
                 return message
             return None
 
+    def delete_message(self, message_id: str) -> bool:
+        """Delete a message from the database.
+
+        Args:
+            message_id: Message ID to delete
+
+        Returns:
+            True if deleted, False if not found
+        """
+        with self.session() as session:
+            message = session.get(Message, message_id)
+            if message:
+                # Also delete associated classification
+                classification = session.get(Classification, message_id)
+                if classification:
+                    session.delete(classification)
+
+                session.delete(message)
+                session.commit()
+                return True
+            return False
+
     def query_messages(
         self,
         account_id: Optional[str] = None,

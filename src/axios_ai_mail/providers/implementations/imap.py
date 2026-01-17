@@ -324,6 +324,70 @@ class IMAPProvider(BaseEmailProvider):
             logger.error(f"Failed to mark message {uid} as unread: {e}")
             raise
 
+    def delete_message(self, message_id: str, permanent: bool = False) -> None:
+        """
+        Delete a message by moving to Trash or permanently deleting.
+
+        Args:
+            message_id: Message ID (format: account_id:uid)
+            permanent: If True, permanently delete. If False, move to Trash folder.
+        """
+        if not self.connection:
+            raise RuntimeError("Not authenticated")
+
+        # Extract IMAP UID from message_id (format: account_id:uid)
+        uid = message_id.split(":")[-1]
+
+        try:
+            if permanent:
+                # Permanent delete: mark as deleted and expunge
+                typ, data = self.connection.store(uid, "+FLAGS", "\\Deleted")
+                if typ != "OK":
+                    raise RuntimeError(f"IMAP STORE failed: {data}")
+
+                # Expunge to permanently remove deleted messages
+                self.connection.expunge()
+                logger.info(f"Permanently deleted message {uid}")
+
+            else:
+                # Move to Trash folder
+                # First, try common Trash folder names
+                trash_folders = ["Trash", "Deleted Items", "Deleted Messages", "INBOX.Trash"]
+
+                # Get available folders
+                available_folders = self.list_folders()
+
+                # Find the trash folder
+                trash_folder = None
+                for folder_name in trash_folders:
+                    if folder_name in available_folders:
+                        trash_folder = folder_name
+                        break
+
+                if not trash_folder:
+                    # If no trash folder found, fall back to permanent delete
+                    logger.warning("No Trash folder found, performing permanent delete")
+                    self.delete_message(message_id, permanent=True)
+                    return
+
+                # Copy message to Trash folder
+                typ, data = self.connection.copy(uid, trash_folder)
+                if typ != "OK":
+                    raise RuntimeError(f"IMAP COPY to {trash_folder} failed: {data}")
+
+                # Mark original as deleted
+                typ, data = self.connection.store(uid, "+FLAGS", "\\Deleted")
+                if typ != "OK":
+                    raise RuntimeError(f"IMAP STORE failed: {data}")
+
+                # Expunge to remove from current folder
+                self.connection.expunge()
+                logger.info(f"Moved message {uid} to {trash_folder}")
+
+        except Exception as e:
+            logger.error(f"Failed to delete message {uid}: {e}")
+            raise
+
     def update_labels(
         self, message_id: str, add_labels: Set[str], remove_labels: Set[str]
     ) -> None:
