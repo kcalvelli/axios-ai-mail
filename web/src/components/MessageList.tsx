@@ -14,7 +14,7 @@ import {
   DialogContentText,
   DialogActions,
 } from '@mui/material';
-import { InboxOutlined, DeleteSweep } from '@mui/icons-material';
+import { InboxOutlined, DeleteSweep, CheckBox } from '@mui/icons-material';
 import { useState } from 'react';
 import { MessageCard } from './MessageCard';
 import { BulkActionBar } from './BulkActionBar';
@@ -22,7 +22,6 @@ import {
   useMessages,
   useBulkDelete,
   useBulkMarkRead,
-  useDeleteAll,
   useBulkRestore,
   useClearTrash,
 } from '../hooks/useMessages';
@@ -39,15 +38,14 @@ export function MessageList() {
     isUnreadOnly,
     selectedMessageIds,
     clearSelection,
+    selectAllMessages,
   } = useAppStore();
 
   const bulkDelete = useBulkDelete();
   const bulkMarkRead = useBulkMarkRead();
   const bulkRestore = useBulkRestore();
-  const deleteAll = useDeleteAll();
   const clearTrash = useClearTrash();
 
-  const [deleteAllDialogOpen, setDeleteAllDialogOpen] = useState(false);
   const [clearTrashDialogOpen, setClearTrashDialogOpen] = useState(false);
 
   // Get folder from URL query params (default to inbox)
@@ -59,13 +57,11 @@ export function MessageList() {
     const messageIds = Array.from(selectedMessageIds);
     if (messageIds.length === 0) return;
 
-    if (confirm(`Delete ${messageIds.length} message(s)?`)) {
-      bulkDelete.mutate(messageIds, {
-        onSuccess: () => {
-          clearSelection();
-        },
-      });
-    }
+    bulkDelete.mutate(messageIds, {
+      onSuccess: () => {
+        clearSelection();
+      },
+    });
   };
 
   const handleBulkMarkRead = () => {
@@ -107,41 +103,14 @@ export function MessageList() {
     });
   };
 
-  const handleDeleteAll = () => {
-    setDeleteAllDialogOpen(true);
+  const handleSelectAll = () => {
+    if (!data) return;
+    const allIds = data.messages.map((m) => m.id);
+    selectAllMessages(allIds);
   };
 
   const handleClearTrash = () => {
     setClearTrashDialogOpen(true);
-  };
-
-  const handleDeleteAllConfirm = () => {
-    // Build filter object from current state
-    const deleteFilters: any = {
-      folder: folder,
-    };
-
-    if (selectedAccount) {
-      deleteFilters.account_id = selectedAccount;
-    }
-
-    if (selectedTags.length > 0) {
-      deleteFilters.tags = selectedTags;
-    }
-
-    if (isUnreadOnly) {
-      deleteFilters.is_unread = true;
-    }
-
-    if (searchQuery) {
-      deleteFilters.search = searchQuery;
-    }
-
-    deleteAll.mutate(deleteFilters, {
-      onSuccess: () => {
-        setDeleteAllDialogOpen(false);
-      },
-    });
   };
 
   const handleClearTrashConfirm = () => {
@@ -229,16 +198,6 @@ export function MessageList() {
     );
   }
 
-  // Build filter description for delete all confirmation
-  const getFilterDescription = () => {
-    const parts = [];
-    if (folder && folder !== 'inbox') parts.push(`in ${folder}`);
-    if (selectedTags.length > 0) parts.push(`tagged with ${selectedTags.join(', ')}`);
-    if (isUnreadOnly) parts.push('unread only');
-    if (searchQuery) parts.push(`matching "${searchQuery}"`);
-    return parts.length > 0 ? ` ${parts.join(', ')}` : '';
-  };
-
   // Render messages
   return (
     <>
@@ -248,29 +207,33 @@ export function MessageList() {
             {data.total} {data.total === 1 ? 'message' : 'messages'}
           </Typography>
 
-          {/* Clear Trash or Delete All button */}
+          {/* Action buttons */}
           {data.total > 0 && (
-            isTrash ? (
+            <Box display="flex" gap={1}>
+              {/* Select All button - always show */}
               <Button
                 size="small"
-                color="error"
-                startIcon={<DeleteSweep />}
-                onClick={handleClearTrash}
+                color="primary"
+                startIcon={<CheckBox />}
+                onClick={handleSelectAll}
                 variant="outlined"
               >
-                Clear Trash
+                Select All
               </Button>
-            ) : (
-              <Button
-                size="small"
-                color="error"
-                startIcon={<DeleteSweep />}
-                onClick={handleDeleteAll}
-                variant="outlined"
-              >
-                Delete All
-              </Button>
-            )
+
+              {/* Clear Trash button - only in trash folder */}
+              {isTrash && (
+                <Button
+                  size="small"
+                  color="error"
+                  startIcon={<DeleteSweep />}
+                  onClick={handleClearTrash}
+                  variant="outlined"
+                >
+                  Clear Trash
+                </Button>
+              )}
+            </Box>
           )}
         </Box>
 
@@ -291,28 +254,6 @@ export function MessageList() {
         onRestore={handleBulkRestore}
         isTrash={isTrash}
       />
-
-      {/* Delete All Confirmation Dialog */}
-      <Dialog open={deleteAllDialogOpen} onClose={() => setDeleteAllDialogOpen(false)}>
-        <DialogTitle>Move All to Trash?</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            Are you sure you want to move {data.total} {data.total === 1 ? 'message' : 'messages'}
-            {getFilterDescription()} to trash? You can restore them later from the Trash folder.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteAllDialogOpen(false)}>Cancel</Button>
-          <Button
-            onClick={handleDeleteAllConfirm}
-            color="error"
-            variant="contained"
-            disabled={deleteAll.isPending}
-          >
-            {deleteAll.isPending ? 'Moving...' : 'Move to Trash'}
-          </Button>
-        </DialogActions>
-      </Dialog>
 
       {/* Clear Trash Confirmation Dialog */}
       <Dialog open={clearTrashDialogOpen} onClose={() => setClearTrashDialogOpen(false)}>
