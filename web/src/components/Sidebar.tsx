@@ -49,9 +49,9 @@ export function Sidebar({ open }: SidebarProps) {
   } = useAppStore();
 
   const folderItems = [
-    { text: 'inbox', icon: <Inbox />, path: '/', folder: 'inbox' },
-    { text: 'sent', icon: <Send />, path: '/?folder=sent', folder: 'sent' },
-    { text: 'trash', icon: <Delete />, path: '/?folder=trash', folder: 'trash' },
+    { text: 'Inbox', icon: <Inbox />, path: '/', folder: 'inbox' },
+    { text: 'Sent', icon: <Send />, path: '/?folder=sent', folder: 'sent' },
+    { text: 'Trash', icon: <Delete />, path: '/?folder=trash', folder: 'trash' },
   ];
 
   const menuItems = [
@@ -85,10 +85,7 @@ export function Sidebar({ open }: SidebarProps) {
                 onClick={() => navigate(item.path)}
               >
                 <ListItemIcon>{item.icon}</ListItemIcon>
-                <ListItemText
-                  primary={item.text}
-                  primaryTypographyProps={{ sx: { textTransform: 'lowercase' } }}
-                />
+                <ListItemText primary={item.text} />
               </ListItemButton>
             </ListItem>
           ))}
