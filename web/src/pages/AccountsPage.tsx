@@ -95,17 +95,43 @@ function AccountCard({ accountId }: AccountCardProps) {
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return 'Never';
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
 
-    if (diffMins < 60) {
-      return `${diffMins} minutes ago`;
-    } else if (diffMins < 1440) {
-      return `${Math.floor(diffMins / 60)} hours ago`;
-    } else {
-      return date.toLocaleDateString();
+    try {
+      // Parse the ISO date string
+      const date = new Date(dateStr);
+
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        return 'Invalid date';
+      }
+
+      const now = new Date();
+      const diffMs = now.getTime() - date.getTime();
+      const diffMins = Math.floor(diffMs / 60000);
+
+      // Handle future dates (clock skew)
+      if (diffMins < 0) {
+        return 'Just now';
+      }
+
+      if (diffMins < 1) {
+        return 'Just now';
+      } else if (diffMins < 60) {
+        return `${diffMins} ${diffMins === 1 ? 'minute' : 'minutes'} ago`;
+      } else if (diffMins < 1440) {
+        const hours = Math.floor(diffMins / 60);
+        return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
+      } else {
+        const days = Math.floor(diffMins / 1440);
+        if (days < 7) {
+          return `${days} ${days === 1 ? 'day' : 'days'} ago`;
+        } else {
+          return date.toLocaleDateString();
+        }
+      }
+    } catch (error) {
+      console.error('Error parsing date:', dateStr, error);
+      return 'Unknown';
     }
   };
 

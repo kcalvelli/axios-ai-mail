@@ -2,7 +2,7 @@
 
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Request, BackgroundTasks
@@ -30,7 +30,7 @@ def set_sync_state(is_syncing: bool, current_account: Optional[str] = None):
     _sync_state["is_syncing"] = is_syncing
     _sync_state["current_account"] = current_account
     if not is_syncing:
-        _sync_state["last_sync"] = datetime.utcnow()
+        _sync_state["last_sync"] = datetime.now(timezone.utc)
 
 
 async def run_sync_task(db, account_id: Optional[str], max_messages: int):

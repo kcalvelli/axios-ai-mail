@@ -2,7 +2,7 @@
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional, Set
 
 from .ai_classifier import AIClassifier, AIConfig
@@ -74,7 +74,7 @@ class SyncEngine:
         Returns:
             SyncResult with statistics
         """
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
         errors = []
         messages_fetched = 0
         messages_classified = 0
@@ -98,7 +98,7 @@ class SyncEngine:
                     messages_classified=0,
                     labels_updated=0,
                     errors=[],
-                    duration_seconds=(datetime.utcnow() - start_time).total_seconds(),
+                    duration_seconds=(datetime.now(timezone.utc) - start_time).total_seconds(),
                 )
 
             # 2. Store messages in database
@@ -177,9 +177,9 @@ class SyncEngine:
                     errors.append(error_msg)
 
             # 5. Update last sync timestamp
-            self.db.update_last_sync(self.account_id, datetime.utcnow())
+            self.db.update_last_sync(self.account_id, datetime.now(timezone.utc))
 
-            duration = (datetime.utcnow() - start_time).total_seconds()
+            duration = (datetime.now(timezone.utc) - start_time).total_seconds()
             result = SyncResult(
                 account_id=self.account_id,
                 messages_fetched=messages_fetched,
@@ -197,7 +197,7 @@ class SyncEngine:
             logger.error(error_msg)
             errors.append(error_msg)
 
-            duration = (datetime.utcnow() - start_time).total_seconds()
+            duration = (datetime.now(timezone.utc) - start_time).total_seconds()
             return SyncResult(
                 account_id=self.account_id,
                 messages_fetched=messages_fetched,
@@ -258,7 +258,7 @@ class SyncEngine:
         Returns:
             SyncResult with statistics
         """
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
         errors = []
         messages_classified = 0
         labels_updated = 0
@@ -327,7 +327,7 @@ class SyncEngine:
                     logger.error(error_msg)
                     errors.append(error_msg)
 
-            duration = (datetime.utcnow() - start_time).total_seconds()
+            duration = (datetime.now(timezone.utc) - start_time).total_seconds()
             result = SyncResult(
                 account_id=self.account_id,
                 messages_fetched=0,
@@ -345,7 +345,7 @@ class SyncEngine:
             logger.error(error_msg)
             errors.append(error_msg)
 
-            duration = (datetime.utcnow() - start_time).total_seconds()
+            duration = (datetime.now(timezone.utc) - start_time).total_seconds()
             return SyncResult(
                 account_id=self.account_id,
                 messages_fetched=0,
