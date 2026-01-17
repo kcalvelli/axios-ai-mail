@@ -1,9 +1,23 @@
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, axios-ai-mail-web ? null, ... }:
 
 with lib;
 
 let
   cfg = config.programs.axios-ai-mail;
+
+  # Use provided web frontend package or build it locally as fallback
+  webFrontend = if axios-ai-mail-web != null then axios-ai-mail-web else
+    pkgs.buildNpmPackage {
+      pname = "axios-ai-mail-web";
+      version = "2.0.0";
+      src = ../../web;
+      npmDepsHash = "sha256-0PyMKTQ3DyfqBb5/eOTZXDDXaO6FL8I5iDdDe2WBy6c=";
+      buildPhase = "npm run build";
+      installPhase = ''
+        mkdir -p $out
+        cp -r dist/* $out/
+      '';
+    };
 
   # Submodule for individual email accounts
   accountOption = types.submodule ({ name, config, ... }: {
@@ -228,25 +242,6 @@ let
     doCheck = false;
   };
 
-  # Build frontend separately
-  axios-ai-mail-web = pkgs.buildNpmPackage {
-    pname = "axios-ai-mail-web";
-    version = "2.0.0";
-
-    src = ../../web;
-
-    npmDepsHash = "sha256-0PyMKTQ3DyfqBb5/eOTZXDDXaO6FL8I5iDdDe2WBy6c=";
-
-    buildPhase = ''
-      npm run build
-    '';
-
-    installPhase = ''
-      mkdir -p $out
-      cp -r dist/* $out/
-    '';
-  };
-
   # Package reference
   axios-ai-mail = pkgs.axios-ai-mail or (
     # Fallback if not in nixpkgs yet
@@ -285,7 +280,7 @@ let
         mkdir -p src/axios_ai_mail/web_assets
 
         # Copy from the separately-built frontend derivation
-        cp -r ${axios-ai-mail-web}/* src/axios_ai_mail/web_assets/
+        cp -r ${webFrontend}/* src/axios_ai_mail/web_assets/
       '';
 
       doCheck = false;

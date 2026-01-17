@@ -9,8 +9,16 @@
     supportedSystems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
     forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
   in {
-    # Home-Manager Module
-    homeManagerModules.default = ./modules/home-manager;
+    # Home-Manager Module - accepts web-frontend package as specialArgs
+    homeManagerModules.default = { pkgs, ... }: {
+      imports = [ ./modules/home-manager ];
+      config = {
+        _module.args = {
+          # Pass the web frontend package from this flake to the home-manager module
+          axios-ai-mail-web = self.packages.${pkgs.system}.web;
+        };
+      };
+    };
 
     # Python package
     packages = forAllSystems (system: let
