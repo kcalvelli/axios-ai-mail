@@ -117,9 +117,9 @@ class GmailProvider(BaseEmailProvider):
         try:
             messages = []
 
-            # Build query - fetch from all folders (inbox, sent, etc.)
-            # Exclude DRAFT and SPAM by default
-            query = "-in:draft -in:spam"
+            # Build query - fetch from all mail (inbox, sent, trash)
+            # Use "in:all" to search everywhere, then exclude drafts and spam
+            query = "in:all -in:draft -in:spam"
             if since:
                 # Gmail uses YYYY/MM/DD format
                 date_str = since.strftime("%Y/%m/%d")
