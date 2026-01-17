@@ -18,6 +18,18 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+# Request models for bulk operations
+class BulkReadRequest(BaseModel):
+    """Request to mark multiple messages as read/unread."""
+    message_ids: List[str]
+    is_unread: bool
+
+
+class BulkDeleteRequest(BaseModel):
+    """Request to delete multiple messages."""
+    message_ids: List[str]
+
+
 def serialize_message(message: Message, classification: Optional[Classification] = None) -> dict:
     """Convert Message ORM object to API response dict."""
     data = {
@@ -108,6 +120,68 @@ async def list_messages(
 
     except Exception as e:
         logger.error(f"Error listing messages: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/messages/bulk/read")
+async def bulk_mark_read(request: Request, body: BulkReadRequest):
+    """Mark multiple messages as read or unread."""
+    db = request.app.state.db
+
+    try:
+        updated_count = 0
+        errors = []
+
+        for message_id in body.message_ids:
+            try:
+                updated_message = db.update_message_read_status(message_id, body.is_unread)
+                if updated_message:
+                    updated_count += 1
+                else:
+                    errors.append({"message_id": message_id, "error": "Not found"})
+            except Exception as e:
+                errors.append({"message_id": message_id, "error": str(e)})
+                logger.error(f"Error updating message {message_id}: {e}")
+
+        return {
+            "updated": updated_count,
+            "total": len(body.message_ids),
+            "errors": errors,
+        }
+
+    except Exception as e:
+        logger.error(f"Error in bulk mark read: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/messages/bulk/delete")
+async def bulk_delete(request: Request, body: BulkDeleteRequest):
+    """Delete multiple messages."""
+    db = request.app.state.db
+
+    try:
+        deleted_count = 0
+        errors = []
+
+        for message_id in body.message_ids:
+            try:
+                success = db.delete_message(message_id)
+                if success:
+                    deleted_count += 1
+                else:
+                    errors.append({"message_id": message_id, "error": "Not found"})
+            except Exception as e:
+                errors.append({"message_id": message_id, "error": str(e)})
+                logger.error(f"Error deleting message {message_id}: {e}")
+
+        return {
+            "deleted": deleted_count,
+            "total": len(body.message_ids),
+            "errors": errors,
+        }
+
+    except Exception as e:
+        logger.error(f"Error in bulk delete: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -304,80 +378,6 @@ async def delete_message(request: Request, message_id: str):
         raise
     except Exception as e:
         logger.error(f"Error deleting message {message_id}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-# Request models for bulk operations
-class BulkReadRequest(BaseModel):
-    """Request to mark multiple messages as read/unread."""
-    message_ids: List[str]
-    is_unread: bool
-
-
-class BulkDeleteRequest(BaseModel):
-    """Request to delete multiple messages."""
-    message_ids: List[str]
-
-
-@router.post("/messages/bulk/read")
-async def bulk_mark_read(request: Request, body: BulkReadRequest):
-    """Mark multiple messages as read or unread."""
-    db = request.app.state.db
-
-    try:
-        updated_count = 0
-        errors = []
-
-        for message_id in body.message_ids:
-            try:
-                updated_message = db.update_message_read_status(message_id, body.is_unread)
-                if updated_message:
-                    updated_count += 1
-                else:
-                    errors.append({"message_id": message_id, "error": "Not found"})
-            except Exception as e:
-                errors.append({"message_id": message_id, "error": str(e)})
-                logger.error(f"Error updating message {message_id}: {e}")
-
-        return {
-            "updated": updated_count,
-            "total": len(body.message_ids),
-            "errors": errors,
-        }
-
-    except Exception as e:
-        logger.error(f"Error in bulk mark read: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/messages/bulk/delete")
-async def bulk_delete(request: Request, body: BulkDeleteRequest):
-    """Delete multiple messages."""
-    db = request.app.state.db
-
-    try:
-        deleted_count = 0
-        errors = []
-
-        for message_id in body.message_ids:
-            try:
-                success = db.delete_message(message_id)
-                if success:
-                    deleted_count += 1
-                else:
-                    errors.append({"message_id": message_id, "error": "Not found"})
-            except Exception as e:
-                errors.append({"message_id": message_id, "error": str(e)})
-                logger.error(f"Error deleting message {message_id}: {e}")
-
-        return {
-            "deleted": deleted_count,
-            "total": len(body.message_ids),
-            "errors": errors,
-        }
-
-    except Exception as e:
-        logger.error(f"Error in bulk delete: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
