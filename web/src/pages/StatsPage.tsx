@@ -155,36 +155,39 @@ export function StatsPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {tagsData.tags.slice(0, 10).map((tag) => {
-                const percentage =
-                  stats.total_messages > 0
-                    ? (tag.count / stats.total_messages) * 100
-                    : 0;
+              {tagsData.tags
+                .filter((tag) => tag.type === 'ai')  // Only show AI tags, not account tags
+                .slice(0, 10)
+                .map((tag) => {
+                  const percentage =
+                    stats.total_messages > 0
+                      ? (tag.count / stats.total_messages) * 100
+                      : 0;
 
-                return (
-                  <TableRow key={tag.name}>
-                    <TableCell>
-                      <Chip label={tag.name} size="small" />
-                    </TableCell>
-                    <TableCell align="right">{tag.count}</TableCell>
-                    <TableCell align="right">{percentage.toFixed(1)}%</TableCell>
-                    <TableCell>
-                      <Box sx={{ width: '100%', maxWidth: 200 }}>
-                        <LinearProgress
-                          variant="determinate"
-                          value={Math.min(percentage, 100)}
-                          sx={{ height: 6, borderRadius: 3 }}
-                        />
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
+                  return (
+                    <TableRow key={tag.name}>
+                      <TableCell>
+                        <Chip label={tag.name} size="small" />
+                      </TableCell>
+                      <TableCell align="right">{tag.count}</TableCell>
+                      <TableCell align="right">{percentage.toFixed(1)}%</TableCell>
+                      <TableCell>
+                        <Box sx={{ width: '100%', maxWidth: 200 }}>
+                          <LinearProgress
+                            variant="determinate"
+                            value={Math.min(percentage, 100)}
+                            sx={{ height: 6, borderRadius: 3 }}
+                          />
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
             </TableBody>
           </Table>
         </TableContainer>
 
-        {tagsData.tags.length === 0 && (
+        {tagsData.tags.filter((tag) => tag.type === 'ai').length === 0 && (
           <Box textAlign="center" py={4}>
             <Label sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
             <Typography variant="body2" color="text.secondary">
