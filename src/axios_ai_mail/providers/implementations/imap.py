@@ -120,23 +120,18 @@ class IMAPProvider(BaseEmailProvider):
                 if not folder_info:
                     continue
 
-                # Parse folder line: '(\\HasNoChildren) "/" "INBOX"'
-                # The folder name is the last quoted string
+                # Parse IMAP LIST response
+                # Standard format: (\Flags) "delimiter" "folder_name"
+                # But some servers use: (\Flags) "/" folder_name (no quotes)
+                # Or: (\Flags) NIL folder_name
                 folder_str = folder_info.decode("utf-8", errors="ignore")
                 logger.debug(f"Raw folder line: {folder_str}")
 
-                # Try to extract folder name - handle both quoted and unquoted formats
-                match = re.search(r'"([^"]+)"$', folder_str)
-                if match:
-                    folder_name = match.group(1)
+                folder_name = self._parse_list_response(folder_str)
+                if folder_name:
                     folders.append(folder_name)
                 else:
-                    # Fallback: try to extract last word if no quotes
-                    parts = folder_str.split()
-                    if parts:
-                        folder_name = parts[-1].strip('"\'')
-                        logger.debug(f"Using fallback parsing, got: {folder_name}")
-                        folders.append(folder_name)
+                    logger.warning(f"Failed to parse folder from: {folder_str}")
 
             logger.info(f"Found {len(folders)} folders: {folders}")
             return folders
@@ -144,6 +139,104 @@ class IMAPProvider(BaseEmailProvider):
         except Exception as e:
             logger.error(f"Failed to list folders: {e}")
             return []
+
+    def _parse_list_response(self, list_line: str) -> Optional[str]:
+        """
+        Parse IMAP LIST response line to extract folder name.
+
+        IMAP LIST response formats:
+        - (\Flags) "delimiter" "folder_name"       (standard, quoted)
+        - (\Flags) "/" folder_name                  (unquoted folder)
+        - (\Flags) NIL folder_name                  (no delimiter)
+        - (\Flags) "." INBOX.Sent                   (hierarchical, mixed)
+
+        Args:
+            list_line: Raw IMAP LIST response line
+
+        Returns:
+            Folder name or None if parsing failed
+        """
+        # Strategy 1: Match last quoted string (most common)
+        # Example: '(\HasNoChildren) "/" "INBOX.Sent"'
+        match = re.search(r'"([^"]+)"$', list_line)
+        if match:
+            return match.group(1)
+
+        # Strategy 2: Match everything after delimiter (quoted or NIL)
+        # Example: '(\HasNoChildren) "/" INBOX.Sent'
+        # Example: '(\HasNoChildren) NIL INBOX'
+        match = re.search(r'\)\s+(?:"[^"]*"|NIL)\s+(.+)$', list_line)
+        if match:
+            folder_name = match.group(1).strip().strip('"\'')
+            return folder_name
+
+        # Strategy 3: Split and take last component
+        # Last resort for non-standard formats
+        parts = list_line.split()
+        if len(parts) >= 3:
+            # Skip flags (first part) and delimiter (second part)
+            # Take everything after as folder name
+            folder_name = " ".join(parts[2:]).strip().strip('"\'')
+            if folder_name:
+                logger.debug(f"Fallback parsing used for: {list_line}")
+                return folder_name
+
+        return None
+
+    def _discover_folder_mapping(self, available_folders: List[str]) -> Dict[str, str]:
+        """
+        Discover which actual IMAP folders map to logical folders.
+
+        Maps logical folder names (inbox, sent, trash) to actual IMAP folder names.
+
+        Args:
+            available_folders: List of actual IMAP folder names
+
+        Returns:
+            Dictionary mapping logical names to actual folder names
+        """
+        mapping = {}
+
+        # INBOX always exists and is standard
+        if "INBOX" in available_folders:
+            mapping["inbox"] = "INBOX"
+
+        # Search for Sent folder (various common names)
+        sent_patterns = [
+            r"^INBOX\.Sent$",
+            r"^Sent$",
+            r"^Sent Items$",
+            r"^Sent Mail$",
+            r"^Sent Messages$",
+            r"\[Gmail\]/Sent Mail",
+        ]
+        for folder in available_folders:
+            for pattern in sent_patterns:
+                if re.match(pattern, folder, re.IGNORECASE):
+                    mapping["sent"] = folder
+                    break
+            if "sent" in mapping:
+                break
+
+        # Search for Trash folder (various common names)
+        trash_patterns = [
+            r"^INBOX\.Trash$",
+            r"^Trash$",
+            r"^Deleted Items$",
+            r"^Deleted Messages$",
+            r"^Deleted$",
+            r"\[Gmail\]/Trash",
+        ]
+        for folder in available_folders:
+            for pattern in trash_patterns:
+                if re.match(pattern, folder, re.IGNORECASE):
+                    mapping["trash"] = folder
+                    break
+            if "trash" in mapping:
+                break
+
+        logger.info(f"Discovered folder mapping: {mapping}")
+        return mapping
 
     def _select_folder(self, folder: str) -> bool:
         """
@@ -179,9 +272,9 @@ class IMAPProvider(BaseEmailProvider):
 
         Maps common IMAP folder names to standard logical names:
         - INBOX -> inbox
-        - Sent/Sent Items/Sent Mail -> sent
-        - Drafts -> drafts
-        - Trash/Deleted Items -> trash
+        - Sent/Sent Items/Sent Mail/INBOX.Sent -> sent
+        - Drafts/INBOX.Drafts -> drafts
+        - Trash/Deleted Items/INBOX.Trash -> trash
         - Archive/All Mail -> archive
 
         Args:
@@ -190,22 +283,32 @@ class IMAPProvider(BaseEmailProvider):
         Returns:
             Normalized logical folder name
         """
-        # Case-insensitive mapping
+        # Case-insensitive matching with regex patterns
         folder_lower = imap_folder.lower()
 
-        if folder_lower == "inbox":
+        # INBOX patterns
+        if re.match(r"^inbox$", folder_lower):
             return "inbox"
-        elif folder_lower in ("sent", "sent items", "sent mail"):
+
+        # Sent patterns (including hierarchical like INBOX.Sent)
+        if re.match(r"^(inbox\.)?sent", folder_lower) or folder_lower in ("sent items", "sent mail", "sent messages"):
             return "sent"
-        elif folder_lower == "drafts":
+
+        # Drafts patterns
+        if re.match(r"^(inbox\.)?drafts?$", folder_lower):
             return "drafts"
-        elif folder_lower in ("trash", "deleted items", "deleted messages"):
+
+        # Trash/Deleted patterns (including hierarchical like INBOX.Trash)
+        if re.match(r"^(inbox\.)?trash$", folder_lower) or folder_lower in ("deleted items", "deleted messages", "deleted"):
             return "trash"
-        elif folder_lower in ("archive", "all mail"):
+
+        # Archive patterns
+        if folder_lower in ("archive", "all mail"):
             return "archive"
-        else:
-            # Keep original for custom folders
-            return imap_folder
+
+        # Keep original for custom folders
+        logger.debug(f"No normalization for folder: {imap_folder}, using as-is")
+        return imap_folder
 
     def fetch_messages(
         self,
@@ -234,27 +337,19 @@ class IMAPProvider(BaseEmailProvider):
         # Otherwise, fetch from multiple common folders (like Gmail's "in:all")
         logger.info("Fetching messages from all folders (INBOX, Sent, Trash)")
 
-        # Get available folders
+        # Get available folders and discover mapping
         available_folders = self.list_folders()
+        if not available_folders:
+            logger.warning("No folders found on IMAP server")
+            return []
 
-        # Map common folder names to what we want to fetch
+        folder_mapping = self._discover_folder_mapping(available_folders)
+
+        # Build list of actual folder names to fetch from
         folders_to_fetch = []
-
-        # INBOX (always exists)
-        if "INBOX" in available_folders:
-            folders_to_fetch.append("INBOX")
-
-        # Sent folder (various names)
-        for sent_name in ["Sent", "Sent Items", "Sent Mail", "INBOX.Sent"]:
-            if sent_name in available_folders and sent_name not in folders_to_fetch:
-                folders_to_fetch.append(sent_name)
-                break
-
-        # Trash folder (various names)
-        for trash_name in ["Trash", "Deleted Items", "Deleted Messages", "INBOX.Trash"]:
-            if trash_name in available_folders and trash_name not in folders_to_fetch:
-                folders_to_fetch.append(trash_name)
-                break
+        for logical_name in ["inbox", "sent", "trash"]:
+            if logical_name in folder_mapping:
+                folders_to_fetch.append(folder_mapping[logical_name])
 
         logger.info(f"Fetching from folders: {folders_to_fetch}")
 
