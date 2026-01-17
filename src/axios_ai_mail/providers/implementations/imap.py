@@ -602,6 +602,70 @@ class IMAPProvider(BaseEmailProvider):
             logger.error(f"Failed to delete message {uid} from {folder}: {e}")
             raise
 
+    def move_to_trash(self, message_id: str) -> None:
+        """Move a message to the trash folder.
+
+        This is a convenience wrapper around delete_message(permanent=False).
+
+        Args:
+            message_id: Message ID (format: account_id:folder:uid)
+
+        Raises:
+            RuntimeError: If the operation fails
+        """
+        self.delete_message(message_id, permanent=False)
+
+    def restore_from_trash(self, message_id: str) -> None:
+        """Restore a message from Trash to its original folder.
+
+        Args:
+            message_id: Message ID (format: account_id:folder:uid)
+                       Should be in Trash folder
+
+        Raises:
+            RuntimeError: If the operation fails or folders don't exist
+        """
+        if not self.connection:
+            raise RuntimeError("Not authenticated")
+
+        # Parse message ID to extract folder and UID
+        folder, uid = self._parse_message_id(message_id)
+
+        # Get folder mapping
+        folder_mapping = self._ensure_folder_mapping()
+        trash_folder = folder_mapping.get("trash")
+
+        if not trash_folder:
+            raise RuntimeError("No Trash folder found on server")
+
+        # For restore, we need to know the original folder
+        # This should be stored in the database - default to INBOX for now
+        # TODO: Query database for Message.original_folder
+        original_folder = folder_mapping.get("inbox", "INBOX")
+
+        try:
+            # Select Trash folder
+            if not self._select_folder(trash_folder):
+                raise RuntimeError(f"Failed to select folder {trash_folder}")
+
+            # Copy message to original folder
+            typ, data = self.connection.copy(uid, original_folder)
+            if typ != "OK":
+                raise RuntimeError(f"IMAP COPY to {original_folder} failed: {data}")
+
+            # Mark message in Trash as deleted
+            typ, data = self.connection.store(uid, "+FLAGS", "\\Deleted")
+            if typ != "OK":
+                raise RuntimeError(f"IMAP STORE failed: {data}")
+
+            # Expunge to remove from Trash
+            self.connection.expunge()
+            logger.info(f"Restored message {uid} from {trash_folder} to {original_folder}")
+
+        except Exception as e:
+            logger.error(f"Failed to restore message {uid} from trash: {e}")
+            raise
+
     def update_labels(
         self, message_id: str, add_labels: Set[str], remove_labels: Set[str]
     ) -> None:

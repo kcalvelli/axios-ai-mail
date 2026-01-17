@@ -343,6 +343,102 @@ class GmailProvider(BaseEmailProvider):
             logger.error(f"Failed to list labels: {e}")
             raise
 
+    def move_to_trash(self, message_id: str) -> None:
+        """Move a Gmail message to trash by adding TRASH label.
+
+        Args:
+            message_id: Gmail message ID
+
+        Raises:
+            RuntimeError: If the operation fails
+        """
+        if not self.service:
+            self.authenticate()
+
+        try:
+            # Add TRASH label, remove INBOX label (Gmail-specific behavior)
+            body = {
+                "addLabelIds": ["TRASH"],
+                "removeLabelIds": ["INBOX"],
+            }
+
+            self.service.users().messages().modify(
+                userId="me", id=message_id, body=body
+            ).execute()
+
+            logger.info(f"Moved Gmail message {message_id} to trash")
+
+        except HttpError as e:
+            error_msg = f"Failed to move message {message_id} to trash: {e}"
+            logger.error(error_msg)
+            raise RuntimeError(error_msg)
+
+    def restore_from_trash(self, message_id: str) -> None:
+        """Restore a Gmail message from trash to inbox.
+
+        Args:
+            message_id: Gmail message ID
+
+        Raises:
+            RuntimeError: If the operation fails
+        """
+        if not self.service:
+            self.authenticate()
+
+        try:
+            # Remove TRASH label, add INBOX label
+            # Note: In future, we could query database for original_folder
+            # and restore to SENT or other folders accordingly
+            body = {
+                "addLabelIds": ["INBOX"],
+                "removeLabelIds": ["TRASH"],
+            }
+
+            self.service.users().messages().modify(
+                userId="me", id=message_id, body=body
+            ).execute()
+
+            logger.info(f"Restored Gmail message {message_id} from trash")
+
+        except HttpError as e:
+            error_msg = f"Failed to restore message {message_id} from trash: {e}"
+            logger.error(error_msg)
+            raise RuntimeError(error_msg)
+
+    def delete_message(self, message_id: str, permanent: bool = False) -> None:
+        """Delete a Gmail message.
+
+        Args:
+            message_id: Gmail message ID
+            permanent: If True, permanently delete. If False, move to trash.
+
+        Raises:
+            RuntimeError: If the operation fails
+        """
+        if not self.service:
+            self.authenticate()
+
+        if not permanent:
+            # Soft delete - move to trash
+            self.move_to_trash(message_id)
+            return
+
+        try:
+            # Permanent delete using Gmail API
+            self.service.users().messages().delete(
+                userId="me", id=message_id
+            ).execute()
+
+            logger.info(f"Permanently deleted Gmail message {message_id}")
+
+        except HttpError as e:
+            if e.resp.status == 404:
+                error_msg = f"Message {message_id} not found"
+            else:
+                error_msg = f"Failed to permanently delete message {message_id}: {e}"
+            logger.error(error_msg)
+            raise RuntimeError(error_msg)
+
 
 # Register Gmail provider
 ProviderRegistry.register("gmail", GmailProvider)

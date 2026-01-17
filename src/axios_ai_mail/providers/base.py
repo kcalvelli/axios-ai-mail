@@ -111,6 +111,43 @@ class EmailProvider(Protocol):
         """
         ...
 
+    def move_to_trash(self, message_id: str) -> None:
+        """Move a message to the provider's trash/deleted folder.
+
+        Args:
+            message_id: Provider-specific message ID
+
+        Raises:
+            RuntimeError: If the operation fails (network error, auth failure, etc.)
+        """
+        ...
+
+    def restore_from_trash(self, message_id: str) -> None:
+        """Restore a message from trash to its original folder.
+
+        The original folder is retrieved from the database. If not available,
+        the message is restored to the default inbox folder.
+
+        Args:
+            message_id: Provider-specific message ID
+
+        Raises:
+            RuntimeError: If the operation fails or message not found in trash
+        """
+        ...
+
+    def delete_message(self, message_id: str, permanent: bool = False) -> None:
+        """Delete a message from the provider.
+
+        Args:
+            message_id: Provider-specific message ID
+            permanent: If True, permanently delete. If False, move to trash.
+
+        Raises:
+            RuntimeError: If the operation fails
+        """
+        ...
+
 
 class BaseEmailProvider(ABC):
     """Abstract base class for email providers with common functionality."""
@@ -153,6 +190,46 @@ class BaseEmailProvider(ABC):
     @abstractmethod
     def list_labels(self) -> Dict[str, str]:
         """List all labels."""
+        pass
+
+    @abstractmethod
+    def move_to_trash(self, message_id: str) -> None:
+        """Move a message to the provider's trash/deleted folder.
+
+        Args:
+            message_id: Provider-specific message ID
+
+        Raises:
+            RuntimeError: If the operation fails (network error, auth failure, etc.)
+        """
+        pass
+
+    @abstractmethod
+    def restore_from_trash(self, message_id: str) -> None:
+        """Restore a message from trash to its original folder.
+
+        The original folder is retrieved from the database. If not available,
+        the message is restored to the default inbox folder.
+
+        Args:
+            message_id: Provider-specific message ID
+
+        Raises:
+            RuntimeError: If the operation fails or message not found in trash
+        """
+        pass
+
+    @abstractmethod
+    def delete_message(self, message_id: str, permanent: bool = False) -> None:
+        """Delete a message from the provider.
+
+        Args:
+            message_id: Provider-specific message ID
+            permanent: If True, permanently delete. If False, move to trash.
+
+        Raises:
+            RuntimeError: If the operation fails
+        """
         pass
 
     def get_label_mapping(self) -> Dict[str, str]:
