@@ -1,6 +1,8 @@
 # axios-ai-mail
 
-**axios-ai-mail** is a declarative, AI-enhanced email workflow designed for NixOS and Home Manager users. It combines robust CLI tools (`isync`, `msmtp`, `notmuch`) with a local LLM-based classifier (`Ollama`) to organize your inbox automatically.
+**AI-powered inbox organizer for NixOS and Home Manager users.**
+
+axios-ai-mail is a declarative email management system that combines direct provider integration (Gmail, IMAP) with local AI classification to automatically organize your inbox. Messages are tagged, prioritized, and organized—all locally, with zero cloud dependencies for AI processing.
 
 ## Product Scope
 
@@ -11,6 +13,8 @@
 - **Organizes messages** with AI-powered tags (work, finance, personal, etc.)
 - **Identifies low-priority content** like promotional emails and newsletters ("junk" tag)
 - **Helps you prioritize** what matters in your inbox
+- **Provides a clean web UI** for browsing, searching, and managing messages
+- **Supports bulk operations** for efficient inbox management
 
 ### What This Product Doesn't Do ❌
 - **Does not filter spam** - Your email provider (Gmail, Fastmail, etc.) already does this
@@ -28,14 +32,59 @@
 
 ## Features
 
-- **Declarative Configuration**: Define email accounts in Nix. No more manual `.mbsyncrc` editing.
-- **Local AI Intelligence**: Uses Ollama (e.g., Llama 3) to classify mail with structured tags (`Work`, `Finance`, `To-Do`) and auto-archive junk.
-- **Privacy-First**: All processing happens locally. No mail data is sent to cloud APIs.
-- **Universal Backend**: Works with any Notmuch-compatible client. Includes native setup for **Aerc** and **Astroid**.
+- **🎯 AI-Powered Classification**: Automatically tags messages with categories like `work`, `finance`, `personal`, `dev`, `shopping`
+- **📁 Folder Support**: Browse Inbox, Sent, and Trash folders
+- **🏷️ Tag-Based Filtering**: Filter messages by AI-assigned tags or account
+- **🔍 Full-Text Search**: Search across all message content
+- **⚡ Bulk Operations**: Select multiple messages to delete, mark as read/unread, or restore from trash
+- **🔄 Multi-Account**: Manage multiple Gmail and IMAP accounts from a single interface
+- **🔒 Privacy-First**: All AI processing happens locally using Ollama
+- **🌐 Modern Web UI**: Clean, responsive interface built with React and Material-UI
+- **📡 Real-Time Updates**: WebSocket support for live message updates
+- **⚙️ Declarative Config**: Define everything in Nix—accounts, AI settings, providers
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Web UI (React)                       │
+│  Material-UI • Tag Filtering • Bulk Actions • Search    │
+└────────────────────┬────────────────────────────────────┘
+                     │ HTTP/WebSocket
+┌────────────────────▼────────────────────────────────────┐
+│              FastAPI Backend (Python)                   │
+│  REST API • WebSocket • Message Management • Sync       │
+└─────┬──────────────────────────────────────────┬────────┘
+      │                                          │
+      │ Gmail API / IMAP                        │ Ollama API
+      │                                          │
+┌─────▼─────────────────┐              ┌────────▼─────────┐
+│  Email Providers      │              │   AI Classifier  │
+│  • Gmail (OAuth2)     │              │   • Local LLM    │
+│  • IMAP (Password)    │              │   • Tag/Priority │
+│  • Fastmail, etc.     │              │   • No cloud API │
+└───────────────────────┘              └──────────────────┘
+           │
+           │ SQLite
+           ▼
+    ┌──────────────┐
+    │   Database   │
+    │  • Messages  │
+    │  • Tags      │
+    │  • Accounts  │
+    └──────────────┘
+```
 
 ## Installation
 
-Add `axios-ai-mail` to your flake inputs:
+### Prerequisites
+
+1. **NixOS or Home Manager** - This is a Nix-native application
+2. **Ollama** - For local AI classification (or OpenAI API key)
+
+### Add to Your Flake
+
+Add axios-ai-mail to your flake inputs:
 
 ```nix
 {
@@ -43,163 +92,430 @@ Add `axios-ai-mail` to your flake inputs:
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     axios-ai-mail.url = "github:kcalvelli/axios-ai-mail";
   };
-  
+
   outputs = { self, nixpkgs, axios-ai-mail, ... }: {
-    # In your home-manager configuration
-    homeManagerModules.default = [
-      axios-ai-mail.homeManagerModules.default
-      {
-        programs.axios-ai-mail.enable = true;
-      }
-    ];
+    homeConfigurations.youruser = home-manager.lib.homeManagerConfiguration {
+      modules = [
+        axios-ai-mail.homeManagerModules.default
+        ./home.nix
+      ];
+    };
   };
 }
 ```
 
+### Enable in Home Manager
+
+In your `home.nix`:
+
+```nix
+{
+  programs.axios-ai-mail = {
+    enable = true;
+  };
+}
+```
+
+Then rebuild:
+
+```bash
+home-manager switch
+```
+
 ## Configuration
 
-Configure your accounts in `home.nix`:
+### Gmail Account (OAuth2)
 
 ```nix
 programs.axios-ai-mail = {
   enable = true;
-  
-  settings = {
-    syncFrequency = "5m"; # Run sync every 5 minutes
-    maildirBase = "~/Mail";
-  };
 
   ai = {
-    enable = true;
-    model = "llama3";
+    provider = "ollama";
+    model = "llama3.2";
     endpoint = "http://localhost:11434";
   };
 
-  accounts = {
-    personal = {
-      primary = true;
-      flavor = "gmail"; # Preconfigures IMAP/SMTP host/port
-      address = "jane.doe@gmail.com";
-      realName = "Jane Doe";
-      # Command to fetch the password or OAuth2 token
-      passwordCommand = "pass email/personal"; 
-    };
+  accounts.personal = {
+    provider = "gmail";
+    email = "you@gmail.com";
+    credentialFile = "/path/to/gmail-credentials.json";
+  };
+};
+```
 
-    # Standard IMAP Example
-    work = {
-      flavor = "manual";
-      address = "me@company.com";
-      userName = "user"; # Optional if different from address
-      realName = "First Last";
-      
-      # Connection Details
-      imap = { host = "imap.fastmail.com"; port = 993; };
-      smtp = { host = "smtp.fastmail.com"; port = 465; };
-      
-      # Password Command (must print password to stdout)
-      passwordCommand = "cat ~/.config/secrets/mailpass";
+**Setting up Gmail OAuth2:**
+
+1. Run the auth wizard:
+   ```bash
+   axios-ai-mail auth setup-gmail --email you@gmail.com
+   ```
+
+2. Follow the browser prompts to authenticate
+
+3. Update your config with the generated credential file path
+
+### IMAP Account (Password)
+
+```nix
+programs.axios-ai-mail = {
+  enable = true;
+
+  accounts.work = {
+    provider = "imap";
+    email = "you@fastmail.com";
+    passwordFile = "/path/to/password-file";
+
+    imap = {
+      host = "imap.fastmail.com";
+      port = 993;
+      tls = true;
     };
   };
 };
 ```
 
-## Authentication (OAuth2)
+**Setting up IMAP password:**
 
-1.  **Create the tokens directory**:
-    ```bash
-    mkdir -p ~/.config/tokens
-    ```
+```bash
+# Interactive password setup
+axios-ai-mail auth setup-imap --email you@fastmail.com
 
-2.  **Prerequisite (GMail Only)**:
-    Google requires you to create your own "App" credentials (Desktop App). Obtain `Client ID` and `Client Secret`.
+# Or manually create password file
+echo "your-password" > ~/.config/axios-ai-mail/password
+chmod 600 ~/.config/axios-ai-mail/password
+```
 
-3.  **Run the Auth Wizard**:
+### AI Configuration
 
-    ```bash
-    nix run github:kcalvelli/axios-ai-mail#auth -- \
-        --verbose --authorize \
-        ~/.config/tokens/gmail
-    ```
-
-4.  **Follow the Interactive Prompts** to authenticate via browser.
-
-5.  **Update your Config**:
-    ```nix
-    accounts.personal = {
-      flavor = "gmail";
-      # ...
-      passwordCommand = "~/.config/tokens/gmail"; 
-    };
-    ```
-
-### Authentication (Standard IMAP)
-
-For providers like Fastmail, iCloud, or self-hosted servers, you can use a simple password file or a manager like `pass`.
-
-**Simplest Method (Helper Tool):**
-
-1.  Run the password helper:
-    ```bash
-    nix run github:kcalvelli/axios-ai-mail#set-password -- <account_name>
-    # Example: nix run .#set-password -- work
-    ```
-    It will securely prompt for your password and save it to `~/.config/axios-ai-mail/secrets/<name>_pass` with correct permissions.
-
-2.  Copy the configuration line it prints (e.g. `passwordCommand = "cat ...";`) into your `home.nix`.
-
-## AI Integration
-
-Ensure [Ollama](https://ollama.com) is installed and running (`ollama serve`).
-
-The classifier analyzes incoming mail (`tag:new`) and applies the following logic:
-
-- **Tags**: Adds categorical tags like `Work`, `Finance`, `Personal`.
-- **Priority**: Adds `prio-high` or `prio-normal`.
-- **To-Do**: Adds `todo` tag if the email requires action (reply, pay bill, etc.).
-- **Auto-Archive**: If the email is a receipt/newsletter AND requires no action, it removes the `Inbox` tag and adds `Archive`.
-
-## Reading Your Email (Integrated Clients)
-
-`axios-ai-mail` can automatically configure a terminal or GUI email client for you.
-
-Simply set the `client` option to either `aerc` (TUI) or `astroid` (GUI):
+#### Option 1: Ollama (Recommended)
 
 ```nix
-programs.axios-ai-mail = {
-  enable = true;
-  client = "aerc"; # or "astroid"
+ai = {
+  provider = "ollama";
+  model = "llama3.2";  # or "qwen2.5", "mistral", etc.
+  endpoint = "http://localhost:11434";
 };
 ```
 
-This generates all necessary configuration to view your accounts and AI tags out of the box.
-
-- **Folders/Tabs**: Your sidebar will show virtual views like `Inbox`, `To-Do`, `High Priority`, backed by Notmuch queries.
-- **Search**: Use Notmuch syntax (e.g. `tag:work and tag:todo`) to find anything instantly.
-
-## Management Tools
-
-### Re-classify Mail
-If you change your AI logic or want to process old mail, use the `reclassify` tool.
-
+Install and start Ollama:
 ```bash
-# Process ALL mail (resets to Inbox default, then applies AI)
-nix run .#reclassify -- --query "*"
+# Install model
+ollama pull llama3.2
 
-# Dry run to see what would happen
-nix run .#reclassify -- --query "*" --dry-run
+# Ollama runs automatically as a service on NixOS
+# Or start manually: ollama serve
 ```
 
-### Manual Sync
-```bash
-systemctl --user start axios-mail-sync
+#### Option 2: OpenAI API
+
+```nix
+ai = {
+  provider = "openai";
+  model = "gpt-4";
+  apiKey = "sk-...";  # Or use apiKeyFile for secrets
+};
 ```
 
-### Debugging
-```bash
-# Check service logs
-journalctl --user -u axios-mail-sync -f
+### Custom Tags
 
-# Run classifier manually
-nix shell .#default
-python3 src/ai_classifier.py --dry-run
+Define your own classification tags:
+
+```nix
+ai = {
+  provider = "ollama";
+  model = "llama3.2";
+
+  customTags = [
+    { name = "urgent"; description = "Time-sensitive emails requiring immediate action"; }
+    { name = "clients"; description = "Client communications and support requests"; }
+    { name = "reports"; description = "Weekly/monthly reports and analytics"; }
+  ];
+};
 ```
+
+Default tags (if not specified):
+- `work` - Work-related emails
+- `personal` - Personal correspondence
+- `finance` - Bills, transactions, statements
+- `shopping` - Receipts, order confirmations
+- `travel` - Flight/hotel bookings
+- `dev` - GitHub, GitLab, CI/CD notifications
+- `social` - Social media notifications
+- `newsletter` - Newsletters and subscriptions
+- `junk` - Promotional emails, marketing
+
+## Usage
+
+### Start the Web Interface
+
+```bash
+axios-ai-mail web
+```
+
+Then open http://localhost:8080 in your browser.
+
+### Sync Messages
+
+```bash
+# Sync all accounts
+axios-ai-mail sync run
+
+# Sync specific account
+axios-ai-mail sync run --account personal
+
+# Limit messages fetched
+axios-ai-mail sync run --max 50
+```
+
+### CLI Help
+
+```bash
+axios-ai-mail --help
+axios-ai-mail sync --help
+axios-ai-mail auth --help
+```
+
+## Web UI Features
+
+### Folder Navigation
+- **Inbox** - All messages in your inbox
+- **Sent** - Messages you've sent
+- **Trash** - Deleted messages (can be restored)
+
+### Tag Filtering
+- Click any tag to filter messages
+- Account emails appear as tags for filtering by account
+- Combine with folder navigation (e.g., "work emails in inbox")
+
+### Bulk Operations
+1. Select messages by clicking checkboxes
+2. Use the floating action bar to:
+   - Mark as read/unread
+   - Move to trash (with undo)
+   - Restore from trash (returns to original folder)
+   - Permanently delete (from trash only)
+
+### Search
+Use the search bar to find messages by:
+- Subject
+- Sender
+- Recipient
+- Body content
+
+## How It Works
+
+### 1. Message Sync
+
+When you run `axios-ai-mail sync run`:
+
+1. **Fetch** - Connects to your email provider (Gmail API or IMAP)
+2. **Parse** - Extracts message metadata and body content
+3. **Store** - Saves to local SQLite database
+4. **Classify** - AI analyzes subject, sender, and content
+5. **Tag** - Applies relevant tags based on AI classification
+6. **Update** - Syncs tags back to provider (Gmail labels or IMAP keywords)
+
+### 2. AI Classification
+
+The AI classifier:
+
+1. Reads message subject, sender, and snippet
+2. Analyzes content against tag definitions
+3. Assigns 1-3 most relevant tags
+4. Determines priority (high/normal)
+5. Identifies if action is needed
+6. Suggests archival for newsletters/receipts
+
+All processing happens **locally** - no data leaves your machine.
+
+### 3. Provider Integration
+
+#### Gmail
+- Uses Gmail API with OAuth2
+- Syncs from all folders (Inbox, Sent, Trash)
+- Excludes SPAM folder (intentionally)
+- Applies tags as Gmail labels (e.g., `AI/work`, `AI/finance`)
+- Detects folder from Gmail labels (SENT, TRASH, INBOX)
+
+#### IMAP
+- Standard IMAP protocol with TLS
+- Fetches from multiple folders (INBOX, Sent, Trash)
+- Supports KEYWORD extension for tag sync
+- Falls back to read-only if KEYWORD not supported
+- Works with Fastmail, ProtonMail Bridge, self-hosted servers
+
+## Folder Behavior
+
+### Delete (Move to Trash)
+- Messages are **soft deleted** - moved to trash folder
+- Original folder is saved for restoration
+- Toast notification with "Undo" button
+
+### Restore from Trash
+- Messages return to **original folder** (Inbox, Sent, etc.)
+- Not hardcoded to always go to Inbox
+
+### Permanent Delete
+- Only available from Trash folder
+- Requires confirmation
+- **Cannot be undone**
+
+### Clear Trash
+- Permanently deletes all messages in trash
+- Requires confirmation
+
+## Development
+
+### Project Structure
+
+```
+axios-ai-mail/
+├── src/axios_ai_mail/          # Python backend
+│   ├── api/                    # FastAPI routes
+│   ├── db/                     # Database models & queries
+│   ├── providers/              # Gmail & IMAP implementations
+│   ├── ai_classifier.py        # LLM integration
+│   └── sync_engine.py          # Sync orchestration
+├── web/                        # React frontend
+│   ├── src/
+│   │   ├── components/         # UI components
+│   │   ├── hooks/              # React Query hooks
+│   │   ├── api/                # API client
+│   │   └── store/              # Zustand state
+│   └── package.json
+├── modules/home-manager/       # Nix module
+├── alembic/                    # Database migrations
+└── flake.nix
+```
+
+### Running Locally
+
+```bash
+# Backend development
+nix develop
+python -m axios_ai_mail.api.main
+
+# Frontend development
+cd web
+npm install
+npm run dev
+
+# Database migrations
+alembic upgrade head
+```
+
+### Adding a New Provider
+
+1. Create provider in `src/axios_ai_mail/providers/implementations/`
+2. Implement `BaseEmailProvider` interface
+3. Register in `src/axios_ai_mail/providers/__init__.py`
+4. Add config options to NixOS module
+5. Add auth wizard support in `src/axios_ai_mail/cli/auth.py`
+
+## Troubleshooting
+
+### Messages Not Syncing
+
+```bash
+# Check sync logs
+journalctl --user -u axios-ai-mail-sync -f
+
+# Manual sync with debug output
+axios-ai-mail sync run --verbose
+```
+
+### AI Classification Not Working
+
+```bash
+# Test Ollama connection
+curl http://localhost:11434/api/tags
+
+# Pull model if needed
+ollama pull llama3.2
+
+# Check AI service logs
+journalctl --user -u axios-ai-mail-api -f
+```
+
+### Web UI Not Loading
+
+```bash
+# Check API status
+curl http://localhost:8000/api/health
+
+# Restart services
+systemctl --user restart axios-ai-mail-api
+systemctl --user restart axios-ai-mail-web
+```
+
+### Gmail OAuth Expired
+
+```bash
+# Re-authenticate
+axios-ai-mail auth setup-gmail --email you@gmail.com
+
+# Update credential file path in config
+```
+
+## FAQ
+
+**Q: Why use this instead of email client filters?**
+A: Traditional filters use static rules. AI classification adapts to your mail patterns and understands context.
+
+**Q: Does AI see my full email content?**
+A: Only subject, sender, and a snippet (first 200 chars). Full bodies are stored locally but not sent to AI.
+
+**Q: Can I use this with Outlook/Office365?**
+A: Not yet. Currently supports Gmail and IMAP. Outlook/Exchange support planned.
+
+**Q: What happens to my existing Gmail labels?**
+A: They're preserved. AI tags are added as additional labels under `AI/` prefix.
+
+**Q: Can I train the AI on my corrections?**
+A: Feedback system is planned but not yet implemented.
+
+**Q: Does this replace my email client?**
+A: No. It's a classification and organization layer. You can still use any email client alongside it.
+
+## Roadmap
+
+- [ ] Outlook/Office365 provider
+- [ ] User feedback loop for AI improvement
+- [ ] Email composition and sending
+- [ ] Keyboard shortcuts in web UI
+- [ ] Mobile-responsive improvements
+- [ ] Dark mode
+- [ ] Message threading
+- [ ] Attachments view
+- [ ] Calendar integration
+- [ ] Contact management
+
+## Contributing
+
+Contributions welcome! Please:
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
+
+## License
+
+MIT License - see LICENSE file for details
+
+## Credits
+
+Built with:
+- [FastAPI](https://fastapi.tiangolo.com/) - Backend framework
+- [React](https://react.dev/) - Frontend framework
+- [Material-UI](https://mui.com/) - UI components
+- [Ollama](https://ollama.com/) - Local LLM runtime
+- [SQLAlchemy](https://www.sqlalchemy.org/) - Database ORM
+- [React Query](https://tanstack.com/query) - Data fetching
+- [Zustand](https://zustand-demo.pmnd.rs/) - State management
+
+---
+
+**axios-ai-mail** - Organize your inbox with AI, locally.
