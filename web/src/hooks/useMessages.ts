@@ -122,9 +122,9 @@ export function useBulkMarkRead() {
         });
       }
     },
-    onSuccess: () => {
-      // Invalidate and refetch messages
-      queryClient.invalidateQueries({ queryKey: messageKeys.lists() });
+    onSettled: () => {
+      // Invalidate details to ensure individual message views are updated
+      // But don't invalidate lists since optimistic update already has correct state
       queryClient.invalidateQueries({ queryKey: messageKeys.details() });
     },
   });
