@@ -144,6 +144,7 @@ export function Sidebar({ open }: SidebarProps) {
                   tag={tag.name}
                   onClick={() => toggleTag(tag.name)}
                   size="small"
+                  selected={selectedTags.includes(tag.name)}
                 />
                 <Typography variant="caption" color="text.secondary">
                   {tag.count}
