@@ -114,6 +114,7 @@
           fastapi
           uvicorn
           websockets
+          python-multipart  # Required for file uploads (Phase 7)
         ];
 
         # Build frontend before building Python package

@@ -271,7 +271,7 @@ let
         # CLI
         click typer rich python-dateutil pyyaml
         # Web API (Phase 2)
-        fastapi uvicorn websockets
+        fastapi uvicorn websockets python-multipart
       ];
 
       # Copy frontend assets from separate derivation
