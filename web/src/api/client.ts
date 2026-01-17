@@ -73,6 +73,16 @@ export const messages = {
 
   bulkDelete: (data: { message_ids: string[] }) =>
     api.post<{ deleted: number; total: number; errors: any[] }>('/messages/bulk/delete', data).then((r) => r.data),
+
+  // Delete all messages matching filters
+  deleteAll: (params?: {
+    account_id?: string;
+    tags?: string[];
+    is_unread?: boolean;
+    folder?: string;
+    search?: string;
+  }) =>
+    api.post<{ deleted: number; total: number; errors: any[] }>('/messages/delete-all', null, { params }).then((r) => r.data),
 };
 
 // Account endpoints

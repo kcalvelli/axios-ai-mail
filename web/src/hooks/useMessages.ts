@@ -149,3 +149,22 @@ export function useBulkDelete() {
     },
   });
 }
+
+export function useDeleteAll() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (filters: {
+      account_id?: string;
+      tags?: string[];
+      is_unread?: boolean;
+      folder?: string;
+      search?: string;
+    }) => messages.deleteAll(filters),
+    onSuccess: () => {
+      // Invalidate and refetch messages
+      queryClient.invalidateQueries({ queryKey: messageKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: messageKeys.details() });
+    },
+  });
+}

@@ -383,6 +383,65 @@ async def delete_message(request: Request, message_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/messages/delete-all")
+async def delete_all_messages(
+    request: Request,
+    account_id: Optional[str] = Query(None, description="Filter by account ID"),
+    tags: Optional[List[str]] = Query(None, description="Filter by tags"),
+    is_unread: Optional[bool] = Query(None, description="Filter by read status"),
+    folder: Optional[str] = Query(None, description="Filter by folder"),
+    search: Optional[str] = Query(None, description="Search filter"),
+):
+    """Delete all messages matching the given filters."""
+    db = request.app.state.db
+
+    try:
+        # Query messages with filters (no limit to get all matching)
+        messages = db.query_messages(
+            account_id=account_id,
+            tags=tags,
+            is_unread=is_unread,
+            folder=folder,
+            limit=100000,  # Large limit to get all
+            offset=0,
+        )
+
+        # Apply search filter if provided
+        if search:
+            search_lower = search.lower()
+            messages = [
+                m for m in messages
+                if search_lower in m.subject.lower()
+                or search_lower in m.from_email.lower()
+                or search_lower in m.snippet.lower()
+            ]
+
+        # Delete all matching messages
+        deleted_count = 0
+        errors = []
+
+        for message in messages:
+            try:
+                success = db.delete_message(message.id)
+                if success:
+                    deleted_count += 1
+                else:
+                    errors.append({"message_id": message.id, "error": "Failed to delete"})
+            except Exception as e:
+                errors.append({"message_id": message.id, "error": str(e)})
+                logger.error(f"Error deleting message {message.id}: {e}")
+
+        return {
+            "deleted": deleted_count,
+            "total": len(messages),
+            "errors": errors,
+        }
+
+    except Exception as e:
+        logger.error(f"Error in delete all: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/messages/search")
 async def search_messages(
     request: Request,

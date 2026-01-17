@@ -2,11 +2,23 @@
  * MessageList component - List of messages
  */
 
-import { Box, Typography, CircularProgress, Alert } from '@mui/material';
-import { InboxOutlined } from '@mui/icons-material';
+import {
+  Box,
+  Typography,
+  CircularProgress,
+  Alert,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+} from '@mui/material';
+import { InboxOutlined, DeleteSweep } from '@mui/icons-material';
+import { useState } from 'react';
 import { MessageCard } from './MessageCard';
 import { BulkActionBar } from './BulkActionBar';
-import { useMessages, useBulkDelete, useBulkMarkRead } from '../hooks/useMessages';
+import { useMessages, useBulkDelete, useBulkMarkRead, useDeleteAll } from '../hooks/useMessages';
 import { useAppStore } from '../store/appStore';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
@@ -24,6 +36,9 @@ export function MessageList() {
 
   const bulkDelete = useBulkDelete();
   const bulkMarkRead = useBulkMarkRead();
+  const deleteAll = useDeleteAll();
+
+  const [deleteAllDialogOpen, setDeleteAllDialogOpen] = useState(false);
 
   // Get folder from URL query params (default to inbox)
   const folder = searchParams.get('folder') || 'inbox';
@@ -68,6 +83,39 @@ export function MessageList() {
         },
       }
     );
+  };
+
+  const handleDeleteAll = () => {
+    setDeleteAllDialogOpen(true);
+  };
+
+  const handleDeleteAllConfirm = () => {
+    // Build filter object from current state
+    const deleteFilters: any = {
+      folder: folder,
+    };
+
+    if (selectedAccount) {
+      deleteFilters.account_id = selectedAccount;
+    }
+
+    if (selectedTags.length > 0) {
+      deleteFilters.tags = selectedTags;
+    }
+
+    if (isUnreadOnly) {
+      deleteFilters.is_unread = true;
+    }
+
+    if (searchQuery) {
+      deleteFilters.search = searchQuery;
+    }
+
+    deleteAll.mutate(deleteFilters, {
+      onSuccess: () => {
+        setDeleteAllDialogOpen(false);
+      },
+    });
   };
 
   // Build filters
@@ -147,13 +195,38 @@ export function MessageList() {
     );
   }
 
+  // Build filter description for delete all confirmation
+  const getFilterDescription = () => {
+    const parts = [];
+    if (folder && folder !== 'inbox') parts.push(`in ${folder}`);
+    if (selectedTags.length > 0) parts.push(`tagged with ${selectedTags.join(', ')}`);
+    if (isUnreadOnly) parts.push('unread only');
+    if (searchQuery) parts.push(`matching "${searchQuery}"`);
+    return parts.length > 0 ? ` ${parts.join(', ')}` : '';
+  };
+
   // Render messages
   return (
     <>
       <Box p={2}>
-        <Typography variant="body2" color="text.secondary" mb={2}>
-          {data.total} {data.total === 1 ? 'message' : 'messages'}
-        </Typography>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+          <Typography variant="body2" color="text.secondary">
+            {data.total} {data.total === 1 ? 'message' : 'messages'}
+          </Typography>
+
+          {/* Delete All button - show if there are any filters active or messages exist */}
+          {data.total > 0 && (
+            <Button
+              size="small"
+              color="error"
+              startIcon={<DeleteSweep />}
+              onClick={handleDeleteAll}
+              variant="outlined"
+            >
+              Delete All
+            </Button>
+          )}
+        </Box>
 
         {data.messages.map((message) => (
           <MessageCard
@@ -170,6 +243,28 @@ export function MessageList() {
         onMarkRead={handleBulkMarkRead}
         onMarkUnread={handleBulkMarkUnread}
       />
+
+      {/* Delete All Confirmation Dialog */}
+      <Dialog open={deleteAllDialogOpen} onClose={() => setDeleteAllDialogOpen(false)}>
+        <DialogTitle>Delete All Messages?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to delete {data.total} {data.total === 1 ? 'message' : 'messages'}
+            {getFilterDescription()}? This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteAllDialogOpen(false)}>Cancel</Button>
+          <Button
+            onClick={handleDeleteAllConfirm}
+            color="error"
+            variant="contained"
+            disabled={deleteAll.isPending}
+          >
+            {deleteAll.isPending ? 'Deleting...' : 'Delete All'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }
