@@ -315,7 +315,7 @@ export function MessageList() {
             <Pagination
               count={Math.ceil(data.total / ITEMS_PER_PAGE)}
               page={page}
-              onChange={(event, value) => {
+              onChange={(_event, value) => {
                 setPage(value);
                 clearSelection(); // Clear selections when changing pages
                 window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll to top
