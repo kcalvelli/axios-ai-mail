@@ -105,8 +105,16 @@ export function MessageList() {
 
   const handleSelectAll = () => {
     if (!data) return;
+
+    // If all messages are already selected, deselect them
     const allIds = data.messages.map((m) => m.id);
-    selectAllMessages(allIds);
+    const allSelected = allIds.every((id) => selectedMessageIds.has(id));
+
+    if (allSelected) {
+      clearSelection();
+    } else {
+      selectAllMessages(allIds);
+    }
   };
 
   const handleClearTrash = () => {
@@ -198,6 +206,10 @@ export function MessageList() {
     );
   }
 
+  // Check if all messages on current page are selected
+  const allIds = data.messages.map((m) => m.id);
+  const allSelected = allIds.length > 0 && allIds.every((id) => selectedMessageIds.has(id));
+
   // Render messages
   return (
     <>
@@ -210,7 +222,7 @@ export function MessageList() {
           {/* Action buttons */}
           {data.total > 0 && (
             <Box display="flex" gap={1}>
-              {/* Select All button - always show */}
+              {/* Select All / Deselect All button - always show */}
               <Button
                 size="small"
                 color="primary"
@@ -218,7 +230,7 @@ export function MessageList() {
                 onClick={handleSelectAll}
                 variant="outlined"
               >
-                Select All
+                {allSelected ? 'Deselect All' : 'Select All'}
               </Button>
 
               {/* Clear Trash button - only in trash folder */}
