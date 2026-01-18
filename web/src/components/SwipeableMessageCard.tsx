@@ -2,6 +2,7 @@
  * SwipeableMessageCard component - Message card with swipe gestures for mobile
  * Swipe left: Delete (move to trash)
  * Swipe right: Reply
+ * Long press: Select message
  */
 
 import { Box, useTheme } from '@mui/material';
@@ -18,6 +19,7 @@ import 'react-swipeable-list/dist/styles.css';
 import { MessageCard } from './MessageCard';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { useToast } from '../hooks/useToast';
+import { useLongPress } from '../hooks/useLongPress';
 import type { Message } from '../api/types';
 
 interface SwipeableMessageCardProps {
@@ -25,6 +27,7 @@ interface SwipeableMessageCardProps {
   onClick?: () => void;
   onDelete?: (messageId: string) => void;
   onReply?: (message: Message) => void;
+  onLongPress?: (message: Message) => void;
 }
 
 export function SwipeableMessageCard({
@@ -32,6 +35,7 @@ export function SwipeableMessageCard({
   onClick,
   onDelete,
   onReply,
+  onLongPress,
 }: SwipeableMessageCardProps) {
   const theme = useTheme();
   const isOnline = useOnlineStatus();
@@ -43,6 +47,15 @@ export function SwipeableMessageCard({
       navigator.vibrate(10);
     }
   };
+
+  // Long press to select
+  const longPressHandlers = useLongPress({
+    threshold: 500,
+    onLongPress: () => {
+      onLongPress?.(message);
+    },
+    onClick: onClick,
+  });
 
   const handleDelete = () => {
     if (!isOnline) {
@@ -109,10 +122,15 @@ export function SwipeableMessageCard({
       threshold={0.4}
       listType={ListType.IOS}
     >
-      <Box sx={{ width: '100%', backgroundColor: theme.palette.background.paper }}>
+      <Box
+        sx={{ width: '100%', backgroundColor: theme.palette.background.paper }}
+        onTouchStart={longPressHandlers.onTouchStart}
+        onTouchEnd={longPressHandlers.onTouchEnd}
+        onTouchMove={longPressHandlers.onTouchMove}
+        onClick={longPressHandlers.onClick}
+      >
         <MessageCard
           message={message}
-          onClick={onClick}
           compact
         />
       </Box>
@@ -125,6 +143,7 @@ interface SwipeableMessageListProps {
   onMessageClick: (message: Message) => void;
   onDelete: (messageId: string) => void;
   onReply: (message: Message) => void;
+  onLongPress: (message: Message) => void;
 }
 
 /**
@@ -135,6 +154,7 @@ export function SwipeableMessageList({
   onMessageClick,
   onDelete,
   onReply,
+  onLongPress,
 }: SwipeableMessageListProps) {
   return (
     <SwipeableList threshold={0.4} type={ListType.IOS}>
@@ -145,6 +165,7 @@ export function SwipeableMessageList({
           onClick={() => onMessageClick(message)}
           onDelete={onDelete}
           onReply={onReply}
+          onLongPress={onLongPress}
         />
       ))}
     </SwipeableList>
