@@ -124,23 +124,35 @@ async def list_message_attachments(message_id: str, request: Request):
         HTTPException: If message not found or provider error
     """
     db = request.app.state.db
+    logger.info(f"Listing attachments for message {message_id}")
 
     # Get message to determine account
     message = db.get_message(message_id)
     if not message:
+        logger.warning(f"Message {message_id} not found in database")
         raise HTTPException(status_code=404, detail=f"Message {message_id} not found")
+
+    logger.info(f"Message found: has_attachments={message.has_attachments}, account={message.account_id}")
 
     # Get account
     account = db.get_account(message.account_id)
     if not account:
+        logger.warning(f"Account {message.account_id} not found in database")
         raise HTTPException(status_code=404, detail=f"Account {message.account_id} not found")
+
+    logger.info(f"Account found: provider={account.provider}, email={account.email}")
 
     try:
         # Create provider and fetch attachments
         provider = ProviderFactory.create_from_account(account)
         provider.authenticate()
+        logger.info(f"Provider authenticated for {account.provider}")
 
         attachments = provider.list_attachments(message_id)
+        logger.info(f"Provider returned {len(attachments)} attachments for {message_id}")
+
+        for att in attachments:
+            logger.info(f"  Attachment: {att.get('filename', 'unknown')} ({att.get('size', 0)} bytes)")
 
         return [
             AttachmentResponse(
@@ -156,7 +168,7 @@ async def list_message_attachments(message_id: str, request: Request):
         ]
 
     except Exception as e:
-        logger.error(f"Failed to list attachments for message {message_id}: {e}")
+        logger.error(f"Failed to list attachments for message {message_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to list attachments: {str(e)}")
 
 

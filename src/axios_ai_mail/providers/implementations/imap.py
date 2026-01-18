@@ -987,6 +987,7 @@ class IMAPProvider(BaseEmailProvider):
             disposition = str(part.get("Content-Disposition", ""))
 
             if filename or "attachment" in disposition:
+                logger.debug(f"Attachment detected: filename={filename}, disposition={disposition}")
                 return True
 
         return False

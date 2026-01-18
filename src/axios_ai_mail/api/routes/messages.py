@@ -44,6 +44,7 @@ def serialize_message(message: Message, classification: Optional[Classification]
         "snippet": message.snippet,
         "is_unread": message.is_unread,
         "provider_labels": message.provider_labels,
+        "has_attachments": message.has_attachments,
         "tags": [],
         "priority": None,
         "todo": False,
