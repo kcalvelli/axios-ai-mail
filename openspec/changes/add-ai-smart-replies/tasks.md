@@ -87,15 +87,15 @@
   - Test chip click handling
   - Test error state (hidden)
 
-- [ ] 4.3 Manual testing checklist
-  - [ ] Smart replies appear for inbox messages
-  - [ ] Smart replies hidden for sent messages
-  - [ ] Smart replies hidden for newsletters
-  - [ ] Clicking reply opens compose with text
-  - [ ] Pre-filled text is editable
-  - [ ] Quote appears below pre-filled reply
-  - [ ] Loading skeleton shows during generation
-  - [ ] Component hidden on AI error
+- [x] 4.3 Manual testing checklist
+  - [x] Smart replies appear for inbox messages
+  - [x] Smart replies hidden for sent messages
+  - [x] Smart replies hidden for newsletters
+  - [x] Clicking reply opens compose with text
+  - [x] Pre-filled text is editable
+  - [x] Quote appears below pre-filled reply
+  - [x] Loading skeleton shows during generation
+  - [x] Component hidden on AI error
 
 ## 5. Documentation
 
