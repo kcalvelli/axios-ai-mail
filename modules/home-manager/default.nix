@@ -1,23 +1,13 @@
-{ config, lib, pkgs, axios-ai-mail-web ? null, ... }:
+{ config, lib, pkgs, axios-ai-mail-web, ... }:
 
 with lib;
 
 let
   cfg = config.programs.axios-ai-mail;
 
-  # Use provided web frontend package or build it locally as fallback
-  webFrontend = if axios-ai-mail-web != null then axios-ai-mail-web else
-    pkgs.buildNpmPackage {
-      pname = "axios-ai-mail-web";
-      version = "2.0.0";
-      src = ../../web;
-      npmDepsHash = "sha256-qIXfB9jbCTjlv5sDr46AxncUsnr5nFZGi12GUCZA/3A=";
-      buildPhase = "npm run build";
-      installPhase = ''
-        mkdir -p $out
-        cp -r dist/* $out/
-      '';
-    };
+  # Web frontend package is passed from the flake
+  # This ensures the npmDepsHash is only defined in flake.nix
+  webFrontend = axios-ai-mail-web;
 
   # Submodule for individual email accounts
   accountOption = types.submodule ({ name, config, ... }: {
