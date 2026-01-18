@@ -238,12 +238,21 @@ def gmail_auth_command(
     # Prompt for account name if not provided
     if not account:
         console.print("\n[bold]Account Setup[/bold]\n")
-        console.print("Enter a name for this Gmail account (e.g., 'personal', 'work', 'business').")
-        console.print("[dim]This will be used to identify the account in your configuration.[/dim]\n")
+        console.print("Enter a short name for this Gmail account (e.g., 'personal', 'work').")
+        console.print("[dim]This name will be used consistently for:[/dim]")
+        console.print("[dim]  • Your Nix config: programs.axios-ai-mail.accounts.[cyan]<name>[/cyan][/dim]")
+        console.print("[dim]  • Your secret file: gmail-[cyan]<name>[/cyan].age[/dim]")
+        console.print("[dim]  • The decrypted path: /run/agenix/gmail-[cyan]<name>[/cyan][/dim]\n")
         account = Prompt.ask("Account name").strip().lower().replace(" ", "-")
         if not account:
             console.print("[red]Account name is required[/red]")
             raise typer.Exit(1)
+
+    # Show what will be created
+    console.print(f"\n[green]✓ Account name: [bold]{account}[/bold][/green]")
+    console.print(f"[dim]  • Config key: programs.axios-ai-mail.accounts.{account}[/dim]")
+    console.print(f"[dim]  • Secret file: gmail-{account}.age[/dim]")
+    console.print(f"[dim]  • Runtime path: /run/agenix/gmail-{account}[/dim]")
 
     # Step 1: Check if credentials file provided or auto-detect
     if credentials and credentials.exists():
@@ -385,7 +394,7 @@ age.secrets.gmail-{account}.file = ../secrets/gmail-{account}.age;
 programs.axios-ai-mail.accounts.{account} = {{
   provider = "gmail";
   email = "{user_email}";
-  credentialFile = config.age.secrets.gmail-{account}.path;
+  oauthTokenFile = config.age.secrets.gmail-{account}.path;
 }};'''
 
     console.print(Panel(
