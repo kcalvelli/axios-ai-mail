@@ -4,7 +4,7 @@
 
 import { Chip } from '@mui/material';
 import { Email } from '@mui/icons-material';
-import { tagColors } from '../theme';
+import { tagColors } from '../contexts/ThemeContext';
 
 interface TagChipProps {
   tag: string;

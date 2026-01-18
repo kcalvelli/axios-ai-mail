@@ -23,6 +23,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/appStore';
 import { useTriggerSync, useSyncStatus } from '../hooks/useStats';
+import { ThemeToggle } from './ThemeToggle';
 
 interface TopBarProps {
   onMenuClick: () => void;
@@ -57,9 +58,33 @@ export function TopBar({ onMenuClick }: TopBarProps) {
           <MenuIcon />
         </IconButton>
 
-        <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-          axios-ai-mail
-        </Typography>
+        {/* Logo and Title */}
+        <Box
+          component="a"
+          href="/"
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            textDecoration: 'none',
+            color: 'inherit',
+            flexGrow: 1,
+          }}
+        >
+          <Box
+            component="img"
+            src="/logo.png"
+            alt="Axios AI Mail"
+            sx={{
+              height: 36,
+              width: 36,
+              mr: 1.5,
+              borderRadius: 1,
+            }}
+          />
+          <Typography variant="h6" noWrap component="span">
+            Axios AI Mail
+          </Typography>
+        </Box>
 
         {/* Compose Button */}
         <Button
@@ -115,6 +140,9 @@ export function TopBar({ onMenuClick }: TopBarProps) {
             </Tooltip>
           )}
         </Box>
+
+        {/* Theme Toggle */}
+        <ThemeToggle />
 
         {/* Sync Button */}
         <Tooltip title={isSyncing ? 'Syncing...' : 'Trigger sync'}>

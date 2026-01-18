@@ -19,6 +19,26 @@ sync_app = typer.Typer(help="Email synchronization commands")
 logger = logging.getLogger(__name__)
 
 
+def _create_ai_config(config: dict) -> AIConfig:
+    """Create AIConfig from loaded configuration.
+
+    Args:
+        config: Configuration dict from ConfigLoader.load_config()
+
+    Returns:
+        AIConfig with settings from config file
+    """
+    ai_settings = ConfigLoader.get_ai_config(config)
+    custom_tags = ConfigLoader.get_custom_tags(config)
+
+    return AIConfig(
+        model=ai_settings.get("model", "llama3.2"),
+        endpoint=ai_settings.get("endpoint", "http://localhost:11434"),
+        temperature=ai_settings.get("temperature", 0.3),
+        custom_tags=custom_tags,
+    )
+
+
 @sync_app.command("run")
 def sync_run(
     account: Optional[str] = typer.Option(None, "--account", "-a", help="Account ID to sync"),
@@ -65,12 +85,14 @@ def sync_run(
             provider = ProviderFactory.create_from_account(db_account)
             provider.authenticate()
 
-            # Initialize AI classifier
-            ai_config = AIConfig(
-                model=db_account.settings.get("ai_model", "llama3.2"),
-                endpoint=db_account.settings.get("ai_endpoint", "http://localhost:11434"),
-            )
+            # Initialize AI classifier with config from file
+            ai_config = _create_ai_config(config)
             ai_classifier = AIClassifier(ai_config)
+
+            # Log tag configuration
+            if ai_config.custom_tags:
+                tag_names = [t["name"] for t in ai_config.custom_tags]
+                logger.info(f"Using custom tags from config: {tag_names}")
 
             # Initialize sync engine
             sync_engine = SyncEngine(
@@ -158,12 +180,14 @@ def sync_reclassify(
         provider = ProviderFactory.create_from_account(db_account)
         provider.authenticate()
 
-        # Initialize AI classifier
-        ai_config = AIConfig(
-            model=db_account.settings.get("ai_model", "llama3.2"),
-            endpoint=db_account.settings.get("ai_endpoint", "http://localhost:11434"),
-        )
+        # Initialize AI classifier with config from file
+        ai_config = _create_ai_config(config)
         ai_classifier = AIClassifier(ai_config)
+
+        # Log tag configuration
+        if ai_config.custom_tags:
+            tag_names = [t["name"] for t in ai_config.custom_tags]
+            console.print(f"Using custom tags: {', '.join(tag_names)}")
 
         # Initialize sync engine
         sync_engine = SyncEngine(

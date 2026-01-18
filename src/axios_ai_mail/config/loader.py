@@ -3,7 +3,7 @@
 import json
 import logging
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from ..db.database import Database
 
@@ -13,8 +13,11 @@ logger = logging.getLogger(__name__)
 class ConfigLoader:
     """Load Nix-generated configuration and sync to database."""
 
-    @staticmethod
-    def load_config(config_path: Optional[Path] = None) -> Dict:
+    _cached_config: Optional[Dict] = None
+    _cached_path: Optional[Path] = None
+
+    @classmethod
+    def load_config(cls, config_path: Optional[Path] = None) -> Dict:
         """
         Load config.yaml (JSON format) from XDG config directory.
 
@@ -27,13 +30,77 @@ class ConfigLoader:
         if config_path is None:
             config_path = Path.home() / ".config" / "axios-ai-mail" / "config.yaml"
 
+        # Return cached config if same path
+        if cls._cached_config is not None and cls._cached_path == config_path:
+            return cls._cached_config
+
         if not config_path.exists():
             logger.debug(f"Config file not found: {config_path}")
             return {}
 
         logger.info(f"Loading configuration from {config_path}")
         with open(config_path) as f:
-            return json.load(f)
+            cls._cached_config = json.load(f)
+            cls._cached_path = config_path
+            return cls._cached_config
+
+    @classmethod
+    def get_ai_config(cls, config: Optional[Dict] = None) -> Dict:
+        """
+        Get AI configuration from loaded config.
+
+        Args:
+            config: Configuration dict, or None to load from default path
+
+        Returns:
+            AI configuration dict with keys: model, endpoint, temperature, tags
+        """
+        if config is None:
+            config = cls.load_config()
+
+        ai_config = config.get("ai", {})
+        return {
+            "model": ai_config.get("model", "llama3.2"),
+            "endpoint": ai_config.get("endpoint", "http://localhost:11434"),
+            "temperature": ai_config.get("temperature", 0.3),
+            "tags": ai_config.get("tags", []),
+        }
+
+    @classmethod
+    def get_custom_tags(cls, config: Optional[Dict] = None) -> Optional[List[Dict[str, str]]]:
+        """
+        Get custom tags from config for AI classification.
+
+        Args:
+            config: Configuration dict, or None to load from default path
+
+        Returns:
+            List of tag dicts with 'name' and 'description', or None if not configured
+        """
+        ai_config = cls.get_ai_config(config)
+        tags = ai_config.get("tags", [])
+
+        if not tags:
+            return None
+
+        # Ensure tags have required fields
+        validated_tags = []
+        for tag in tags:
+            if "name" in tag and "description" in tag:
+                validated_tags.append({
+                    "name": tag["name"],
+                    "description": tag["description"],
+                })
+            else:
+                logger.warning(f"Invalid tag config (missing name/description): {tag}")
+
+        return validated_tags if validated_tags else None
+
+    @classmethod
+    def clear_cache(cls) -> None:
+        """Clear the cached configuration."""
+        cls._cached_config = None
+        cls._cached_path = None
 
     @staticmethod
     def sync_to_database(db: Database, config: Dict) -> None:

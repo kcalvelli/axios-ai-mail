@@ -38,10 +38,20 @@ async def run_sync_task(db, account_id: Optional[str], max_messages: int):
     from ...sync_engine import SyncEngine
     from ...ai_classifier import AIClassifier, AIConfig
     from ...providers.factory import ProviderFactory
+    from ...config.loader import ConfigLoader
     from ..websocket import send_sync_started, send_sync_completed, send_error
 
     try:
         set_sync_state(True, account_id)
+
+        # Load AI config from file
+        config = ConfigLoader.load_config()
+        ai_settings = ConfigLoader.get_ai_config(config)
+        custom_tags = ConfigLoader.get_custom_tags(config)
+
+        if custom_tags:
+            tag_names = [t["name"] for t in custom_tags]
+            logger.info(f"Using custom tags from config: {tag_names}")
 
         # Get account(s) to sync
         if account_id:
@@ -68,11 +78,12 @@ async def run_sync_task(db, account_id: Optional[str], max_messages: int):
             provider = ProviderFactory.create_from_account(account)
             provider.authenticate()
 
-            # Create AI classifier
+            # Create AI classifier with config from file
             ai_config = AIConfig(
-                model=account.settings.get("ai_model", "llama3.2"),
-                endpoint=account.settings.get("ai_endpoint", "http://localhost:11434"),
-                temperature=account.settings.get("ai_temperature", 0.3),
+                model=ai_settings["model"],
+                endpoint=ai_settings["endpoint"],
+                temperature=ai_settings["temperature"],
+                custom_tags=custom_tags,
             )
             ai_classifier = AIClassifier(ai_config)
 

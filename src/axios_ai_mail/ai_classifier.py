@@ -89,13 +89,19 @@ CLASSIFICATION RULES:
    - It's a receipt, shipping notification, or newsletter
    - AND requires no action from the user
    - When in doubt, set to false
+5. Set confidence between 0.0 and 1.0:
+   - 0.9-1.0: Very confident (clear category, obvious sender type)
+   - 0.7-0.9: Confident (good match, some ambiguity)
+   - 0.5-0.7: Uncertain (multiple categories possible)
+   - Below 0.5: Low confidence (unclear content)
 
 RESPOND WITH ONLY A JSON OBJECT (no markdown, no explanation):
 {{
   "tags": ["tag1", "tag2"],
   "priority": "high" | "normal",
   "action_required": true | false,
-  "can_archive": true | false
+  "can_archive": true | false,
+  "confidence": 0.85
 }}
 """
         return prompt
@@ -145,16 +151,27 @@ RESPOND WITH ONLY A JSON OBJECT (no markdown, no explanation):
             todo = classification_data.get("action_required", False)
             can_archive = classification_data.get("can_archive", False)
 
+            # Parse confidence, default to 0.8 if not provided
+            confidence = classification_data.get("confidence", 0.8)
+            try:
+                confidence = float(confidence)
+                # Clamp to valid range
+                confidence = max(0.0, min(1.0, confidence))
+            except (TypeError, ValueError):
+                confidence = 0.8
+
             classification = Classification(
                 tags=tags,
                 priority=priority,
                 todo=todo,
                 can_archive=can_archive,
+                confidence=confidence,
             )
 
             logger.info(
                 f"Classified message {message.id[:8]}: "
-                f"tags={tags}, priority={priority}, todo={todo}, archive={can_archive}"
+                f"tags={tags}, priority={priority}, todo={todo}, archive={can_archive}, "
+                f"confidence={confidence:.2f}"
             )
 
             return classification
@@ -169,12 +186,13 @@ RESPOND WITH ONLY A JSON OBJECT (no markdown, no explanation):
             raise
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse LLM response for message {message.id}: {e}")
-            # Return default classification
+            # Return default classification with low confidence
             return Classification(
                 tags=["personal"],
                 priority="normal",
                 todo=False,
                 can_archive=False,
+                confidence=0.5,  # Low confidence for fallback
             )
         except Exception as e:
             logger.error(f"Unexpected error classifying message {message.id}: {e}")

@@ -26,6 +26,7 @@ class MessageResponse(BaseModel):
     priority: Optional[str] = None
     todo: bool = False
     can_archive: bool = False
+    confidence: Optional[float] = None  # Classification confidence 0.0-1.0
     classified_at: Optional[datetime] = None
 
     class Config:
