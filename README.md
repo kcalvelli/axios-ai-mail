@@ -4,6 +4,8 @@
 
 axios-ai-mail is a declarative email management system that combines direct provider integration (Gmail, IMAP) with local AI classification to automatically organize your inbox. Messages are tagged, prioritized, and organized—all locally, with zero cloud dependencies for AI processing.
 
+> **Note:** This application is designed for users of [axiOS](https://github.com/kcalvelli/axios), a NixOS configuration framework. The instructions below assume axiOS conventions (agenix for secrets, `~/.config/nixos_config` for configuration). Non-axiOS NixOS users may need to adapt paths and secret management approaches to their setup.
+
 ## Product Scope
 
 **axios-ai-mail is an inbox organizer, not a spam filter.**
@@ -126,34 +128,101 @@ home-manager switch
 
 ### Gmail Account (OAuth2)
 
+Gmail requires OAuth2 authentication. The setup wizard guides you through creating Google Cloud credentials and encrypting them with agenix.
+
+#### Step 1: Run the Auth Wizard
+
+```bash
+axios-ai-mail auth gmail --account personal
+```
+
+The wizard will:
+1. Prompt for an account name (e.g., `personal`, `work`)
+2. Open Google Cloud Console in your browser
+3. Guide you through creating OAuth credentials
+4. Complete the OAuth flow and save the token
+
+#### Step 2: Create Google Cloud OAuth Credentials
+
+In Google Cloud Console:
+
+1. **Create a new project** (or select existing)
+   - Click "Select a project" → "New Project"
+   - Name: `axios-ai-mail` → Create
+
+2. **Enable Gmail API**
+   - Search for "Gmail API" → Enable
+
+3. **Configure OAuth consent screen**
+   - Go to "OAuth consent screen"
+   - Choose "External" → Create
+   - Fill in App name, email → Save
+   - Add your email as a Test User
+
+4. **Create OAuth credentials**
+   - Go to "Credentials" → "Create Credentials"
+   - Choose "OAuth client ID"
+   - Application type: **Desktop app**
+   - Name: `axios-ai-mail`
+   - Click "Create"
+
+5. **Download the JSON file**
+   - Click the download icon (⬇)
+   - Save to `~/Downloads`
+
+Press Enter in the terminal when done. The wizard auto-detects the file.
+
+#### Step 3: Encrypt with Agenix
+
+After the OAuth flow completes, the wizard saves the token and shows instructions:
+
+**3a. Add secret to secrets.nix:**
+```bash
+# Edit ~/.config/nixos_config/secrets/secrets.nix
+"gmail-personal.age".publicKeys = users ++ systems;
+```
+
+**3b. Encrypt the token:**
+```bash
+cd ~/.config/nixos_config/secrets
+agenix -e gmail-personal.age < ~/.local/share/axios-ai-mail/credentials/personal.json
+```
+
+**3c. Stage for git (required for flakes):**
+```bash
+cd ~/.config/nixos_config
+git add secrets/gmail-personal.age
+```
+
+#### Step 4: Add to Nix Configuration
+
 ```nix
+# In your home.nix (axiOS: ~/.config/nixos_config/keith.nix)
+
+age.secrets.gmail-personal.file = ../secrets/gmail-personal.age;
+
 programs.axios-ai-mail = {
   enable = true;
-
-  ai = {
-    provider = "ollama";
-    model = "llama3.2";
-    endpoint = "http://localhost:11434";
-  };
 
   accounts.personal = {
     provider = "gmail";
     email = "you@gmail.com";
-    credentialFile = "/path/to/gmail-credentials.json";
+    oauthTokenFile = config.age.secrets.gmail-personal.path;
   };
 };
 ```
 
-**Setting up Gmail OAuth2:**
+#### Step 5: Rebuild and Test
 
-1. Run the auth wizard:
-   ```bash
-   axios-ai-mail auth setup-gmail --email you@gmail.com
-   ```
+```bash
+home-manager switch --flake ~/.config/nixos_config
 
-2. Follow the browser prompts to authenticate
+# Test the connection
+axios-ai-mail sync run --account personal --max 10
 
-3. Update your config with the generated credential file path
+# Clean up plaintext token
+rm ~/.local/share/axios-ai-mail/credentials/personal.json
+```
 
 ### IMAP Account (Password)
 
@@ -268,12 +337,45 @@ axios-ai-mail sync run --account personal
 axios-ai-mail sync run --max 50
 ```
 
+### Account Maintenance
+
+Manage accounts and handle migrations when renaming accounts in your Nix config:
+
+```bash
+# List all accounts with status (active vs orphaned)
+axios-ai-mail accounts list
+
+# Show detailed statistics
+axios-ai-mail accounts stats
+
+# Migrate messages when renaming an account
+# Example: renamed "personal" to "gmail" in Nix config
+axios-ai-mail accounts migrate personal gmail
+
+# Clean up orphaned accounts (no longer in config)
+axios-ai-mail accounts cleanup
+
+# Delete a specific account
+axios-ai-mail accounts delete old-account
+```
+
+**Account Rename Workflow:**
+
+When you rename an account in your Nix config (e.g., `accounts.personal` → `accounts.gmail`):
+
+1. Update Nix config and rebuild
+2. Run sync to create the new account: `axios-ai-mail sync run`
+3. Check status: `axios-ai-mail accounts list` (shows old as "Orphaned", new as "Active")
+4. Migrate messages: `axios-ai-mail accounts migrate personal gmail`
+5. Clean up: `axios-ai-mail accounts cleanup`
+
 ### CLI Help
 
 ```bash
 axios-ai-mail --help
 axios-ai-mail sync --help
 axios-ai-mail auth --help
+axios-ai-mail accounts --help
 ```
 
 ## Web UI Features
@@ -480,14 +582,15 @@ A: No. It's a classification and organization layer. You can still use any email
 
 ## Roadmap
 
+- [x] Dark mode
+- [x] Email composition and sending
+- [x] Attachments view
+- [x] Account maintenance CLI
 - [ ] Outlook/Office365 provider
 - [ ] User feedback loop for AI improvement
-- [ ] Email composition and sending
 - [ ] Keyboard shortcuts in web UI
 - [ ] Mobile-responsive improvements
-- [ ] Dark mode
 - [ ] Message threading
-- [ ] Attachments view
 - [ ] Calendar integration
 - [ ] Contact management
 
