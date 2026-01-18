@@ -99,7 +99,7 @@ const lightTheme = createTheme({
   },
 });
 
-// Dark theme
+// Dark theme (OLED-friendly with true black)
 const darkTheme = createTheme({
   ...baseTheme,
   palette: {
@@ -110,7 +110,8 @@ const darkTheme = createTheme({
     warning: { main: '#ffa726' },
     info: { main: '#29b6f6' },
     success: { main: '#66bb6a' },
-    background: { default: '#121212', paper: '#1e1e1e' },
+    background: { default: '#000000', paper: '#0a0a0a' },
+    text: { primary: '#ffffff', secondary: 'rgba(255, 255, 255, 0.7)' },
   },
   components: {
     ...baseTheme.components,
@@ -118,16 +119,29 @@ const darkTheme = createTheme({
       styleOverrides: {
         root: {
           ...baseTheme.components.MuiCard.styleOverrides.root,
-          boxShadow: '0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.4)',
+          boxShadow: '0 1px 3px rgba(255,255,255,0.05)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
           '&:hover': {
-            boxShadow: '0 4px 8px rgba(0,0,0,0.4), 0 2px 4px rgba(0,0,0,0.4)',
+            boxShadow: '0 2px 8px rgba(255,255,255,0.08)',
+            border: '1px solid rgba(255, 255, 255, 0.15)',
           },
         },
       },
     },
     MuiDrawer: {
       styleOverrides: {
-        paper: { borderRight: '1px solid rgba(255, 255, 255, 0.12)' },
+        paper: {
+          borderRight: '1px solid rgba(255, 255, 255, 0.1)',
+          backgroundColor: '#000000',
+        },
+      },
+    },
+    MuiAppBar: {
+      styleOverrides: {
+        root: {
+          backgroundColor: '#0a0a0a',
+          boxShadow: '0 1px 0 rgba(255,255,255,0.1)',
+        },
       },
     },
   },
@@ -205,7 +219,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
 
   // Update document theme-color meta tag
   useEffect(() => {
-    const themeColor = resolvedMode === 'dark' ? '#121212' : '#1976d2';
+    const themeColor = resolvedMode === 'dark' ? '#000000' : '#1976d2';
     let metaTag = document.querySelector('meta[name="theme-color"]');
     if (!metaTag) {
       metaTag = document.createElement('meta');

@@ -10,6 +10,7 @@ import {
   Stack,
   IconButton,
   Checkbox,
+  useTheme as useMuiTheme,
 } from '@mui/material';
 import { Mail, MailOutline } from '@mui/icons-material';
 import { TagChip } from './TagChip';
@@ -23,10 +24,23 @@ interface MessageCardProps {
 }
 
 export function MessageCard({ message, onClick }: MessageCardProps) {
+  const theme = useMuiTheme();
   const { toggleTag, toggleMessageSelection, isMessageSelected } = useAppStore();
   const markRead = useMarkRead();
+  const isDark = theme.palette.mode === 'dark';
 
   const isSelected = isMessageSelected(message.id);
+
+  // Theme-aware background colors
+  const getBackgroundColor = () => {
+    if (isSelected) {
+      return isDark ? 'rgba(144, 202, 249, 0.15)' : '#e3f2fd';
+    }
+    if (message.is_unread) {
+      return isDark ? 'rgba(255, 255, 255, 0.05)' : '#f5f5f5';
+    }
+    return theme.palette.background.paper;
+  };
 
   const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.stopPropagation();
@@ -75,9 +89,9 @@ export function MessageCard({ message, onClick }: MessageCardProps) {
       sx={{
         cursor: 'pointer',
         mb: 1,
-        backgroundColor: isSelected ? '#e3f2fd' : message.is_unread ? '#f5f5f5' : '#fff',
-        borderLeft: message.is_unread ? '4px solid #1976d2' : 'none',
-        border: isSelected ? '2px solid #1976d2' : 'none',
+        backgroundColor: getBackgroundColor(),
+        borderLeft: message.is_unread ? `4px solid ${theme.palette.primary.main}` : 'none',
+        border: isSelected ? `2px solid ${theme.palette.primary.main}` : undefined,
       }}
     >
       <CardContent>
