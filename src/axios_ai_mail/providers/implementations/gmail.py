@@ -541,12 +541,16 @@ class GmailProvider(BaseEmailProvider):
                 if "filename" in part and part["filename"]:
                     attachment_id = part["body"].get("attachmentId")
                     if attachment_id:
+                        # Headers is a list of {name, value} dicts, not a dict
+                        headers = {h["name"]: h["value"] for h in part.get("headers", [])}
+                        content_disposition = headers.get("Content-Disposition", "")
+
                         attachments.append({
                             "id": attachment_id,
                             "filename": part["filename"],
                             "content_type": part.get("mimeType", "application/octet-stream"),
                             "size": str(part["body"].get("size", 0)),
-                            "is_inline": part.get("headers", {}).get("Content-Disposition", "").startswith("inline"),
+                            "is_inline": content_disposition.startswith("inline"),
                         })
 
                 # Recurse into multipart parts

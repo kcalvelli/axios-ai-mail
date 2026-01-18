@@ -1065,11 +1065,13 @@ class IMAPProvider(BaseEmailProvider):
             # Parse message ID to get folder and UID
             folder, uid = self._parse_message_id(message_id)
 
-            # Select folder and fetch message
-            self._select_folder(folder)
-            typ, data = self.connection.uid("FETCH", uid, "(RFC822)")
+            # Select folder and fetch message (use fetch() like fetch_body does)
+            if not self._select_folder(folder):
+                raise RuntimeError(f"Failed to select folder {folder}")
 
-            if typ != "OK" or not data[0]:
+            typ, data = self.connection.fetch(uid, "(RFC822)")
+
+            if typ != "OK" or not data or not data[0]:
                 raise RuntimeError(f"Message {message_id} not found")
 
             # Parse email
@@ -1152,11 +1154,13 @@ class IMAPProvider(BaseEmailProvider):
             # Parse message ID to get folder and UID
             folder, uid = self._parse_message_id(message_id)
 
-            # Select folder and fetch message
-            self._select_folder(folder)
-            typ, data = self.connection.uid("FETCH", uid, "(RFC822)")
+            # Select folder and fetch message (use fetch() like fetch_body does)
+            if not self._select_folder(folder):
+                raise RuntimeError(f"Failed to select folder {folder}")
 
-            if typ != "OK" or not data[0]:
+            typ, data = self.connection.fetch(uid, "(RFC822)")
+
+            if typ != "OK" or not data or not data[0]:
                 raise RuntimeError(f"Message {message_id} not found")
 
             # Parse email
