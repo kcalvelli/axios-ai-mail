@@ -241,7 +241,7 @@ def gmail_auth_command(
 
         # Build token data in our expected format
         token_data = {
-            "token": creds.token,
+            "access_token": creds.token,
             "refresh_token": creds.refresh_token,
             "token_uri": creds.token_uri,
             "client_id": creds.client_id,
