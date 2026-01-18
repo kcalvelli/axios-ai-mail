@@ -155,7 +155,7 @@
   - Professional typography
   - **Done**: baseTheme with consistent borderRadius (12), typography, component styles
 
-## 5. AI Classification Improvements ✅ COMPLETE
+## 5. AI Classification Improvements ✅ COMPLETE (including docs)
 
 - [x] 5.1 Add confidence extraction to classifier
   - Update `_build_prompt()` to request confidence
@@ -186,12 +186,13 @@
   - Add tooltip explaining confidence meaning
   - **Done**: ConfidenceBadge.tsx component added to MessageCard and MessageDetailPage
 
-- [ ] 5.5 Document model recommendations
+- [x] 5.5 Document model recommendations
   - Update README with model guidance
   - Add to Nix module comments
   - Include hardware requirements
   - Provide benchmark comparisons
   - Example configurations
+  - **Done**: Created `docs/AI_MODELS.md` with detailed model recommendations
 
 ## 6. Custom Tags Configuration ✅ COMPLETE
 
@@ -255,11 +256,12 @@
   - Test event listener setup/cleanup
   - Test state changes
 
-- [ ] 8.3 Write tests for confidence parsing
+- [x] 8.3 Write tests for confidence parsing
   - Test valid confidence values
   - Test missing confidence
   - Test out-of-range values
   - Test normalization
+  - **Done**: 19 tests in `tests/ai/test_ai_classifier.py` - confidence parsing, tag normalization, custom tags
 
 - [x] 8.4 Manual testing checklist
   - [x] Theme toggle cycles through modes
@@ -274,19 +276,21 @@
   - [ ] phi3:mini model works correctly
   - [ ] mistral:7b model works correctly
 
-## 9. Documentation
+## 9. Documentation ✅ COMPLETE
 
-- [ ] 9.1 Update README with new features
+- [x] 9.1 Update README with new features
   - Document theme toggle
   - Document PWA installation
   - Document model recommendations
   - Add screenshots
+  - **Done**: Added dark mode, PWA, offline indicator, confidence scores to features and Web UI sections
 
-- [ ] 9.2 Update Nix module documentation
+- [x] 9.2 Update Nix module documentation
   - Document ai.model options
   - Document ai.customTags
   - Provide example configurations
   - Hardware recommendations
+  - **Done**: Created `docs/AI_MODELS.md` with hardware requirements and model comparison
 
 - [ ] 9.3 Run openspec validate --strict
   - Create spec deltas if needed
@@ -313,9 +317,8 @@
    └── Depends on logo assets (2.1)
    └── Depends on theme infrastructure (1.x)
 
-5. AI Classification - Confidence (5.1-5.5) ✅ MOSTLY COMPLETE
+5. AI Classification - Confidence (5.1-5.5) ✅ COMPLETE
    └── Depends on bug fix (0.x)
-   └── Only 5.5 documentation remains
 
 6. Custom Tags UI (6.1-6.3) ✅ COMPLETE
    └── Depends on bug fix (0.x)

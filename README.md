@@ -35,6 +35,7 @@ axios-ai-mail is a declarative email management system that combines direct prov
 ## Features
 
 - **🎯 AI-Powered Classification**: Automatically tags messages with categories like `work`, `finance`, `personal`, `dev`, `shopping`
+- **📊 Confidence Scores**: See how confident the AI is in each classification (color-coded indicators)
 - **📁 Folder Support**: Browse Inbox, Sent, and Trash folders
 - **🏷️ Tag-Based Filtering**: Filter messages by AI-assigned tags or account
 - **🔍 Full-Text Search**: Search across all message content
@@ -42,6 +43,9 @@ axios-ai-mail is a declarative email management system that combines direct prov
 - **🔄 Multi-Account**: Manage multiple Gmail and IMAP accounts from a single interface
 - **🔒 Privacy-First**: All AI processing happens locally using Ollama
 - **🌐 Modern Web UI**: Clean, responsive interface built with React and Material-UI
+- **🌙 Dark Mode**: System-aware theme with light/dark/auto modes
+- **📱 PWA Support**: Install as a standalone app on your desktop
+- **📶 Offline Indicator**: Visual feedback when you're disconnected
 - **📡 Real-Time Updates**: WebSocket support for live message updates
 - **⚙️ Declarative Config**: Define everything in Nix—accounts, AI settings, providers
 
@@ -262,7 +266,7 @@ chmod 600 ~/.config/axios-ai-mail/password
 ```nix
 ai = {
   provider = "ollama";
-  model = "llama3.2";  # or "qwen2.5", "mistral", etc.
+  model = "llama3.2";  # Best overall balance of speed and quality
   endpoint = "http://localhost:11434";
 };
 ```
@@ -275,6 +279,15 @@ ollama pull llama3.2
 # Ollama runs automatically as a service on NixOS
 # Or start manually: ollama serve
 ```
+
+**Recommended models by hardware:**
+| VRAM | Model | Speed |
+|------|-------|-------|
+| 4GB+ | `llama3.2` (default) | ~2-3s/msg |
+| 2GB | `qwen2.5:3b` | ~1-2s/msg |
+| 8GB+ | `llama3.1:8b` | ~4-5s/msg (highest quality) |
+
+See [docs/AI_MODELS.md](docs/AI_MODELS.md) for detailed model recommendations and benchmarks.
 
 #### Option 2: OpenAI API
 
@@ -379,6 +392,12 @@ axios-ai-mail accounts --help
 ```
 
 ## Web UI Features
+
+### Theme & Display
+- **Dark Mode** - Click the theme toggle in the top bar to switch between light/dark/system modes
+- **PWA Install** - Click the install button in Chrome to add as a standalone desktop app
+- **Offline Indicator** - Shows a warning banner when you lose internet connection
+- **Confidence Badges** - Classification confidence shown as colored dots (green=high, orange=medium, red=low)
 
 ### Folder Navigation
 - **Inbox** - All messages in your inbox
@@ -582,9 +601,12 @@ A: No. It's a classification and organization layer. You can still use any email
 
 ## Roadmap
 
-- [x] Dark mode
+- [x] Dark mode with system preference detection
+- [x] PWA support (installable as desktop app)
+- [x] Offline status indicator
+- [x] AI confidence scores in UI
 - [x] Email composition and sending
-- [x] Attachments view
+- [x] Attachments view and download
 - [x] Account maintenance CLI
 - [ ] Outlook/Office365 provider
 - [ ] User feedback loop for AI improvement
