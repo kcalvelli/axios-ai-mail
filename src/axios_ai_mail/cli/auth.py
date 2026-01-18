@@ -354,8 +354,8 @@ def gmail_auth_command(
 
     console.print(Panel(
         f"[bold]To encrypt with agenix:[/bold]\n\n"
-        f"[cyan]cd ~/.config/nixos_config[/cyan]\n"
-        f"[cyan]agenix -e secrets/gmail-{account}.age < {token_file}[/cyan]\n\n"
+        f"[cyan]cd ~/.config/nixos_config/secrets[/cyan]\n"
+        f"[cyan]agenix -e gmail-{account}.age < {token_file}[/cyan]\n\n"
         f"[dim]This will encrypt the token and store it in your secrets directory.[/dim]",
         title="Encrypt Token",
         border_style="yellow",
