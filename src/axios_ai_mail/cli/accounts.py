@@ -23,20 +23,23 @@ def get_db() -> Database:
 
 @accounts_app.command("list")
 def list_accounts() -> None:
-    """List all accounts with their status (active vs orphaned).
+    """List all accounts with their status (active, orphaned, or new).
 
-    Active accounts are defined in your Nix config.
+    Active accounts are defined in your Nix config and exist in database.
     Orphaned accounts exist only in the database (no longer in config).
+    New accounts are in config but not yet synced to database.
     """
     db = get_db()
     config = ConfigLoader.load_config()
 
     # Get accounts from config and database
-    config_accounts = set(config.get("accounts", {}).keys())
+    config_accounts = config.get("accounts", {})
+    config_account_ids = set(config_accounts.keys())
     db_accounts = db.list_accounts()
+    db_account_ids = {a.id for a in db_accounts}
 
-    if not db_accounts:
-        console.print("[yellow]No accounts found in database[/yellow]")
+    if not db_accounts and not config_accounts:
+        console.print("[yellow]No accounts found in database or config[/yellow]")
         return
 
     table = Table(title="Email Accounts")
@@ -47,8 +50,9 @@ def list_accounts() -> None:
     table.add_column("Messages", justify="right")
     table.add_column("Last Sync", style="dim")
 
+    # Show database accounts first
     for account in db_accounts:
-        status = "[green]Active[/green]" if account.id in config_accounts else "[yellow]Orphaned[/yellow]"
+        status = "[green]Active[/green]" if account.id in config_account_ids else "[yellow]Orphaned[/yellow]"
 
         # Count messages for this account
         message_count = db.count_messages(account_id=account.id)
@@ -65,14 +69,36 @@ def list_accounts() -> None:
             last_sync,
         )
 
+    # Show new accounts (in config but not in database)
+    new_accounts = []
+    for account_id, account_config in config_accounts.items():
+        if account_id not in db_account_ids:
+            new_accounts.append((account_id, account_config))
+            table.add_row(
+                account_id,
+                account_config.get("email", "unknown"),
+                account_config.get("provider", "unknown"),
+                "[blue]New[/blue]",
+                "-",
+                "Never",
+            )
+
     console.print(table)
 
-    # Show orphaned accounts warning
-    orphaned = [a for a in db_accounts if a.id not in config_accounts]
+    # Show warnings and hints
+    orphaned = [a for a in db_accounts if a.id not in config_account_ids]
+
+    if new_accounts:
+        console.print()
+        console.print(f"[blue]ℹ Found {len(new_accounts)} new account(s) in config.[/blue]")
+        console.print("  Run [bold]axios-ai-mail sync run[/bold] to sync them.")
+
     if orphaned:
         console.print()
         console.print(f"[yellow]⚠ Found {len(orphaned)} orphaned account(s).[/yellow]")
         console.print("  Run [bold]axios-ai-mail accounts cleanup[/bold] to remove them.")
+        if new_accounts:
+            console.print("  Or run [bold]axios-ai-mail accounts migrate <old> <new>[/bold] to preserve messages.")
 
 
 @accounts_app.command("cleanup")
