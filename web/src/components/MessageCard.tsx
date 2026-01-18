@@ -116,7 +116,7 @@ export function MessageCard({ message, onClick }: MessageCardProps) {
               </Typography>
               <Box display="flex" alignItems="center" gap={0.5}>
                 {message.has_attachments && (
-                  <AttachFile fontSize="small" color="action" sx={{ fontSize: 16 }} />
+                  <AttachFile fontSize="small" color="primary" />
                 )}
                 <Typography variant="caption" color="text.secondary">
                   {formatDate(message.date)}
