@@ -6,7 +6,6 @@ import {
   Box,
   Typography,
   CircularProgress,
-  Alert,
   Button,
   Dialog,
   DialogTitle,
@@ -16,7 +15,7 @@ import {
   Pagination,
   Stack,
 } from '@mui/material';
-import { InboxOutlined, DeleteSweep, CheckBox } from '@mui/icons-material';
+import { InboxOutlined, DeleteSweep, CheckBox, WifiOff, Refresh } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
 import { MessageCard } from './MessageCard';
 import { BulkActionBar } from './BulkActionBar';
@@ -238,13 +237,53 @@ export function MessageList() {
     );
   }
 
-  // Error state
+  // Error state - detect network errors
   if (error) {
+    const isNetworkError =
+      error.message.includes('Network') ||
+      error.message.includes('fetch') ||
+      error.message.includes('Failed to fetch') ||
+      error.message.includes('net::') ||
+      !navigator.onLine;
+
     return (
-      <Box p={3}>
-        <Alert severity="error">
-          Failed to load messages: {error.message}
-        </Alert>
+      <Box
+        display="flex"
+        flexDirection="column"
+        alignItems="center"
+        justifyContent="center"
+        minHeight="400px"
+        textAlign="center"
+        p={4}
+      >
+        {isNetworkError ? (
+          <>
+            <WifiOff sx={{ fontSize: 64, color: 'warning.main', mb: 2 }} />
+            <Typography variant="h6" color="text.secondary" gutterBottom>
+              Unable to connect
+            </Typography>
+            <Typography variant="body2" color="text.secondary" mb={3}>
+              Check your internet connection and try again.
+            </Typography>
+          </>
+        ) : (
+          <>
+            <InboxOutlined sx={{ fontSize: 64, color: 'error.main', mb: 2 }} />
+            <Typography variant="h6" color="text.secondary" gutterBottom>
+              Failed to load messages
+            </Typography>
+            <Typography variant="body2" color="text.secondary" mb={3}>
+              {error.message}
+            </Typography>
+          </>
+        )}
+        <Button
+          variant="contained"
+          startIcon={<Refresh />}
+          onClick={() => window.location.reload()}
+        >
+          Retry
+        </Button>
       </Box>
     );
   }

@@ -92,6 +92,7 @@ class StatsResponse(BaseModel):
     accounts_count: int
     top_tags: List[TagResponse]
     accounts_breakdown: Dict[str, int] = {}  # Map of account_id to message count
+    last_sync: Optional[datetime] = None  # Most recent sync across all accounts
 
 
 class SyncStatusResponse(BaseModel):

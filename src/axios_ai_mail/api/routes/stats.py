@@ -125,6 +125,13 @@ async def get_stats(request: Request):
             account_id = message.account_id
             accounts_breakdown[account_id] = accounts_breakdown.get(account_id, 0) + 1
 
+        # Get most recent last_sync across all accounts
+        last_sync = None
+        for account in accounts:
+            if account.last_sync:
+                if last_sync is None or account.last_sync > last_sync:
+                    last_sync = account.last_sync
+
         return StatsResponse(
             total_messages=total_count,
             classified_messages=classified_count,
@@ -133,6 +140,7 @@ async def get_stats(request: Request):
             accounts_count=len(accounts),
             top_tags=top_tags,
             accounts_breakdown=accounts_breakdown,
+            last_sync=last_sync,
         )
 
     except Exception as e:
