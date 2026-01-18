@@ -47,7 +47,6 @@ export function MessageList() {
     selectedMessageIds,
     clearSelection,
     selectAllMessages,
-    toggleMessageSelection,
   } = useAppStore();
 
   const bulkDelete = useBulkDelete();
@@ -417,9 +416,6 @@ export function MessageList() {
             }}
             onReply={(message) => {
               navigate(`/compose?reply=${message.id}`);
-            }}
-            onLongPress={(message) => {
-              toggleMessageSelection(message.id);
             }}
           />
         ) : (
