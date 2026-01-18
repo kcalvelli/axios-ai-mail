@@ -777,7 +777,16 @@ class Database:
             elif message_id:
                 query = query.where(Attachment.message_id == message_id)
             query = query.order_by(Attachment.created_at.asc())
-            return list(session.execute(query).scalars().all())
+            attachments = list(session.execute(query).scalars().all())
+
+            # Ensure all data is loaded before session closes (prevent lazy load errors)
+            for att in attachments:
+                # Access data to ensure it's loaded into the object
+                _ = att.data
+                # Expunge from session so it can be used after session closes
+                session.expunge(att)
+
+            return attachments
 
     # Utility methods
 

@@ -77,9 +77,18 @@ const lightTheme = createTheme({
     info: { main: '#0288d1' },
     success: { main: '#2e7d32' },
     background: { default: '#fafafa', paper: '#ffffff' },
+    text: { primary: 'rgba(0, 0, 0, 0.87)', secondary: 'rgba(0, 0, 0, 0.6)' },
   },
   components: {
     ...baseTheme.components,
+    MuiCssBaseline: {
+      styleOverrides: {
+        body: {
+          backgroundColor: '#fafafa',
+          color: 'rgba(0, 0, 0, 0.87)',
+        },
+      },
+    },
     MuiCard: {
       styleOverrides: {
         root: {
@@ -127,6 +136,14 @@ const darkTheme = createTheme({
   },
   components: {
     ...baseTheme.components,
+    MuiCssBaseline: {
+      styleOverrides: {
+        body: {
+          backgroundColor: '#000000',
+          color: '#ffffff',
+        },
+      },
+    },
     MuiCard: {
       styleOverrides: {
         root: {
