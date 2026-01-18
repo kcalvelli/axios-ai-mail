@@ -77,23 +77,56 @@ class Database:
         provider: str,
         settings: Optional[Dict] = None,
     ) -> Account:
-        """Create or update an account."""
+        """Create or update an account.
+
+        Handles account renames: if an account with the same email exists but
+        with a different ID, this is treated as a rename and the existing
+        account's ID is updated along with all related messages.
+        """
         with self.session() as session:
             account = session.get(Account, account_id)
             if account:
+                # Account exists with this ID - update it
                 account.name = name
                 account.email = email
                 account.provider = provider
                 account.settings = settings or {}
             else:
-                account = Account(
-                    id=account_id,
-                    name=name,
-                    email=email,
-                    provider=provider,
-                    settings=settings or {},
-                )
-                session.add(account)
+                # Account ID doesn't exist - check if email already exists (rename case)
+                existing_by_email = session.execute(
+                    select(Account).where(Account.email == email)
+                ).scalar_one_or_none()
+
+                if existing_by_email:
+                    # Same email, different ID = account rename
+                    old_id = existing_by_email.id
+                    logger.info(f"Detected account rename: {old_id} → {account_id}")
+
+                    # Update all messages to use the new account ID
+                    from sqlalchemy import update
+                    session.execute(
+                        update(Message)
+                        .where(Message.account_id == old_id)
+                        .values(account_id=account_id)
+                    )
+                    logger.info(f"Updated messages from account {old_id} to {account_id}")
+
+                    # Update the account record with new ID and settings
+                    existing_by_email.id = account_id
+                    existing_by_email.name = name
+                    existing_by_email.provider = provider
+                    existing_by_email.settings = settings or {}
+                    account = existing_by_email
+                else:
+                    # Completely new account
+                    account = Account(
+                        id=account_id,
+                        name=name,
+                        email=email,
+                        provider=provider,
+                        settings=settings or {},
+                    )
+                    session.add(account)
             session.commit()
             session.refresh(account)
             return account
