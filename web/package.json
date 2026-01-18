@@ -15,6 +15,8 @@
     "@mui/icons-material": "^5.15.10",
     "@mui/material": "^5.15.10",
     "@tanstack/react-query": "^5.20.5",
+    "@tanstack/react-query-persist-client": "^5.20.5",
+    "idb-keyval": "^6.2.1",
     "@tiptap/extension-placeholder": "^2.1.13",
     "@tiptap/pm": "^2.1.13",
     "@tiptap/react": "^2.1.13",

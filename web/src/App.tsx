@@ -3,7 +3,9 @@
  */
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { get, set, del } from 'idb-keyval';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { Layout } from './components/Layout';
 import { DashboardPage } from './pages/DashboardPage';
@@ -16,26 +18,47 @@ import DraftsPage from './pages/DraftsPage';
 import { ToastContainer } from './components/ToastContainer';
 import { useWebSocket } from './hooks/useWebSocket';
 
-// Create React Query client
+// Create React Query client with cache persistence settings
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 5 * 60 * 1000, // 5 minutes
+      gcTime: 1000 * 60 * 60 * 24 * 7, // 7 days - keep cache for offline use
       refetchOnWindowFocus: false,
       retry: 1,
     },
   },
 });
 
+// Create IndexedDB persister for offline cache
+const persister = {
+  persistClient: async (client: any) => {
+    await set('react-query-cache', client);
+  },
+  restoreClient: async () => {
+    return await get('react-query-cache');
+  },
+  removeClient: async () => {
+    await del('react-query-cache');
+  },
+};
+
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{
+        persister,
+        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+        buster: 'v1', // Change this to invalidate cache
+      }}
+    >
       <ThemeProvider>
         <BrowserRouter>
           <AppContent />
         </BrowserRouter>
       </ThemeProvider>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   );
 }
 

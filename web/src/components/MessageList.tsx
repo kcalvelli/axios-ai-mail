@@ -15,10 +15,11 @@ import {
   Pagination,
   Stack,
 } from '@mui/material';
-import { InboxOutlined, DeleteSweep, CheckBox, WifiOff, Refresh } from '@mui/icons-material';
+import { InboxOutlined, DeleteSweep, CheckBox, WifiOff, Refresh, CloudOff } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
 import { MessageCard } from './MessageCard';
 import { BulkActionBar } from './BulkActionBar';
+import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import {
   useMessages,
   useBulkDelete,
@@ -89,8 +90,14 @@ export function MessageList() {
     filters.search = searchQuery;
   }
 
+  // Check online status
+  const isOnline = useOnlineStatus();
+
   // Fetch messages
-  const { data, isLoading, error } = useMessages(filters);
+  const { data, isLoading, error, dataUpdatedAt } = useMessages(filters);
+
+  // Determine if we're showing cached data while offline
+  const isShowingCachedData = !isOnline && data && !isLoading && dataUpdatedAt > 0;
 
   // Handle edge case: if current page is empty but there are still messages,
   // go back to the previous page (e.g., after deleting all messages on last page)
@@ -317,9 +324,39 @@ export function MessageList() {
   const allIds = data.messages.map((m) => m.id);
   const allSelected = allIds.length > 0 && allIds.every((id) => selectedMessageIds.has(id));
 
+  // Format relative time for cache indicator
+  const formatCacheTime = (timestamp: number) => {
+    const diffMs = Date.now() - timestamp;
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 1) return 'just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${Math.floor(diffHours / 24)}d ago`;
+  };
+
   // Render messages
   return (
     <>
+      {/* Offline cached data banner */}
+      {isShowingCachedData && (
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            p: 1.5,
+            backgroundColor: 'warning.main',
+            color: 'warning.contrastText',
+          }}
+        >
+          <CloudOff fontSize="small" />
+          <Typography variant="body2">
+            You're offline. Showing cached messages from {formatCacheTime(dataUpdatedAt)}.
+          </Typography>
+        </Box>
+      )}
+
       <Box p={2}>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
           <Typography variant="body2" color="text.secondary">
