@@ -202,68 +202,203 @@ def setup_gmail_command(
 
 @auth_app.command("gmail")
 def gmail_auth_command(
-    credentials: Path = typer.Argument(..., help="Path to credentials.json downloaded from Google Cloud Console"),
-    output: Path = typer.Option(..., "--output", "-o", help="Output file for OAuth token"),
+    account: str = typer.Option("personal", "--account", "-a", help="Account name for this Gmail"),
+    credentials: Optional[Path] = typer.Argument(None, help="Path to credentials.json (auto-detects from ~/Downloads if not provided)"),
 ) -> None:
-    """Set up Gmail OAuth2 using downloaded credentials.json file.
+    """Set up Gmail OAuth2 with streamlined wizard.
 
-    Steps:
-    1. Go to https://console.cloud.google.com/apis/credentials
-    2. Create OAuth 2.0 Client ID (Desktop app type)
-    3. Download the JSON file
-    4. Run: axios-ai-mail auth gmail /path/to/credentials.json -o /tmp/token.json
+    This wizard guides you through creating Google OAuth credentials
+    and sets everything up automatically.
+
+    Example:
+        axios-ai-mail auth gmail --account personal
     """
     from google_auth_oauthlib.flow import InstalledAppFlow
+    import glob
+    import stat
 
+    # Full Gmail access (required for permanent delete)
     SCOPES = [
+        "https://mail.google.com/",
         "https://www.googleapis.com/auth/gmail.modify",
         "https://www.googleapis.com/auth/gmail.send",
         "https://www.googleapis.com/auth/gmail.readonly",
     ]
 
-    if not credentials.exists():
-        console.print(f"[red]Credentials file not found: {credentials}[/red]")
-        raise typer.Exit(1)
+    # Use port 9004 to avoid conflict with web UI on 8080
+    OAUTH_PORT = 9004
 
-    console.print(Panel(
-        "Gmail OAuth2 Setup\n\n"
-        "This will open a browser for you to authorize access.\n"
-        "Make sure you're signed into the correct Google account.",
-        title="Gmail Authentication"
+    console.print(Panel.fit(
+        "[bold blue]Gmail OAuth2 Setup Wizard[/bold blue]\n\n"
+        "This wizard will guide you through setting up Gmail API access.\n"
+        "You'll need to create OAuth credentials in Google Cloud Console.",
+        border_style="blue",
     ))
 
+    # Step 1: Check if credentials file provided or auto-detect
+    if credentials and credentials.exists():
+        console.print(f"\n[green]✓ Using provided credentials: {credentials}[/green]")
+    else:
+        # Show instructions and open browser
+        console.print("\n[bold]Step 1: Create OAuth Credentials[/bold]\n")
+        console.print("Opening Google Cloud Console in your browser...\n")
+
+        console.print(Panel(
+            "[bold]In Google Cloud Console:[/bold]\n\n"
+            "1. Create a new project (or select existing)\n"
+            "   • Click 'Select a project' → 'New Project'\n"
+            "   • Name: [cyan]axios-ai-mail[/cyan] → Create\n\n"
+            "2. Enable Gmail API\n"
+            "   • Search for [cyan]Gmail API[/cyan] → Enable\n\n"
+            "3. Configure OAuth consent screen\n"
+            "   • Go to 'OAuth consent screen'\n"
+            "   • Choose 'External' → Create\n"
+            "   • Fill in App name, email → Save\n"
+            "   • Add your email as a Test User\n\n"
+            "4. Create OAuth credentials\n"
+            "   • Go to 'Credentials' → 'Create Credentials'\n"
+            "   • Choose 'OAuth client ID'\n"
+            "   • Application type: [cyan]Desktop app[/cyan]\n"
+            "   • Name: [cyan]axios-ai-mail[/cyan]\n"
+            "   • Click 'Create'\n\n"
+            "5. Download the JSON file\n"
+            "   • Click the download icon (⬇)\n"
+            "   • Save to [cyan]~/Downloads[/cyan]",
+            title="Instructions",
+            border_style="yellow",
+        ))
+
+        # Open browser to credentials page
+        webbrowser.open("https://console.cloud.google.com/apis/credentials")
+
+        console.print("\n[yellow]Press Enter when you've downloaded the JSON file to ~/Downloads...[/yellow]")
+        input()
+
+        # Auto-detect credentials file in ~/Downloads
+        downloads_dir = Path.home() / "Downloads"
+        patterns = [
+            "client_secret_*.json",
+            "credentials*.json",
+            "*oauth*.json",
+        ]
+
+        found_files = []
+        for pattern in patterns:
+            found_files.extend(glob.glob(str(downloads_dir / pattern)))
+
+        if not found_files:
+            console.print("[red]No credentials file found in ~/Downloads[/red]")
+            console.print("\nLooking for files matching:")
+            for pattern in patterns:
+                console.print(f"  • {downloads_dir / pattern}")
+            console.print("\n[yellow]You can also specify the path directly:[/yellow]")
+            console.print(f"  axios-ai-mail auth gmail /path/to/credentials.json")
+            raise typer.Exit(1)
+
+        # Use the most recently modified file
+        found_files.sort(key=lambda f: Path(f).stat().st_mtime, reverse=True)
+        credentials = Path(found_files[0])
+
+        console.print(f"\n[green]✓ Found credentials: {credentials.name}[/green]")
+
+    # Step 2: Run OAuth flow
+    console.print("\n[bold]Step 2: Authorize Application[/bold]\n")
+    console.print("Opening browser for Google authorization...")
+    console.print(f"[dim](Using port {OAUTH_PORT} for callback)[/dim]\n")
+
     try:
-        # Use Google's official InstalledAppFlow
         flow = InstalledAppFlow.from_client_secrets_file(str(credentials), SCOPES)
+        creds = flow.run_local_server(port=OAUTH_PORT, prompt="consent")
 
-        # Run local server for OAuth callback
-        creds = flow.run_local_server(port=8080)
+        # Get user's email from the credentials
+        from googleapiclient.discovery import build
+        service = build("gmail", "v1", credentials=creds)
+        profile = service.users().getProfile(userId="me").execute()
+        user_email = profile.get("emailAddress", "unknown@gmail.com")
 
-        # Build token data in our expected format
-        token_data = {
-            "access_token": creds.token,
-            "refresh_token": creds.refresh_token,
-            "token_uri": creds.token_uri,
-            "client_id": creds.client_id,
-            "client_secret": creds.client_secret,
-            "scopes": list(creds.scopes),
-        }
-
-        # Write to output file
-        output.parent.mkdir(parents=True, exist_ok=True)
-        with open(output, "w") as f:
-            json.dump(token_data, f, indent=2)
-
-        console.print(f"\n[green]✓ Authentication successful![/green]")
-        console.print(f"Token saved to: [cyan]{output}[/cyan]")
-        console.print(f"\nNext steps:")
-        console.print(f"1. Encrypt with agenix: [cyan]agenix -e secrets/gmail-token.age[/cyan]")
-        console.print(f"2. Paste contents of {output}")
-        console.print(f"3. Rebuild: [cyan]sudo nixos-rebuild switch --flake .[/cyan]")
+        console.print(f"\n[green]✓ Authorized as: {user_email}[/green]")
 
     except Exception as e:
-        console.print(f"[red]Authentication failed: {e}[/red]")
+        console.print(f"\n[red]Authorization failed: {e}[/red]")
         raise typer.Exit(1)
+
+    # Step 3: Save token
+    console.print("\n[bold]Step 3: Saving Credentials[/bold]\n")
+
+    # Build token data
+    token_data = {
+        "access_token": creds.token,
+        "refresh_token": creds.refresh_token,
+        "token_uri": creds.token_uri,
+        "client_id": creds.client_id,
+        "client_secret": creds.client_secret,
+        "scopes": list(creds.scopes),
+    }
+
+    # Save to credentials directory
+    cred_dir = Path.home() / ".local" / "share" / "axios-ai-mail" / "credentials"
+    cred_dir.mkdir(parents=True, exist_ok=True)
+
+    token_file = cred_dir / f"{account}.json"
+    with open(token_file, "w") as f:
+        json.dump(token_data, f, indent=2)
+    token_file.chmod(stat.S_IRUSR | stat.S_IWUSR)  # 0600
+
+    console.print(f"[green]✓ Token saved to: {token_file}[/green]")
+
+    # Step 4: Generate agenix configuration
+    console.print("\n[bold]Step 4: Agenix Setup[/bold]\n")
+
+    # Create secrets directory if it doesn't exist
+    secrets_dir = Path.home() / ".config" / "agenix" / "secrets"
+    secrets_dir.mkdir(parents=True, exist_ok=True)
+
+    age_file = secrets_dir / f"gmail-{account}.age"
+
+    console.print(Panel(
+        f"[bold]To encrypt with agenix:[/bold]\n\n"
+        f"[cyan]cd ~/.config/agenix[/cyan]\n"
+        f"[cyan]agenix -e secrets/gmail-{account}.age < {token_file}[/cyan]\n\n"
+        f"[bold]Or if using a different secrets location:[/bold]\n\n"
+        f"[cyan]agenix -e /path/to/secrets/gmail-{account}.age < {token_file}[/cyan]",
+        title="Encrypt Token",
+        border_style="yellow",
+    ))
+
+    # Generate Nix config snippet
+    nix_config = f'''
+# Add to your secrets.nix (agenix):
+age.secrets.gmail-{account} = {{
+  file = ./secrets/gmail-{account}.age;
+  owner = "${{config.users.users.YOUR_USER.name}}";
+}};
+
+# Add to your home.nix or configuration.nix:
+programs.axios-ai-mail.accounts.{account} = {{
+  provider = "gmail";
+  email = "{user_email}";
+  credentialFile = config.age.secrets.gmail-{account}.path;
+}};'''
+
+    console.print(Panel(
+        f"[bold]Add to your Nix configuration:[/bold]\n"
+        f"[cyan]{nix_config}[/cyan]",
+        title="Nix Configuration",
+        border_style="green",
+    ))
+
+    console.print(Panel.fit(
+        "[bold green]✓ Gmail Setup Complete![/bold green]\n\n"
+        f"Email: [cyan]{user_email}[/cyan]\n"
+        f"Account: [cyan]{account}[/cyan]\n"
+        f"Token: [cyan]{token_file}[/cyan]\n\n"
+        "Next steps:\n"
+        "1. Encrypt the token with agenix (see above)\n"
+        "2. Add the Nix configuration snippet\n"
+        "3. Rebuild: [cyan]home-manager switch[/cyan] or [cyan]nixos-rebuild switch[/cyan]\n"
+        f"4. Delete the plaintext token: [cyan]rm {token_file}[/cyan]",
+        border_style="green",
+    ))
 
 
 def setup_gmail_oauth(email: str, account_id: Optional[str] = None) -> None:
