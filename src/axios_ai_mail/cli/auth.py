@@ -353,33 +353,35 @@ def gmail_auth_command(
     secrets_dir = Path.home() / ".config" / "nixos_config" / "secrets"
 
     console.print(Panel(
-        f"[bold]To encrypt with agenix:[/bold]\n\n"
+        f"[bold]Step 4a: Add secret to secrets.nix[/bold]\n\n"
+        f"Edit [cyan]~/.config/nixos_config/secrets/secrets.nix[/cyan] and add:\n\n"
+        f'[cyan]"gmail-{account}.age".publicKeys = users ++ systems;[/cyan]',
+        title="1. Define Secret",
+        border_style="yellow",
+    ))
+
+    console.print(Panel(
+        f"[bold]Step 4b: Encrypt the token[/bold]\n\n"
         f"[cyan]cd ~/.config/nixos_config/secrets[/cyan]\n"
-        f"[cyan]agenix -e gmail-{account}.age < {token_file}[/cyan]\n\n"
-        f"[dim]This will encrypt the token and store it in your secrets directory.[/dim]",
-        title="Encrypt Token",
+        f"[cyan]agenix -e gmail-{account}.age < {token_file}[/cyan]",
+        title="2. Encrypt Token",
         border_style="yellow",
     ))
 
     # Generate Nix config snippet
-    nix_config = f'''
-# Add to ~/.config/nixos_config/secrets/secrets.nix:
-"gmail-{account}.age".publicKeys = users ++ systems;
+    nix_config = f'''# Add to your home.nix:
+age.secrets.gmail-{account}.file = ../secrets/gmail-{account}.age;
 
-# Add to your home.nix:
 programs.axios-ai-mail.accounts.{account} = {{
   provider = "gmail";
   email = "{user_email}";
   credentialFile = config.age.secrets.gmail-{account}.path;
-}};
-
-# Make sure the secret is exposed in your configuration:
-age.secrets.gmail-{account}.file = ../secrets/gmail-{account}.age;'''
+}};'''
 
     console.print(Panel(
-        f"[bold]Add to your Nix configuration:[/bold]\n"
+        f"[bold]Step 4c: Add to your Nix configuration:[/bold]\n\n"
         f"[cyan]{nix_config}[/cyan]",
-        title="Nix Configuration",
+        title="3. Nix Configuration",
         border_style="green",
     ))
 
