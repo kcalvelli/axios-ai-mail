@@ -1,5 +1,6 @@
 /**
  * MessageCard component - Single message card
+ * Supports compact mode for mobile devices
  */
 
 import {
@@ -22,9 +23,11 @@ import type { Message } from '../api/types';
 interface MessageCardProps {
   message: Message;
   onClick?: () => void;
+  /** Compact mode for mobile - reduces padding, hides checkbox and some controls */
+  compact?: boolean;
 }
 
-export function MessageCard({ message, onClick }: MessageCardProps) {
+export function MessageCard({ message, onClick, compact = false }: MessageCardProps) {
   const theme = useMuiTheme();
   const { toggleTag, toggleMessageSelection, isMessageSelected } = useAppStore();
   const markRead = useMarkRead();
@@ -89,33 +92,44 @@ export function MessageCard({ message, onClick }: MessageCardProps) {
       onClick={onClick}
       sx={{
         cursor: 'pointer',
-        mb: 1,
+        mb: compact ? 0.5 : 1,
         backgroundColor: getBackgroundColor(),
         borderLeft: message.is_unread ? `4px solid ${theme.palette.primary.main}` : 'none',
         border: isSelected ? `2px solid ${theme.palette.primary.main}` : undefined,
+        // Ensure full width for swipeable wrapper
+        width: '100%',
       }}
     >
-      <CardContent>
+      <CardContent sx={{ p: compact ? 1.5 : 2, '&:last-child': { pb: compact ? 1.5 : 2 } }}>
         <Box display="flex" justifyContent="space-between" alignItems="start">
-          {/* Checkbox */}
-          <Checkbox
-            checked={isSelected}
-            onChange={handleCheckboxChange}
-            onClick={(e) => e.stopPropagation()}
-            sx={{ p: 0, mr: 2 }}
-          />
+          {/* Checkbox - hidden in compact mode */}
+          {!compact && (
+            <Checkbox
+              checked={isSelected}
+              onChange={handleCheckboxChange}
+              onClick={(e) => e.stopPropagation()}
+              sx={{ p: 0, mr: 2 }}
+            />
+          )}
 
-          <Box flex={1}>
+          <Box flex={1} minWidth={0}>
             {/* From and Date */}
             <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
               <Typography
                 variant="subtitle2"
                 fontWeight={message.is_unread ? 600 : 400}
-                sx={{ color: 'text.primary' }}
+                sx={{
+                  color: 'text.primary',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  flex: 1,
+                  mr: 1,
+                }}
               >
                 {message.from_email}
               </Typography>
-              <Box display="flex" alignItems="center" gap={0.5}>
+              <Box display="flex" alignItems="center" gap={0.5} flexShrink={0}>
                 {message.has_attachments && (
                   <AttachFile fontSize="small" color="primary" />
                 )}
@@ -139,16 +153,16 @@ export function MessageCard({ message, onClick }: MessageCardProps) {
               {message.subject}
             </Typography>
 
-            {/* Snippet */}
+            {/* Snippet - fewer lines in compact mode */}
             <Typography
               variant="body2"
               color="text.secondary"
               sx={{
-                mb: 1,
+                mb: compact ? 0.5 : 1,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 display: '-webkit-box',
-                WebkitLineClamp: 2,
+                WebkitLineClamp: compact ? 1 : 2,
                 WebkitBoxOrient: 'vertical',
               }}
             >
@@ -157,31 +171,47 @@ export function MessageCard({ message, onClick }: MessageCardProps) {
 
             {/* Tags and Confidence */}
             {(message.tags.length > 0 || message.confidence !== undefined) && (
-              <Stack direction="row" spacing={0.5} flexWrap="wrap" gap={0.5} alignItems="center">
-                {message.tags.map((tag) => (
+              <Stack
+                direction="row"
+                spacing={0.5}
+                flexWrap="wrap"
+                gap={0.5}
+                alignItems="center"
+                sx={{
+                  // Limit tag display on mobile
+                  maxHeight: compact ? 24 : 'none',
+                  overflow: compact ? 'hidden' : 'visible',
+                }}
+              >
+                {message.tags.slice(0, compact ? 3 : undefined).map((tag) => (
                   <TagChip
                     key={tag}
                     tag={tag}
                     onClick={handleTagClick(tag)}
+                    size="small"
                   />
                 ))}
-                <ConfidenceBadge confidence={message.confidence} size="small" />
+                {!compact && (
+                  <ConfidenceBadge confidence={message.confidence} size="small" />
+                )}
               </Stack>
             )}
           </Box>
 
-          {/* Read/Unread Toggle */}
-          <IconButton
-            size="small"
-            onClick={handleMarkRead}
-            sx={{ ml: 1 }}
-          >
-            {message.is_unread ? (
-              <Mail color="primary" />
-            ) : (
-              <MailOutline color="action" />
-            )}
-          </IconButton>
+          {/* Read/Unread Toggle - hidden in compact mode (swipe actions instead) */}
+          {!compact && (
+            <IconButton
+              size="small"
+              onClick={handleMarkRead}
+              sx={{ ml: 1 }}
+            >
+              {message.is_unread ? (
+                <Mail color="primary" />
+              ) : (
+                <MailOutline color="action" />
+              )}
+            </IconButton>
+          )}
         </Box>
       </CardContent>
     </Card>

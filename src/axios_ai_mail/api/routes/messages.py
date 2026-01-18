@@ -157,6 +157,19 @@ async def list_messages(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/messages/unread-count")
+async def get_unread_count(request: Request):
+    """Get count of unread messages in inbox."""
+    db = request.app.state.db
+
+    try:
+        count = db.count_messages(folder="inbox", is_unread=True)
+        return {"count": count}
+    except Exception as e:
+        logger.error(f"Error getting unread count: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/messages/bulk/read")
 async def bulk_mark_read(request: Request, body: BulkReadRequest):
     """Mark multiple messages as read or unread."""

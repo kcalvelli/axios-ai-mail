@@ -4,8 +4,6 @@
 
 import { useEffect, useState } from 'react';
 import {
-  Drawer,
-  Toolbar,
   Box,
   List,
   ListItem,
@@ -34,13 +32,11 @@ import { useTags } from '../hooks/useStats';
 import { useAppStore } from '../store/appStore';
 import axios from 'axios';
 
-const DRAWER_WIDTH = 280;
-
 interface SidebarProps {
-  open: boolean;
+  onNavigate?: () => void;
 }
 
-export function Sidebar({ open }: SidebarProps) {
+export function Sidebar({ onNavigate }: SidebarProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { data: tagsData, isLoading } = useTags();
@@ -54,6 +50,9 @@ export function Sidebar({ open }: SidebarProps) {
 
   // Draft count state
   const [draftCount, setDraftCount] = useState(0);
+
+  // Unread count state
+  const [unreadCount, setUnreadCount] = useState(0);
 
   // Fetch draft count
   useEffect(() => {
@@ -73,8 +72,32 @@ export function Sidebar({ open }: SidebarProps) {
     return () => clearInterval(interval);
   }, [location.pathname]);
 
+  // Fetch unread count
+  useEffect(() => {
+    const fetchUnreadCount = async () => {
+      try {
+        const response = await axios.get('/api/messages/unread-count');
+        setUnreadCount(response.data.count);
+      } catch (err) {
+        console.error('Failed to fetch unread count:', err);
+      }
+    };
+
+    fetchUnreadCount();
+
+    // Refresh count periodically
+    const interval = setInterval(fetchUnreadCount, 30000);
+    return () => clearInterval(interval);
+  }, [location.pathname]);
+
+  // Handle navigation with optional callback for mobile
+  const handleNavigation = (path: string) => {
+    navigate(path);
+    onNavigate?.();
+  };
+
   const folderItems = [
-    { text: 'Inbox', icon: <Inbox />, path: '/', folder: 'inbox', badge: 0 },
+    { text: 'Inbox', icon: <Inbox />, path: '/', folder: 'inbox', badge: unreadCount },
     { text: 'Drafts', icon: <Drafts />, path: '/drafts', folder: null, badge: draftCount },
     { text: 'Sent', icon: <Send />, path: '/?folder=sent', folder: 'sent', badge: 0 },
     { text: 'Trash', icon: <Delete />, path: '/?folder=trash', folder: 'trash', badge: 0 },
@@ -87,140 +110,131 @@ export function Sidebar({ open }: SidebarProps) {
   ];
 
   return (
-    <Drawer
-      variant="persistent"
-      open={open}
-      sx={{
-        width: DRAWER_WIDTH,
-        flexShrink: 0,
-        '& .MuiDrawer-paper': {
-          width: DRAWER_WIDTH,
-          boxSizing: 'border-box',
-        },
-      }}
-    >
-      <Toolbar />
-
-      <Box sx={{ overflow: 'auto', p: 2 }}>
-        {/* Folders */}
-        <List>
-          {folderItems.map((item) => (
-            <ListItem key={item.text} disablePadding>
-              <ListItemButton
-                selected={
-                  item.folder === null
-                    ? location.pathname === item.path
-                    : location.pathname === '/' && location.search === (item.folder === 'inbox' ? '' : `?folder=${item.folder}`)
-                }
-                onClick={() => navigate(item.path)}
-              >
-                <ListItemIcon>
-                  {item.badge > 0 ? (
-                    <Badge badgeContent={item.badge} color="primary">
-                      {item.icon}
-                    </Badge>
-                  ) : (
-                    item.icon
-                  )}
-                </ListItemIcon>
-                <ListItemText primary={item.text} />
-              </ListItemButton>
-            </ListItem>
-          ))}
-        </List>
-
-        <Divider sx={{ my: 2 }} />
-
-        {/* Navigation */}
-        <List>
-          {menuItems.map((item) => (
-            <ListItem key={item.text} disablePadding>
-              <ListItemButton
-                selected={location.pathname === item.path}
-                onClick={() => navigate(item.path)}
-              >
-                <ListItemIcon>{item.icon}</ListItemIcon>
-                <ListItemText primary={item.text} />
-              </ListItemButton>
-            </ListItem>
-          ))}
-        </List>
-
-        <Divider sx={{ my: 2 }} />
-
-        {/* Filters */}
-        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-          Filters
-        </Typography>
-
-        <FormControlLabel
-          control={
-            <Switch
-              checked={isUnreadOnly}
-              onChange={(e) => setIsUnreadOnly(e.target.checked)}
-              size="small"
-            />
-          }
-          label="Unread only"
-          sx={{ mb: 2 }}
-        />
-
-        <Divider sx={{ my: 2 }} />
-
-        {/* Tags */}
-        <Box
-          display="flex"
-          justifyContent="space-between"
-          alignItems="center"
-          mb={1}
-        >
-          <Typography variant="subtitle2" color="text.secondary">
-            Tags
-          </Typography>
-          {selectedTags.length > 0 && (
-            <Typography
-              variant="caption"
-              color="primary"
-              sx={{ cursor: 'pointer' }}
-              onClick={clearTags}
+    <Box sx={{ overflow: 'auto', p: 2 }}>
+      {/* Folders */}
+      <List>
+        {folderItems.map((item) => (
+          <ListItem key={item.text} disablePadding>
+            <ListItemButton
+              selected={
+                item.folder === null
+                  ? location.pathname === item.path
+                  : location.pathname === '/' && location.search === (item.folder === 'inbox' ? '' : `?folder=${item.folder}`)
+              }
+              onClick={() => handleNavigation(item.path)}
+              sx={{ minHeight: 48 }} // Touch-friendly height
             >
-              Clear
-            </Typography>
-          )}
-        </Box>
+              <ListItemIcon>
+                {item.badge > 0 ? (
+                  <Badge
+                    badgeContent={item.badge > 99 ? '99+' : item.badge}
+                    color="primary"
+                    max={99}
+                  >
+                    {item.icon}
+                  </Badge>
+                ) : (
+                  item.icon
+                )}
+              </ListItemIcon>
+              <ListItemText primary={item.text} />
+            </ListItemButton>
+          </ListItem>
+        ))}
+      </List>
 
-        {isLoading ? (
-          <Box display="flex" justifyContent="center" p={2}>
-            <CircularProgress size={24} />
-          </Box>
-        ) : tagsData && tagsData.tags.length > 0 ? (
-          <Box display="flex" flexDirection="column" gap={1}>
-            {tagsData.tags.map((tag) => (
-              <Box
-                key={tag.name}
-                display="flex"
-                alignItems="center"
-                justifyContent="space-between"
-              >
-                <TagChip
-                  tag={tag.name}
-                  onClick={() => toggleTag(tag.name)}
-                  size="small"
-                  selected={selectedTags.includes(tag.name)}
-                  isAccountTag={tag.type === 'account'}
-                />
-                <Typography variant="caption" color="text.secondary">
-                  {tag.count}
-                </Typography>
-              </Box>
-            ))}
-          </Box>
-        ) : (
-          <Typography variant="body2" color="text.secondary">
-            No tags yet
+      <Divider sx={{ my: 2 }} />
+
+      {/* Navigation */}
+      <List>
+        {menuItems.map((item) => (
+          <ListItem key={item.text} disablePadding>
+            <ListItemButton
+              selected={location.pathname === item.path}
+              onClick={() => handleNavigation(item.path)}
+              sx={{ minHeight: 48 }} // Touch-friendly height
+            >
+              <ListItemIcon>{item.icon}</ListItemIcon>
+              <ListItemText primary={item.text} />
+            </ListItemButton>
+          </ListItem>
+        ))}
+      </List>
+
+      <Divider sx={{ my: 2 }} />
+
+      {/* Filters */}
+      <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+        Filters
+      </Typography>
+
+      <FormControlLabel
+        control={
+          <Switch
+            checked={isUnreadOnly}
+            onChange={(e) => setIsUnreadOnly(e.target.checked)}
+            size="small"
+          />
+        }
+        label="Unread only"
+        sx={{ mb: 2 }}
+      />
+
+      <Divider sx={{ my: 2 }} />
+
+      {/* Tags */}
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        alignItems="center"
+        mb={1}
+      >
+        <Typography variant="subtitle2" color="text.secondary">
+          Tags
+        </Typography>
+        {selectedTags.length > 0 && (
+          <Typography
+            variant="caption"
+            color="primary"
+            sx={{ cursor: 'pointer' }}
+            onClick={clearTags}
+          >
+            Clear
           </Typography>
         )}
       </Box>
-    </Drawer>
+
+      {isLoading ? (
+        <Box display="flex" justifyContent="center" p={2}>
+          <CircularProgress size={24} />
+        </Box>
+      ) : tagsData && tagsData.tags.length > 0 ? (
+        <Box display="flex" flexDirection="column" gap={1}>
+          {tagsData.tags.map((tag) => (
+            <Box
+              key={tag.name}
+              display="flex"
+              alignItems="center"
+              justifyContent="space-between"
+            >
+              <TagChip
+                tag={tag.name}
+                onClick={() => toggleTag(tag.name)}
+                size="small"
+                selected={selectedTags.includes(tag.name)}
+                isAccountTag={tag.type === 'account'}
+              />
+              <Typography variant="caption" color="text.secondary">
+                {tag.count}
+              </Typography>
+            </Box>
+          ))}
+        </Box>
+      ) : (
+        <Typography variant="body2" color="text.secondary">
+          No tags yet
+        </Typography>
+      )}
+    </Box>
   );
 }

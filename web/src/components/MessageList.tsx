@@ -18,8 +18,10 @@ import {
 import { InboxOutlined, DeleteSweep, CheckBox, WifiOff, Refresh, CloudOff } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
 import { MessageCard } from './MessageCard';
+import { SwipeableMessageList } from './SwipeableMessageCard';
 import { BulkActionBar } from './BulkActionBar';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
+import { useIsMobile, useIsTouchDevice } from '../hooks/useIsMobile';
 import {
   useMessages,
   useBulkDelete,
@@ -35,6 +37,8 @@ import { useToast } from '../hooks/useToast';
 export function MessageList() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const isMobile = useIsMobile();
+  const isTouchDevice = useIsTouchDevice();
   const {
     selectedAccount,
     selectedTags,
@@ -393,13 +397,37 @@ export function MessageList() {
           )}
         </Box>
 
-        {data.messages.map((message) => (
-          <MessageCard
-            key={message.id}
-            message={message}
-            onClick={() => navigate(`/messages/${message.id}`)}
+        {/* Swipeable cards on mobile touch devices, regular cards on desktop */}
+        {isMobile && isTouchDevice && selectedMessageIds.size === 0 ? (
+          <SwipeableMessageList
+            messages={data.messages}
+            onMessageClick={(message) => navigate(`/messages/${message.id}`)}
+            onDelete={(messageId) => {
+              bulkDelete.mutate([messageId], {
+                onSuccess: () => {
+                  toast.success('Moved to trash', {
+                    label: 'Undo',
+                    onClick: () => {
+                      bulkRestore.mutate([messageId]);
+                    },
+                  });
+                },
+              });
+            }}
+            onReply={(message) => {
+              navigate(`/compose?reply=${message.id}`);
+            }}
           />
-        ))}
+        ) : (
+          data.messages.map((message) => (
+            <MessageCard
+              key={message.id}
+              message={message}
+              onClick={() => navigate(`/messages/${message.id}`)}
+              compact={isMobile}
+            />
+          ))
+        )}
 
         {/* Pagination */}
         {data.total > ITEMS_PER_PAGE && (

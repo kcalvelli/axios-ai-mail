@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['logo.png', 'icon-192.png', 'icon-512.png'],
+      includeAssets: ['logo.png', 'icon-192.png', 'icon-512.png', 'icon-monochrome.svg'],
       manifest: {
         name: 'Axios AI Mail',
         short_name: 'Mail',
@@ -18,17 +18,38 @@ export default defineConfig({
         display: 'standalone',
         start_url: '/',
         icons: [
+          // Standard icons
           {
             src: 'icon-192.png',
             sizes: '192x192',
             type: 'image/png',
-            purpose: 'any maskable',
+            purpose: 'any',
           },
           {
             src: 'icon-512.png',
             sizes: '512x512',
             type: 'image/png',
-            purpose: 'any maskable',
+            purpose: 'any',
+          },
+          // Maskable icons for adaptive icon shapes
+          {
+            src: 'icon-192.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'maskable',
+          },
+          {
+            src: 'icon-512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable',
+          },
+          // Monochrome icons for Material You theming on Android 13+
+          {
+            src: 'icon-monochrome.svg',
+            sizes: '192x192',
+            type: 'image/svg+xml',
+            purpose: 'monochrome',
           },
         ],
       },
