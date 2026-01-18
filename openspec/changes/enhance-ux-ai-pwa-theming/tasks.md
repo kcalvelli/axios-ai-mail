@@ -230,10 +230,9 @@
   - **Done**: Storage event listener in ThemeContext.tsx
 
 - [ ] 7.3 PWA installability testing
-  - Test Chrome "Install" prompt
-  - Test Safari "Add to Home Screen"
-  - Verify standalone mode
-  - Test on mobile devices
+  - Test Chrome/Chromium "Install" prompt on NixOS
+  - Verify standalone mode works
+  - Note: Safari/iOS testing N/A (NixOS-only project)
 
 - [x] 7.4 Update existing components for dark mode
   - Review all pages for dark mode issues
@@ -267,8 +266,7 @@
   - [x] System preference is detected
   - [x] Logo displays in topbar
   - [x] Sidebar and topbar have same color
-  - [ ] PWA installs on Chrome desktop
-  - [ ] PWA installs on mobile
+  - [ ] PWA installs on Chrome/Chromium
   - [x] Offline indicator shows when disconnected
   - [ ] Confidence scores display correctly
   - [x] Dark mode looks correct on all pages
