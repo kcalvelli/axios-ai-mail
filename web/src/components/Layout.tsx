@@ -59,7 +59,11 @@ export function Layout() {
           component="main"
           sx={{
             flexGrow: 1,
-            p: { xs: 1, sm: 2, md: 3 },
+            // Responsive padding: less on mobile, balanced on desktop
+            // On desktop with sidebar open, reduce left padding since content is offset
+            pt: { xs: 1, sm: 2, md: 2 },
+            pb: { xs: 1, sm: 2, md: 2 },
+            px: { xs: 1, sm: 2, md: 2 },
             // On mobile: always full width
             // On desktop: account for sidebar when open
             width: isMobile

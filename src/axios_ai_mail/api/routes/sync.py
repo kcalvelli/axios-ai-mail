@@ -39,7 +39,7 @@ async def run_sync_task(db, account_id: Optional[str], max_messages: int):
     from ...ai_classifier import AIClassifier, AIConfig
     from ...providers.factory import ProviderFactory
     from ...config.loader import ConfigLoader
-    from ..websocket import send_sync_started, send_sync_completed, send_error
+    from ..websocket import send_sync_started, send_sync_completed, send_error, send_new_messages
 
     try:
         set_sync_state(True, account_id)
@@ -98,12 +98,17 @@ async def run_sync_task(db, account_id: Optional[str], max_messages: int):
             result = sync_engine.sync(max_messages=max_messages)
             logger.info(f"Sync completed for {account.id}: {result}")
 
+            # Send WebSocket event: new messages for notifications
+            if result.new_messages:
+                await send_new_messages([msg.to_dict() for msg in result.new_messages])
+
             # Send WebSocket event: sync completed
             await send_sync_completed(account.id, {
                 "fetched": result.messages_fetched,
                 "classified": result.messages_classified,
                 "labeled": result.labels_updated,
                 "errors": len(result.errors),
+                "new_count": len(result.new_messages),
             })
 
     except Exception as e:

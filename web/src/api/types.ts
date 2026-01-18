@@ -115,8 +115,16 @@ export type WebSocketMessageType =
   | 'sync_started'
   | 'sync_completed'
   | 'message_classified'
+  | 'new_messages'
   | 'error'
   | 'pong';
+
+export interface NewMessageNotification {
+  id: string;
+  subject: string;
+  from_email: string;
+  snippet: string;
+}
 
 export interface WebSocketMessage {
   type: WebSocketMessageType;
@@ -130,7 +138,11 @@ export interface WebSocketMessage {
     classified: number;
     labeled: number;
     errors: number;
+    new_count?: number;
   };
   message?: string;
   details?: string;
+  // For new_messages events
+  messages?: NewMessageNotification[];
+  count?: number;
 }

@@ -20,10 +20,12 @@ import {
   DialogContentText,
   DialogActions,
   Divider,
+  Tooltip,
 } from '@mui/material';
 import { ArrowBack, Mail, MailOutline, Delete, Reply, Forward, AttachFile, Download } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
+import { useIsMobile } from '../hooks/useIsMobile';
 import axios from 'axios';
 import DOMPurify from 'dompurify';
 
@@ -48,6 +50,7 @@ import { SmartReplies } from '../components/SmartReplies';
 export function MessageDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const { data: message, isLoading, error } = useMessage(id!);
   const { data: body, isLoading: bodyLoading } = useMessageBody(id!);
   const { data: tagsData } = useTags();
@@ -286,22 +289,39 @@ export function MessageDetailPage() {
         <Typography variant="h5" flex={1}>
           Message
         </Typography>
-        <Button
-          variant="outlined"
-          startIcon={<Reply />}
-          onClick={handleReply}
-          sx={{ mr: 1 }}
-        >
-          Reply
-        </Button>
-        <Button
-          variant="outlined"
-          startIcon={<Forward />}
-          onClick={handleForward}
-          sx={{ mr: 2 }}
-        >
-          Forward
-        </Button>
+        {isMobile ? (
+          <>
+            <Tooltip title="Reply">
+              <IconButton onClick={handleReply} sx={{ mr: 0.5 }}>
+                <Reply />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Forward">
+              <IconButton onClick={handleForward} sx={{ mr: 1 }}>
+                <Forward />
+              </IconButton>
+            </Tooltip>
+          </>
+        ) : (
+          <>
+            <Button
+              variant="outlined"
+              startIcon={<Reply />}
+              onClick={handleReply}
+              sx={{ mr: 1 }}
+            >
+              Reply
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<Forward />}
+              onClick={handleForward}
+              sx={{ mr: 2 }}
+            >
+              Forward
+            </Button>
+          </>
+        )}
         <IconButton onClick={handleMarkRead} sx={{ mr: 1 }}>
           {message.is_unread ? (
             <Mail color="primary" />

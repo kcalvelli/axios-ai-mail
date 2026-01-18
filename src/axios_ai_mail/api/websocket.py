@@ -100,6 +100,23 @@ async def send_error(message: str, details: str = ""):
     })
 
 
+async def send_new_messages(messages: List[dict]):
+    """Send new messages event for notifications.
+
+    Args:
+        messages: List of message dicts with id, subject, from_email, snippet
+    """
+    if not messages:
+        return
+
+    await manager.broadcast({
+        "type": "new_messages",
+        "messages": messages,
+        "count": len(messages),
+        "timestamp": datetime.utcnow().isoformat(),
+    })
+
+
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     """WebSocket endpoint for real-time updates."""

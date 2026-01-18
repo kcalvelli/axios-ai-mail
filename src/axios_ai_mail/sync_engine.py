@@ -13,6 +13,25 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
+class NewMessageInfo:
+    """Info about a new message for notifications."""
+
+    id: str
+    subject: str
+    from_email: str
+    snippet: str
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary."""
+        return {
+            "id": self.id,
+            "subject": self.subject,
+            "from_email": self.from_email,
+            "snippet": self.snippet,
+        }
+
+
+@dataclass
 class SyncResult:
     """Result of a sync operation."""
 
@@ -22,6 +41,11 @@ class SyncResult:
     labels_updated: int
     errors: List[str]
     duration_seconds: float
+    new_messages: List[NewMessageInfo] = None
+
+    def __post_init__(self):
+        if self.new_messages is None:
+            self.new_messages = []
 
     def __str__(self) -> str:
         """String representation."""
@@ -79,6 +103,7 @@ class SyncEngine:
         messages_fetched = 0
         messages_classified = 0
         labels_updated = 0
+        new_messages: List[NewMessageInfo] = []
 
         logger.info(f"Starting sync for account {self.account_id}")
 
@@ -104,6 +129,9 @@ class SyncEngine:
             # 2. Store messages in database
             for message in messages:
                 try:
+                    # Check if message is new (doesn't exist in database)
+                    is_new = self.db.get_message(message.id) is None
+
                     self.db.create_or_update_message(
                         message_id=message.id,
                         account_id=self.account_id,
@@ -121,6 +149,15 @@ class SyncEngine:
                         imap_folder=message.imap_folder,
                         has_attachments=message.has_attachments,
                     )
+
+                    # Track new messages for notifications
+                    if is_new:
+                        new_messages.append(NewMessageInfo(
+                            id=message.id,
+                            subject=message.subject,
+                            from_email=message.from_email,
+                            snippet=message.snippet[:100] if message.snippet else "",
+                        ))
                 except Exception as e:
                     error_msg = f"Failed to store message {message.id}: {e}"
                     logger.error(error_msg)
@@ -188,9 +225,12 @@ class SyncEngine:
                 labels_updated=labels_updated,
                 errors=errors,
                 duration_seconds=duration,
+                new_messages=new_messages,
             )
 
             logger.info(f"Sync completed: {result}")
+            if new_messages:
+                logger.info(f"New messages for notifications: {len(new_messages)}")
             return result
 
         except Exception as e:

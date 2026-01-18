@@ -21,6 +21,9 @@ import {
   Search as SearchIcon,
   Edit as EditIcon,
   Close as CloseIcon,
+  Notifications as NotificationsIcon,
+  NotificationsOff as NotificationsOffIcon,
+  NotificationsActive as NotificationsActiveIcon,
 } from '@mui/icons-material';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -28,6 +31,7 @@ import { useAppStore } from '../store/appStore';
 import { useTriggerSync, useSyncStatus } from '../hooks/useStats';
 import { ThemeToggle } from './ThemeToggle';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { useNotifications } from '../hooks/useNotifications';
 
 interface TopBarProps {
   onMenuClick: () => void;
@@ -41,6 +45,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
   const [searchOpen, setSearchOpen] = useState(false);
   const triggerSync = useTriggerSync();
   const { data: syncStatusData } = useSyncStatus();
+  const { permission, isSupported, requestPermission } = useNotifications();
 
   const handleSync = () => {
     triggerSync.mutate({});
@@ -55,8 +60,39 @@ export function TopBar({ onMenuClick }: TopBarProps) {
     setSearchOpen(false);
   };
 
+  const handleNotificationClick = async () => {
+    if (permission === 'default') {
+      await requestPermission();
+    }
+  };
+
   const isSyncing = syncStatus === 'syncing' || syncStatusData?.is_syncing;
   const isDark = theme.palette.mode === 'dark';
+
+  // Get notification icon and tooltip based on permission state
+  const getNotificationIcon = () => {
+    if (!isSupported) return <NotificationsOffIcon />;
+    switch (permission) {
+      case 'granted':
+        return <NotificationsActiveIcon />;
+      case 'denied':
+        return <NotificationsOffIcon />;
+      default:
+        return <NotificationsIcon />;
+    }
+  };
+
+  const getNotificationTooltip = () => {
+    if (!isSupported) return 'Notifications not supported';
+    switch (permission) {
+      case 'granted':
+        return 'Notifications enabled';
+      case 'denied':
+        return 'Notifications blocked (enable in browser settings)';
+      default:
+        return 'Enable notifications';
+    }
+  };
 
   return (
     <AppBar
@@ -211,6 +247,18 @@ export function TopBar({ onMenuClick }: TopBarProps) {
                 Compose
               </Button>
             )}
+
+            {/* Notification Toggle */}
+            <Tooltip title={getNotificationTooltip()}>
+              <IconButton
+                color="inherit"
+                onClick={handleNotificationClick}
+                disabled={permission === 'denied' || !isSupported}
+                sx={{ minWidth: 44, minHeight: 44 }}
+              >
+                {getNotificationIcon()}
+              </IconButton>
+            </Tooltip>
 
             {/* Theme Toggle */}
             <ThemeToggle />

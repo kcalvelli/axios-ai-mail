@@ -7,6 +7,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '../store/appStore';
 import { messageKeys } from './useMessages';
 import { statsKeys } from './useStats';
+import { useNotifications } from './useNotifications';
 import type { WebSocketMessage } from '../api/types';
 
 export function useWebSocket() {
@@ -15,6 +16,7 @@ export function useWebSocket() {
   const wsRef = useRef<WebSocket | null>(null);
   const queryClient = useQueryClient();
   const { setSyncStatus } = useAppStore();
+  const { showNewMessageNotification } = useNotifications();
 
   useEffect(() => {
     // Determine WebSocket URL based on current location
@@ -73,6 +75,13 @@ export function useWebSocket() {
             setSyncStatus('error');
             console.error('WebSocket error:', message.message);
             break;
+
+          case 'new_messages':
+            // Show browser notification for new messages
+            if (message.messages && Array.isArray(message.messages)) {
+              showNewMessageNotification(message.messages);
+            }
+            break;
         }
       } catch (error) {
         console.error('Failed to parse WebSocket message:', error);
@@ -95,7 +104,7 @@ export function useWebSocket() {
         ws.close();
       }
     };
-  }, [queryClient, setSyncStatus]);
+  }, [queryClient, setSyncStatus, showNewMessageNotification]);
 
   const sendMessage = (message: any) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
