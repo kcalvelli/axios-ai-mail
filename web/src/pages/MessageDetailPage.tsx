@@ -507,10 +507,10 @@ export function MessageDetailPage() {
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
-        <DialogTitle>Delete Message?</DialogTitle>
+        <DialogTitle>Move to Trash?</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Are you sure you want to delete this message? This action cannot be undone.
+            This message will be moved to Trash. You can restore it from there if needed.
           </DialogContentText>
         </DialogContent>
         <DialogActions>
@@ -521,7 +521,7 @@ export function MessageDetailPage() {
             variant="contained"
             disabled={deleteMessage.isPending}
           >
-            {deleteMessage.isPending ? 'Deleting...' : 'Delete'}
+            {deleteMessage.isPending ? 'Moving...' : 'Move to Trash'}
           </Button>
         </DialogActions>
       </Dialog>
