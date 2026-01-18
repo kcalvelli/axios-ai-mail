@@ -172,11 +172,15 @@ export function MessageDetailPage() {
   const handleReply = () => {
     if (message) {
       // Navigate to compose page with reply parameters
+      // Use the account that received the message as the default "From"
       const params = new URLSearchParams({
         reply_to: message.id,
         to: message.from_email,
         subject: message.subject.startsWith('Re: ') ? message.subject : `Re: ${message.subject}`,
         thread_id: message.thread_id || '',
+        account_id: message.account_id,
+        quote_from: message.from_email,
+        quote_date: message.date,
       });
       navigate(`/compose?${params.toString()}`);
     }

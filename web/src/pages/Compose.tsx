@@ -55,6 +55,9 @@ export default function Compose() {
   const existingDraftId = searchParams.get('draft_id');
   const defaultSubject = searchParams.get('subject') || '';
   const defaultTo = searchParams.get('to') || '';
+  const defaultAccountId = searchParams.get('account_id') || '';
+  const quoteFrom = searchParams.get('quote_from') || '';
+  const quoteDate = searchParams.get('quote_date') || '';
 
   // Account state
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -98,7 +101,12 @@ export default function Compose() {
         const accountList = Array.isArray(response.data) ? response.data : [];
         setAccounts(accountList);
         if (accountList.length > 0 && !selectedAccountId) {
-          setSelectedAccountId(accountList[0].id);
+          // Use the account from the original message if replying, otherwise first account
+          if (defaultAccountId && accountList.some((a: Account) => a.id === defaultAccountId)) {
+            setSelectedAccountId(defaultAccountId);
+          } else {
+            setSelectedAccountId(accountList[0].id);
+          }
         }
       } catch (err) {
         console.error('Failed to fetch accounts:', err);
@@ -148,6 +156,45 @@ export default function Compose() {
 
     loadDraft();
   }, [existingDraftId, editor]);
+
+  // Load original message for reply quote
+  useEffect(() => {
+    const loadQuote = async () => {
+      // Only load quote if replying (not editing a draft) and editor is ready
+      if (!replyTo || existingDraftId || !editor || !quoteFrom) return;
+
+      try {
+        // Fetch the original message body
+        const response = await axios.get(`/api/messages/${replyTo}/body`);
+        const originalBody = response.data.body_html || response.data.body_text || '';
+
+        // Format the quote date
+        const formattedDate = quoteDate
+          ? new Date(quoteDate).toLocaleString('en-US', {
+              weekday: 'short',
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit',
+            })
+          : '';
+
+        // Build quoted reply (reply above, quote below)
+        const quoteHeader = `<p><br></p><p>On ${formattedDate}, ${quoteFrom} wrote:</p>`;
+        const quotedContent = `<blockquote style="border-left: 2px solid #ccc; margin-left: 0; padding-left: 1em; color: #666;">${originalBody}</blockquote>`;
+
+        editor.commands.setContent(`<p><br></p>${quoteHeader}${quotedContent}`);
+        // Move cursor to the beginning for top-posting
+        editor.commands.focus('start');
+      } catch (err) {
+        console.error('Failed to load original message for quote:', err);
+        // Continue without quote - not a critical error
+      }
+    };
+
+    loadQuote();
+  }, [replyTo, existingDraftId, editor, quoteFrom, quoteDate]);
 
   // Parse email addresses from comma-separated string
   const parseEmails = (emailString: string): string[] => {
