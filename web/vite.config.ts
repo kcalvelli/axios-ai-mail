@@ -35,33 +35,21 @@ export default defineConfig({
       workbox: {
         // Don't use cached fallback for API/WebSocket routes
         navigateFallbackDenylist: [/^\/api/, /^\/ws/],
-        // Cache static assets
+        // Cache static assets only
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
         // Clean up old caches
         cleanupOutdatedCaches: true,
-        // Runtime caching rules - ensure API requests bypass cache
+        // Explicitly skip caching for API routes
+        // Using navigateFallback: undefined ensures no fallback for non-navigation requests
         runtimeCaching: [
           {
-            // All API routes should go directly to network (no caching)
-            urlPattern: /^\/api\/.*/i,
-            handler: 'NetworkOnly',
-            options: {
-              backgroundSync: {
-                name: 'apiQueue',
-                options: {
-                  maxRetentionTime: 24 * 60, // Retry for 24 hours
-                },
-              },
-            },
-          },
-          {
-            // Attachment downloads specifically - network only, no caching
-            urlPattern: /^\/api\/attachments\/.*/i,
+            // Match any request that contains /api/ in the URL
+            urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
             handler: 'NetworkOnly',
           },
           {
-            // WebSocket connections - network only
-            urlPattern: /^\/ws/i,
+            // Match WebSocket upgrade requests
+            urlPattern: ({ url }) => url.pathname.startsWith('/ws'),
             handler: 'NetworkOnly',
           },
         ],
