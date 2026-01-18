@@ -80,8 +80,8 @@ class Database:
         """Create or update an account.
 
         Handles account renames: if an account with the same email exists but
-        with a different ID, this is treated as a rename and the existing
-        account's ID is updated along with all related messages.
+        with a different ID, this is treated as a rename. The old account is
+        replaced with a new one and all messages are migrated.
         """
         with self.session() as session:
             account = session.get(Account, account_id)
@@ -100,23 +100,37 @@ class Database:
                 if existing_by_email:
                     # Same email, different ID = account rename
                     old_id = existing_by_email.id
+                    old_last_sync = existing_by_email.last_sync
                     logger.info(f"Detected account rename: {old_id} → {account_id}")
 
-                    # Update all messages to use the new account ID
+                    # Step 1: Clear the email on old account to avoid UNIQUE conflict
+                    existing_by_email.email = f"__migrating__{old_id}"
+                    session.flush()
+
+                    # Step 2: Create new account with the new ID
+                    account = Account(
+                        id=account_id,
+                        name=name,
+                        email=email,
+                        provider=provider,
+                        settings=settings or {},
+                        last_sync=old_last_sync,  # Preserve last sync time
+                    )
+                    session.add(account)
+                    session.flush()  # Make new account visible for FK constraint
+
+                    # Step 3: Update all messages to point to the new account
                     from sqlalchemy import update
-                    session.execute(
+                    result = session.execute(
                         update(Message)
                         .where(Message.account_id == old_id)
                         .values(account_id=account_id)
                     )
-                    logger.info(f"Updated messages from account {old_id} to {account_id}")
+                    logger.info(f"Migrated {result.rowcount} messages from {old_id} to {account_id}")
 
-                    # Update the account record with new ID and settings
-                    existing_by_email.id = account_id
-                    existing_by_email.name = name
-                    existing_by_email.provider = provider
-                    existing_by_email.settings = settings or {}
-                    account = existing_by_email
+                    # Step 4: Delete the old account
+                    session.delete(existing_by_email)
+                    logger.info(f"Deleted old account: {old_id}")
                 else:
                     # Completely new account
                     account = Account(
