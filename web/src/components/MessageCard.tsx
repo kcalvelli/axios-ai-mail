@@ -114,7 +114,7 @@ export function MessageCard({ message, onClick, compact = false, selectionMode =
         width: '100%',
       }}
     >
-      <CardContent sx={{ p: compact ? 1.5 : 2, '&:last-child': { pb: compact ? 1.5 : 2 } }}>
+      <CardContent sx={{ p: compact ? 1 : 1.5, '&:last-child': { pb: compact ? 1 : 1.5 } }}>
         <Box display="flex" justifyContent="space-between" alignItems="start">
           {/* Checkbox - show in selection mode even on mobile */}
           {showCheckbox && (
@@ -122,7 +122,7 @@ export function MessageCard({ message, onClick, compact = false, selectionMode =
               checked={isSelected}
               onChange={handleCheckboxChange}
               onClick={(e) => e.stopPropagation()}
-              sx={{ p: 0, mr: compact ? 1 : 2 }}
+              sx={{ p: 0, mr: 1 }}
             />
           )}
 
