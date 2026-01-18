@@ -264,11 +264,8 @@ export default function Compose() {
     setError(null);
 
     try {
-      // Save draft first if not already saved
-      let currentDraftId = draftId;
-      if (!currentDraftId) {
-        currentDraftId = await saveDraft();
-      }
+      // Always save draft before sending to capture latest body content
+      const currentDraftId = await saveDraft();
 
       if (!currentDraftId) {
         setError('Failed to create draft');
