@@ -45,12 +45,15 @@ def start_web_server(
     console.print("Press Ctrl+C to stop\n")
 
     # Start uvicorn server
+    # Use "warning" for uvicorn to suppress noisy access logs
+    # Our application logs are configured separately in api/main.py
     uvicorn.run(
         "axios_ai_mail.api.main:app",
         host=host,
         port=port,
         reload=reload,
-        log_level="info",
+        log_level="warning",
+        access_log=False,  # Disable access logging entirely
     )
 
 
