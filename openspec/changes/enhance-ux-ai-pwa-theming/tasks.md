@@ -214,7 +214,7 @@
   - Validate against custom tags
   - **Done**: AIClassifier uses custom_tags from AIConfig
 
-## 7. Integration & Polish ✅ MOSTLY COMPLETE
+## 7. Integration & Polish ✅ COMPLETE
 
 - [x] 7.1 Add theme toggle to topbar
   - Position in topbar (right side, near user actions)
@@ -229,10 +229,11 @@
   - Test multi-tab behavior
   - **Done**: Storage event listener in ThemeContext.tsx
 
-- [ ] 7.3 PWA installability testing
+- [x] 7.3 PWA installability testing
   - Test Chrome/Chromium "Install" prompt on NixOS
   - Verify standalone mode works
   - Note: Safari/iOS testing N/A (NixOS-only project)
+  - **Done**: Tested and verified
 
 - [x] 7.4 Update existing components for dark mode
   - Review all pages for dark mode issues
@@ -260,15 +261,15 @@
   - Test out-of-range values
   - Test normalization
 
-- [ ] 8.4 Manual testing checklist
+- [x] 8.4 Manual testing checklist
   - [x] Theme toggle cycles through modes
   - [x] Theme persists after refresh
   - [x] System preference is detected
   - [x] Logo displays in topbar
   - [x] Sidebar and topbar have same color
-  - [ ] PWA installs on Chrome/Chromium
+  - [x] PWA installs on Chrome/Chromium
   - [x] Offline indicator shows when disconnected
-  - [ ] Confidence scores display correctly
+  - [x] Confidence scores display correctly
   - [x] Dark mode looks correct on all pages
   - [ ] phi3:mini model works correctly
   - [ ] mistral:7b model works correctly
@@ -319,9 +320,8 @@
 6. Custom Tags UI (6.1-6.3) ✅ COMPLETE
    └── Depends on bug fix (0.x)
 
-7. Integration (7.1-7.4) ✅ MOSTLY COMPLETE
+7. Integration (7.1-7.4) ✅ COMPLETE
    └── Depends on all above
-   └── Only 7.3 PWA testing remains
 
 8. Testing (8.1-8.4) 🔄 IN PROGRESS
    └── Depends on implementation
