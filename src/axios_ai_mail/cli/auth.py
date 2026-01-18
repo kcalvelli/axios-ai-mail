@@ -202,7 +202,7 @@ def setup_gmail_command(
 
 @auth_app.command("gmail")
 def gmail_auth_command(
-    account: str = typer.Option("personal", "--account", "-a", help="Account name for this Gmail"),
+    account: Optional[str] = typer.Option(None, "--account", "-a", help="Account name for this Gmail"),
     credentials: Optional[Path] = typer.Argument(None, help="Path to credentials.json (auto-detects from ~/Downloads if not provided)"),
 ) -> None:
     """Set up Gmail OAuth2 with streamlined wizard.
@@ -211,7 +211,7 @@ def gmail_auth_command(
     and sets everything up automatically.
 
     Example:
-        axios-ai-mail auth gmail --account personal
+        axios-ai-mail auth gmail --account work
     """
     from google_auth_oauthlib.flow import InstalledAppFlow
     import glob
@@ -234,6 +234,16 @@ def gmail_auth_command(
         "You'll need to create OAuth credentials in Google Cloud Console.",
         border_style="blue",
     ))
+
+    # Prompt for account name if not provided
+    if not account:
+        console.print("\n[bold]Account Setup[/bold]\n")
+        console.print("Enter a name for this Gmail account (e.g., 'personal', 'work', 'business').")
+        console.print("[dim]This will be used to identify the account in your configuration.[/dim]\n")
+        account = Prompt.ask("Account name").strip().lower().replace(" ", "-")
+        if not account:
+            console.print("[red]Account name is required[/red]")
+            raise typer.Exit(1)
 
     # Step 1: Check if credentials file provided or auto-detect
     if credentials and credentials.exists():
