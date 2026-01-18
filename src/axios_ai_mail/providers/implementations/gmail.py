@@ -179,26 +179,34 @@ class GmailProvider(BaseEmailProvider):
         body_text = None
         body_html = None
 
-        if "parts" in msg_detail["payload"]:
-            for part in msg_detail["payload"]["parts"]:
-                if part["mimeType"] == "text/plain" and not body_text:
-                    body_data = part["body"].get("data", "")
-                    if body_data:
-                        body_text = base64.urlsafe_b64decode(body_data).decode("utf-8")
-                elif part["mimeType"] == "text/html" and not body_html:
-                    body_data = part["body"].get("data", "")
-                    if body_data:
-                        body_html = base64.urlsafe_b64decode(body_data).decode("utf-8")
-        else:
-            # Non-multipart message
-            body_data = msg_detail["payload"]["body"].get("data", "")
-            if body_data:
-                decoded = base64.urlsafe_b64decode(body_data).decode("utf-8")
-                mime_type = msg_detail["payload"].get("mimeType", "text/plain")
-                if mime_type == "text/html":
-                    body_html = decoded
-                else:
-                    body_text = decoded
+        def extract_body_parts(payload):
+            """Recursively extract body text and HTML from payload."""
+            nonlocal body_text, body_html
+
+            mime_type = payload.get("mimeType", "")
+
+            # If this is a multipart, recurse into parts
+            if "parts" in payload:
+                for part in payload["parts"]:
+                    extract_body_parts(part)
+            else:
+                # This is a leaf part - check if it's body content
+                body_data = payload.get("body", {}).get("data", "")
+                if body_data:
+                    # Skip attachments (they have filename)
+                    if payload.get("filename"):
+                        return
+
+                    try:
+                        decoded = base64.urlsafe_b64decode(body_data).decode("utf-8")
+                        if mime_type == "text/plain" and not body_text:
+                            body_text = decoded
+                        elif mime_type == "text/html" and not body_html:
+                            body_html = decoded
+                    except Exception:
+                        pass
+
+        extract_body_parts(msg_detail["payload"])
 
         # Extract labels
         label_ids = msg_detail.get("labelIds", [])
