@@ -382,8 +382,11 @@ def gmail_auth_command(
     console.print(Panel(
         f"[bold]Step 4b: Encrypt the token[/bold]\n\n"
         f"[cyan]cd ~/.config/nixos_config/secrets[/cyan]\n"
-        f"[cyan]agenix -e gmail-{account}.age < {token_file}[/cyan]",
-        title="2. Encrypt Token",
+        f"[cyan]agenix -e gmail-{account}.age < {token_file}[/cyan]\n\n"
+        f"[bold]Step 4c: Stage the secret for git (required for flakes)[/bold]\n\n"
+        f"[cyan]cd ~/.config/nixos_config[/cyan]\n"
+        f"[cyan]git add secrets/gmail-{account}.age[/cyan]",
+        title="2. Encrypt & Stage",
         border_style="yellow",
     ))
 
@@ -398,7 +401,7 @@ programs.axios-ai-mail.accounts.{account} = {{
 }};'''
 
     console.print(Panel(
-        f"[bold]Step 4c: Add to your Nix configuration:[/bold]\n\n"
+        f"[bold]Step 4d: Add to your Nix configuration:[/bold]\n\n"
         f"[cyan]{nix_config}[/cyan]",
         title="3. Nix Configuration",
         border_style="green",
