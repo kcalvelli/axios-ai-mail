@@ -4,6 +4,12 @@
 
 import { create } from 'zustand';
 
+// Check if we're on mobile (< 900px) for initial drawer state
+const isMobileDevice = () => {
+  if (typeof window === 'undefined') return false;
+  return window.innerWidth < 900;
+};
+
 interface AppState {
   // Filters
   selectedAccount: string | null;
@@ -42,7 +48,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   searchQuery: '',
   isUnreadOnly: false,
   syncStatus: 'idle',
-  drawerOpen: true,
+  // Start with drawer closed on mobile, open on desktop
+  drawerOpen: !isMobileDevice(),
   selectedMessageIds: new Set<string>(),
 
   // Actions
