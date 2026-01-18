@@ -33,12 +33,38 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // Don't cache API responses
+        // Don't use cached fallback for API/WebSocket routes
         navigateFallbackDenylist: [/^\/api/, /^\/ws/],
         // Cache static assets
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
         // Clean up old caches
         cleanupOutdatedCaches: true,
+        // Runtime caching rules - ensure API requests bypass cache
+        runtimeCaching: [
+          {
+            // All API routes should go directly to network (no caching)
+            urlPattern: /^\/api\/.*/i,
+            handler: 'NetworkOnly',
+            options: {
+              backgroundSync: {
+                name: 'apiQueue',
+                options: {
+                  maxRetentionTime: 24 * 60, // Retry for 24 hours
+                },
+              },
+            },
+          },
+          {
+            // Attachment downloads specifically - network only, no caching
+            urlPattern: /^\/api\/attachments\/.*/i,
+            handler: 'NetworkOnly',
+          },
+          {
+            // WebSocket connections - network only
+            urlPattern: /^\/ws/i,
+            handler: 'NetworkOnly',
+          },
+        ],
       },
     }),
   ],
