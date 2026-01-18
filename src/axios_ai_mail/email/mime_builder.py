@@ -49,9 +49,14 @@ class MIMEBuilder:
             msg.attach(body_part)
 
             # Add attachments
+            logger.info(f"Building message with {len(attachments)} attachment(s)")
             for attachment in attachments:
+                logger.debug(f"Adding attachment: {attachment.filename} ({attachment.size} bytes, type: {attachment.content_type})")
                 attachment_part = MIMEBuilder._build_attachment(attachment)
-                msg.attach(attachment_part)
+                if attachment_part:
+                    msg.attach(attachment_part)
+                else:
+                    logger.warning(f"Skipped attachment {attachment.filename} - no data")
 
         elif has_html and has_text:
             # multipart/alternative with text and HTML
@@ -96,15 +101,26 @@ class MIMEBuilder:
         return body
 
     @staticmethod
-    def _build_attachment(attachment: Attachment) -> MIMEBase:
+    def _build_attachment(attachment: Attachment) -> Optional[MIMEBase]:
         """Build MIME attachment part.
 
         Args:
             attachment: Attachment to encode
 
         Returns:
-            MIMEBase attachment part
+            MIMEBase attachment part, or None if attachment has no data
         """
+        # Validate attachment data exists
+        if attachment.data is None:
+            logger.error(f"Attachment {attachment.filename} has no data (None)")
+            return None
+
+        if len(attachment.data) == 0:
+            logger.error(f"Attachment {attachment.filename} has empty data (0 bytes)")
+            return None
+
+        logger.debug(f"Building attachment: {attachment.filename}, actual data size: {len(attachment.data)} bytes")
+
         # Parse content type
         maintype, subtype = attachment.content_type.split("/", 1) if "/" in attachment.content_type else ("application", "octet-stream")
 
@@ -115,12 +131,16 @@ class MIMEBuilder:
         # Encode as base64
         encoders.encode_base64(part)
 
-        # Set Content-Disposition header
+        # Set Content-Disposition header with filename
         part.add_header(
             "Content-Disposition",
             "attachment",
             filename=attachment.filename,
         )
+
+        # Log the part size after encoding
+        part_bytes = part.as_bytes()
+        logger.debug(f"Attachment MIME part size: {len(part_bytes)} bytes")
 
         return part
 

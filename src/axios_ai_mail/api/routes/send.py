@@ -61,6 +61,12 @@ async def send_message(send_request: SendRequest, request: Request):
 
     # Get attachments
     attachments = db.list_attachments(draft_id=draft_id)
+    logger.info(f"Sending draft {draft_id} with {len(attachments)} attachment(s)")
+
+    # Log attachment details for debugging
+    for att in attachments:
+        data_size = len(att.data) if att.data else 0
+        logger.info(f"  Attachment: {att.filename}, stored size: {att.size}, actual data: {data_size} bytes")
 
     try:
         # Build MIME message
@@ -72,6 +78,10 @@ async def send_message(send_request: SendRequest, request: Request):
             from_name=from_name,
             from_email=account.email,
         )
+
+        # Log final message size
+        message_bytes = mime_message.as_bytes()
+        logger.info(f"Built MIME message: {len(message_bytes)} bytes total")
 
         # Validate size for Gmail (25MB limit)
         if account.provider == "gmail":
@@ -87,7 +97,7 @@ async def send_message(send_request: SendRequest, request: Request):
         provider.authenticate()
 
         message_id = provider.send_message(
-            mime_message=mime_message.as_bytes(),
+            mime_message=message_bytes,
             thread_id=draft.thread_id,
         )
 
