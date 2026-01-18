@@ -93,7 +93,19 @@ const lightTheme = createTheme({
     },
     MuiDrawer: {
       styleOverrides: {
-        paper: { borderRight: '1px solid rgba(0, 0, 0, 0.12)' },
+        paper: {
+          backgroundColor: '#ffffff',
+          borderRight: '1px solid rgba(0, 0, 0, 0.12)',
+        },
+      },
+    },
+    MuiAppBar: {
+      styleOverrides: {
+        root: {
+          backgroundColor: '#ffffff',
+          color: '#1976d2',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
+        },
       },
     },
   },
@@ -139,7 +151,7 @@ const darkTheme = createTheme({
     MuiAppBar: {
       styleOverrides: {
         root: {
-          backgroundColor: '#0a0a0a',
+          backgroundColor: '#000000',
           boxShadow: '0 1px 0 rgba(255,255,255,0.1)',
         },
       },
@@ -219,7 +231,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
 
   // Update document theme-color meta tag
   useEffect(() => {
-    const themeColor = resolvedMode === 'dark' ? '#000000' : '#1976d2';
+    const themeColor = resolvedMode === 'dark' ? '#000000' : '#ffffff';
     let metaTag = document.querySelector('meta[name="theme-color"]');
     if (!metaTag) {
       metaTag = document.createElement('meta');
