@@ -135,6 +135,7 @@ class Database:
         body_text: Optional[str] = None,
         body_html: Optional[str] = None,
         imap_folder: Optional[str] = None,
+        has_attachments: bool = False,
     ) -> Message:
         """Create or update a message."""
         with self.session() as session:
@@ -152,6 +153,7 @@ class Database:
                 message.body_text = body_text
                 message.body_html = body_html
                 message.imap_folder = imap_folder
+                message.has_attachments = has_attachments
             else:
                 message = Message(
                     id=message_id,
@@ -168,6 +170,7 @@ class Database:
                     body_text=body_text,
                     body_html=body_html,
                     imap_folder=imap_folder,
+                    has_attachments=has_attachments,
                 )
                 session.add(message)
             session.commit()

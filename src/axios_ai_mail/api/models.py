@@ -28,6 +28,7 @@ class MessageResponse(BaseModel):
     can_archive: bool = False
     confidence: Optional[float] = None  # Classification confidence 0.0-1.0
     classified_at: Optional[datetime] = None
+    has_attachments: bool = False
 
     class Config:
         from_attributes = True

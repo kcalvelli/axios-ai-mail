@@ -12,7 +12,7 @@ import {
   Checkbox,
   useTheme as useMuiTheme,
 } from '@mui/material';
-import { Mail, MailOutline } from '@mui/icons-material';
+import { Mail, MailOutline, AttachFile } from '@mui/icons-material';
 import { TagChip } from './TagChip';
 import { useAppStore } from '../store/appStore';
 import { useMarkRead } from '../hooks/useMessages';
@@ -114,9 +114,14 @@ export function MessageCard({ message, onClick }: MessageCardProps) {
               >
                 {message.from_email}
               </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {formatDate(message.date)}
-              </Typography>
+              <Box display="flex" alignItems="center" gap={0.5}>
+                {message.has_attachments && (
+                  <AttachFile fontSize="small" color="action" sx={{ fontSize: 16 }} />
+                )}
+                <Typography variant="caption" color="text.secondary">
+                  {formatDate(message.date)}
+                </Typography>
+              </Box>
             </Box>
 
             {/* Subject */}

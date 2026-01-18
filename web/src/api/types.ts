@@ -18,6 +18,7 @@ export interface Message {
   todo: boolean;
   can_archive: boolean;
   classified_at?: string | null; // ISO datetime string
+  has_attachments: boolean;
 }
 
 export interface MessagesListResponse {

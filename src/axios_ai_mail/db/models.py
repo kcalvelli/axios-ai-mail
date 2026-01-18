@@ -54,6 +54,7 @@ class Message(Base):
     imap_folder: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # Actual IMAP folder name (e.g., "INBOX.Sent")
     body_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     body_html: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    has_attachments: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     # Relationships
     account: Mapped["Account"] = relationship(back_populates="messages")

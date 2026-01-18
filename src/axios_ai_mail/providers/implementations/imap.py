@@ -793,6 +793,9 @@ class IMAPProvider(BaseEmailProvider):
         # Get body text and HTML
         body_text, body_html = self._extract_body(email_message)
 
+        # Check for attachments
+        has_attachments = self._check_for_attachments(email_message)
+
         # Extract snippet (first 200 chars)
         snippet = (body_text[:200] + "...") if len(body_text) > 200 else body_text
 
@@ -826,6 +829,7 @@ class IMAPProvider(BaseEmailProvider):
             is_unread=is_unread,
             folder=logical_folder,
             imap_folder=imap_folder,  # Store actual IMAP folder name
+            has_attachments=has_attachments,
         )
 
     def _decode_header(self, header: str) -> str:
@@ -959,6 +963,33 @@ class IMAPProvider(BaseEmailProvider):
             flags_part = match.group(1)
             return set(flags_part.split())
         return set()
+
+    def _check_for_attachments(self, email_message) -> bool:
+        """
+        Check if an email has attachments.
+
+        Args:
+            email_message: Parsed email.message object
+
+        Returns:
+            True if message has attachments, False otherwise
+        """
+        if not email_message.is_multipart():
+            return False
+
+        for part in email_message.walk():
+            # Skip multipart containers
+            if part.get_content_maintype() == "multipart":
+                continue
+
+            # Check for filename or attachment disposition
+            filename = part.get_filename()
+            disposition = str(part.get("Content-Disposition", ""))
+
+            if filename or "attachment" in disposition:
+                return True
+
+        return False
 
     def send_message(self, mime_message: bytes, thread_id: Optional[str] = None) -> str:
         """Send a message via SMTP and store in Sent folder.

@@ -43,7 +43,9 @@ class GmailProvider(BaseEmailProvider):
     """Gmail API provider implementation."""
 
     # Gmail API scopes
+    # Note: Full mail access is required for permanent deletion
     SCOPES = [
+        "https://mail.google.com/",  # Full access (required for permanent delete)
         "https://www.googleapis.com/auth/gmail.modify",
         "https://www.googleapis.com/auth/gmail.send",
         "https://www.googleapis.com/auth/gmail.readonly",
@@ -179,9 +181,11 @@ class GmailProvider(BaseEmailProvider):
         body_text = None
         body_html = None
 
+        has_attachments = False
+
         def extract_body_parts(payload):
             """Recursively extract body text and HTML from payload."""
-            nonlocal body_text, body_html
+            nonlocal body_text, body_html, has_attachments
 
             mime_type = payload.get("mimeType", "")
 
@@ -192,11 +196,13 @@ class GmailProvider(BaseEmailProvider):
             else:
                 # This is a leaf part - check if it's body content
                 body_data = payload.get("body", {}).get("data", "")
-                if body_data:
-                    # Skip attachments (they have filename)
-                    if payload.get("filename"):
-                        return
 
+                # Check for attachments (parts with filename or attachmentId)
+                if payload.get("filename") or payload.get("body", {}).get("attachmentId"):
+                    has_attachments = True
+                    return
+
+                if body_data:
                     try:
                         decoded = base64.urlsafe_b64decode(body_data).decode("utf-8")
                         if mime_type == "text/plain" and not body_text:
@@ -249,6 +255,7 @@ class GmailProvider(BaseEmailProvider):
             labels=labels,
             is_unread="UNREAD" in label_ids,
             folder=folder,
+            has_attachments=has_attachments,
         )
 
     def update_labels(

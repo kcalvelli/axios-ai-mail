@@ -69,10 +69,13 @@ export function MessageDetailPage() {
     }
   }, [message?.id]); // Only run when message ID changes
 
-  // Fetch attachments when message loads
+  // Fetch attachments when message loads (only if message has attachments)
   useEffect(() => {
     const fetchAttachments = async () => {
-      if (!id) return;
+      if (!id || !message?.has_attachments) {
+        setAttachments([]);
+        return;
+      }
       setAttachmentsLoading(true);
       try {
         const response = await axios.get(`/api/attachments/messages/${id}/attachments`);
@@ -85,7 +88,7 @@ export function MessageDetailPage() {
       }
     };
     fetchAttachments();
-  }, [id]);
+  }, [id, message?.has_attachments]);
 
   // Format file size
   const formatFileSize = (bytes: number): string => {

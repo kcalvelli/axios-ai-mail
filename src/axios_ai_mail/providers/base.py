@@ -23,6 +23,7 @@ class Message:
     is_unread: bool = True
     folder: str = "inbox"
     imap_folder: Optional[str] = None  # Actual IMAP folder name (e.g., "INBOX.Sent")
+    has_attachments: bool = False
 
     def __post_init__(self) -> None:
         """Ensure labels is a set."""
