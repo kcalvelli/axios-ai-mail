@@ -113,7 +113,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
     <Box
       sx={{
         overflow: 'auto',
-        p: 2,
+        p: 1,
         // Hide scrollbar while keeping scroll functionality
         scrollbarWidth: 'none', // Firefox
         '&::-webkit-scrollbar': { display: 'none' }, // Chrome/Safari
