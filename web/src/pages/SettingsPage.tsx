@@ -174,7 +174,7 @@ function AIConfigPanel() {
               </TableCell>
             </TableRow>
             <TableRow>
-              <TableCell>Smart Tagging</TableCell>
+              <TableCell>Auto Classification</TableCell>
               <TableCell>
                 <Chip label="Enabled" color="success" size="small" />
               </TableCell>
@@ -344,13 +344,13 @@ function TagTaxonomyPanel() {
           Custom Tags
         </Typography>
         <Typography variant="body2" color="text.secondary" paragraph>
-          The AI can also generate custom tags based on email content. Custom
-          tags are created dynamically during classification.
+          Configure your tags in your NixOS/home-manager configuration. The AI
+          uses these tags to classify incoming emails automatically.
         </Typography>
-        <Alert severity="success">
+        <Alert severity="info">
           <Typography variant="body2">
-            <strong>Smart Tagging:</strong> The AI learns from your email
-            patterns and can suggest new tags automatically.
+            <strong>AI Classification:</strong> Emails are classified using the
+            configured tags above. Run a sync to classify new messages.
           </Typography>
         </Alert>
       </Box>
