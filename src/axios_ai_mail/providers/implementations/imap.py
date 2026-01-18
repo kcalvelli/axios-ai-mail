@@ -780,12 +780,15 @@ class IMAPProvider(BaseEmailProvider):
         to_header = email_message.get("To", "")
         to_emails = [addr.strip() for addr in to_header.split(",")]
 
-        # Get date
+        # Get date - convert to local time for correct display
+        # (JS interprets naive datetime strings as local time)
         date_str = email_message.get("Date", "")
         try:
             date = email.utils.parsedate_to_datetime(date_str)
+            # Convert to local time and make naive for storage
+            date = date.astimezone().replace(tzinfo=None)
         except Exception:
-            date = datetime.utcnow()
+            date = datetime.now()
 
         # Get body text and HTML
         body_text, body_html = self._extract_body(email_message)

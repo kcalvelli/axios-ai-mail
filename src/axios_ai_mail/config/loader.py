@@ -61,10 +61,12 @@ class ConfigLoader:
 
         for account_id, account_config in config_accounts.items():
             try:
-                # Merge credential_file into settings
+                # Merge credential_file and real_name into settings
                 settings = account_config.get("settings", {}).copy()
                 if "credential_file" in account_config:
                     settings["credential_file"] = account_config["credential_file"]
+                if "real_name" in account_config:
+                    settings["real_name"] = account_config["real_name"]
 
                 db.create_or_update_account(
                     account_id=account_id,

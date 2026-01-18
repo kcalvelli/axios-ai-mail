@@ -6,7 +6,6 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
-  Container,
   List,
   ListItem,
   ListItemButton,
@@ -99,8 +98,8 @@ export default function DraftsPage() {
   }
 
   return (
-    <Container maxWidth="md" sx={{ py: 4 }}>
-      <Typography variant="h5" sx={{ mb: 3 }}>
+    <Box>
+      <Typography variant="h4" gutterBottom>
         Drafts
       </Typography>
 
@@ -165,6 +164,6 @@ export default function DraftsPage() {
           </List>
         </Paper>
       )}
-    </Container>
+    </Box>
   );
 }

@@ -1,8 +1,9 @@
 """Gmail API provider implementation."""
 
+import email.utils
 import logging
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Set
 
 from google.auth.transport.requests import Request
@@ -215,8 +216,17 @@ class GmailProvider(BaseEmailProvider):
             folder = "spam"
         # INBOX is default
 
-        # Parse date
-        date = datetime.fromtimestamp(int(msg_detail["internalDate"]) / 1000)
+        # Parse date from email Date header
+        # Convert to local time and store as naive datetime for correct display
+        # (JS interprets naive datetime strings as local time)
+        date_str = headers.get("Date", "")
+        try:
+            date = email.utils.parsedate_to_datetime(date_str)
+            # Convert to local time and make naive for storage
+            date = date.astimezone().replace(tzinfo=None)
+        except Exception:
+            # Fallback to internalDate if Date header parsing fails
+            date = datetime.fromtimestamp(int(msg_detail["internalDate"]) / 1000)
 
         return Message(
             id=msg_detail["id"],
