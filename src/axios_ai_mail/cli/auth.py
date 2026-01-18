@@ -195,9 +195,75 @@ def setup_gmail_command(
 ) -> None:
     """Set up Gmail OAuth2 authentication (legacy command).
 
-    Use 'axios-ai-mail auth setup' for the recommended workflow.
+    Use 'axios-ai-mail auth gmail' for the recommended workflow.
     """
     setup_gmail_oauth_legacy(email, output)
+
+
+@auth_app.command("gmail")
+def gmail_auth_command(
+    credentials: Path = typer.Argument(..., help="Path to credentials.json downloaded from Google Cloud Console"),
+    output: Path = typer.Option(..., "--output", "-o", help="Output file for OAuth token"),
+) -> None:
+    """Set up Gmail OAuth2 using downloaded credentials.json file.
+
+    Steps:
+    1. Go to https://console.cloud.google.com/apis/credentials
+    2. Create OAuth 2.0 Client ID (Desktop app type)
+    3. Download the JSON file
+    4. Run: axios-ai-mail auth gmail /path/to/credentials.json -o /tmp/token.json
+    """
+    from google_auth_oauthlib.flow import InstalledAppFlow
+
+    SCOPES = [
+        "https://www.googleapis.com/auth/gmail.modify",
+        "https://www.googleapis.com/auth/gmail.send",
+        "https://www.googleapis.com/auth/gmail.readonly",
+    ]
+
+    if not credentials.exists():
+        console.print(f"[red]Credentials file not found: {credentials}[/red]")
+        raise typer.Exit(1)
+
+    console.print(Panel(
+        "Gmail OAuth2 Setup\n\n"
+        "This will open a browser for you to authorize access.\n"
+        "Make sure you're signed into the correct Google account.",
+        title="Gmail Authentication"
+    ))
+
+    try:
+        # Use Google's official InstalledAppFlow
+        flow = InstalledAppFlow.from_client_secrets_file(str(credentials), SCOPES)
+
+        # Run local server for OAuth callback
+        creds = flow.run_local_server(port=8080)
+
+        # Build token data in our expected format
+        token_data = {
+            "token": creds.token,
+            "refresh_token": creds.refresh_token,
+            "token_uri": creds.token_uri,
+            "client_id": creds.client_id,
+            "client_secret": creds.client_secret,
+            "scopes": list(creds.scopes),
+        }
+
+        # Write to output file
+        output.parent.mkdir(parents=True, exist_ok=True)
+        with open(output, "w") as f:
+            json.dump(token_data, f, indent=2)
+
+        console.print(f"\n[green]✓ Authentication successful![/green]")
+        console.print(f"Token saved to: [cyan]{output}[/cyan]")
+        console.print(f"\nNext steps:")
+        console.print(f"1. Encrypt with agenix: [cyan]agenix -e secrets/gmail-token.age[/cyan]")
+        console.print(f"2. Paste contents of {output}")
+        console.print(f"3. Rebuild: [cyan]sudo nixos-rebuild switch --flake .[/cyan]")
+
+    except Exception as e:
+        console.print(f"[red]Authentication failed: {e}[/red]")
+        raise typer.Exit(1)
 
 
 def setup_gmail_oauth(email: str, account_id: Optional[str] = None) -> None:
