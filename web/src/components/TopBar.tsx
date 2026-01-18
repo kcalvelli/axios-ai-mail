@@ -12,6 +12,7 @@ import {
   CircularProgress,
   Tooltip,
   Button,
+  useTheme,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -31,6 +32,7 @@ interface TopBarProps {
 
 export function TopBar({ onMenuClick }: TopBarProps) {
   const navigate = useNavigate();
+  const theme = useTheme();
   const { searchQuery, setSearchQuery, syncStatus } = useAppStore();
   const [searchOpen, setSearchOpen] = useState(false);
   const triggerSync = useTriggerSync();
@@ -45,9 +47,21 @@ export function TopBar({ onMenuClick }: TopBarProps) {
   };
 
   const isSyncing = syncStatus === 'syncing' || syncStatusData?.is_syncing;
+  const isDark = theme.palette.mode === 'dark';
 
   return (
-    <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
+    <AppBar
+      position="fixed"
+      elevation={0}
+      sx={{
+        zIndex: (theme) => theme.zIndex.drawer + 1,
+        backgroundColor: isDark ? '#000000' : '#ffffff',
+        color: isDark ? '#ffffff' : theme.palette.primary.main,
+        borderBottom: isDark
+          ? '1px solid rgba(255, 255, 255, 0.1)'
+          : '1px solid rgba(0, 0, 0, 0.12)',
+      }}
+    >
       <Toolbar>
         <IconButton
           color="inherit"
@@ -113,19 +127,19 @@ export function TopBar({ onMenuClick }: TopBarProps) {
               autoFocus
               sx={{
                 '& .MuiOutlinedInput-root': {
-                  color: 'white',
+                  color: isDark ? 'white' : theme.palette.text.primary,
                   '& fieldset': {
-                    borderColor: 'rgba(255, 255, 255, 0.3)',
+                    borderColor: isDark ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.23)',
                   },
                   '&:hover fieldset': {
-                    borderColor: 'rgba(255, 255, 255, 0.5)',
+                    borderColor: isDark ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.5)',
                   },
                   '&.Mui-focused fieldset': {
-                    borderColor: 'white',
+                    borderColor: isDark ? 'white' : theme.palette.primary.main,
                   },
                 },
                 '& .MuiInputBase-input::placeholder': {
-                  color: 'rgba(255, 255, 255, 0.7)',
+                  color: isDark ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.5)',
                 },
               }}
             />
