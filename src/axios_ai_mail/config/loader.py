@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from ..db.database import Database
+from .tags import DEFAULT_TAGS, merge_tags, get_tag_color, CATEGORY_COLORS
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +72,8 @@ class ConfigLoader:
         """
         Get custom tags from config for AI classification.
 
+        DEPRECATED: Use get_merged_tags() instead for the full tag list.
+
         Args:
             config: Configuration dict, or None to load from default path
 
@@ -95,6 +98,137 @@ class ConfigLoader:
                 logger.warning(f"Invalid tag config (missing name/description): {tag}")
 
         return validated_tags if validated_tags else None
+
+    @classmethod
+    def get_merged_tags(cls, config: Optional[Dict] = None) -> List[Dict[str, str]]:
+        """
+        Get the merged tag taxonomy based on configuration.
+
+        Combines default tags (if enabled) with custom tags, minus exclusions.
+
+        Args:
+            config: Configuration dict, or None to load from default path
+
+        Returns:
+            List of tag dicts with 'name', 'description', and 'category'
+        """
+        if config is None:
+            config = cls.load_config()
+
+        ai_config = config.get("ai", {})
+
+        # Check if defaults should be used (default: True for new behavior)
+        use_defaults = ai_config.get("useDefaultTags", True)
+
+        # Get custom tags
+        custom_tags = ai_config.get("tags", [])
+
+        # Get exclusion list
+        exclude_tags = ai_config.get("excludeTags", [])
+
+        # Merge tags
+        merged = merge_tags(
+            use_defaults=use_defaults,
+            custom_tags=custom_tags,
+            exclude_tags=exclude_tags,
+        )
+
+        logger.debug(
+            f"Merged tags: {len(merged)} total "
+            f"(defaults={'yes' if use_defaults else 'no'}, "
+            f"custom={len(custom_tags)}, excluded={len(exclude_tags)})"
+        )
+
+        return merged
+
+    @classmethod
+    def get_label_colors(cls, config: Optional[Dict] = None) -> Dict[str, str]:
+        """
+        Get label color mappings for all tags.
+
+        Combines category-based defaults with explicit overrides.
+
+        Args:
+            config: Configuration dict, or None to load from default path
+
+        Returns:
+            Dict mapping tag name to color string
+        """
+        if config is None:
+            config = cls.load_config()
+
+        ai_config = config.get("ai", {})
+        overrides = ai_config.get("labelColors", {})
+
+        # Get all merged tags
+        tags = cls.get_merged_tags(config)
+
+        # Build color mapping
+        colors = {}
+        for tag in tags:
+            colors[tag["name"]] = get_tag_color(
+                tag["name"],
+                tag.get("category"),
+                overrides,
+            )
+
+        return colors
+
+    @classmethod
+    def get_label_prefix(cls, config: Optional[Dict] = None) -> str:
+        """
+        Get the label prefix for AI-generated labels.
+
+        Args:
+            config: Configuration dict, or None to load from default path
+
+        Returns:
+            Label prefix string (default: "AI")
+        """
+        if config is None:
+            config = cls.load_config()
+
+        ai_config = config.get("ai", {})
+        return ai_config.get("labelPrefix", "AI")
+
+    @classmethod
+    def get_sync_config(cls, config: Optional[Dict] = None, account_id: Optional[str] = None) -> Dict:
+        """
+        Get sync configuration, with optional per-account override.
+
+        Args:
+            config: Configuration dict, or None to load from default path
+            account_id: Account ID to check for overrides
+
+        Returns:
+            Sync configuration dict with frequency, maxMessagesPerSync, enableWebhooks
+        """
+        if config is None:
+            config = cls.load_config()
+
+        # Global defaults
+        global_sync = config.get("sync", {})
+        result = {
+            "frequency": global_sync.get("frequency", "5m"),
+            "maxMessagesPerSync": global_sync.get("maxMessagesPerSync", 100),
+            "enableWebhooks": global_sync.get("enableWebhooks", False),
+        }
+
+        # Check for per-account override
+        if account_id:
+            accounts = config.get("accounts", {})
+            account_config = accounts.get(account_id, {})
+            account_sync = account_config.get("sync", {})
+
+            # Override with account-specific settings
+            if "frequency" in account_sync:
+                result["frequency"] = account_sync["frequency"]
+            if "maxMessagesPerSync" in account_sync:
+                result["maxMessagesPerSync"] = account_sync["maxMessagesPerSync"]
+            if "enableWebhooks" in account_sync:
+                result["enableWebhooks"] = account_sync["enableWebhooks"]
+
+        return result
 
     @classmethod
     def clear_cache(cls) -> None:

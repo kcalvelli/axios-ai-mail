@@ -788,6 +788,147 @@ class Database:
 
             return attachments
 
+    # Maintenance operations
+
+    def get_message_count(self, account_id: Optional[str] = None) -> int:
+        """Get total message count.
+
+        Args:
+            account_id: Optional account ID filter
+
+        Returns:
+            Total message count
+        """
+        from sqlalchemy import func
+
+        with self.session() as session:
+            query = select(func.count(Message.id))
+            if account_id:
+                query = query.where(Message.account_id == account_id)
+            result = session.execute(query).scalar()
+            return result or 0
+
+    def get_unclassified_messages(self, limit: int = 10000) -> List[Message]:
+        """Get messages without classification.
+
+        Args:
+            limit: Maximum number of messages to return
+
+        Returns:
+            List of unclassified messages
+        """
+        from sqlalchemy import not_, exists
+
+        with self.session() as session:
+            # Find messages that don't have a classification
+            subquery = select(Classification.message_id).where(
+                Classification.message_id == Message.id
+            ).exists()
+
+            query = (
+                select(Message)
+                .where(not_(subquery))
+                .order_by(Message.date.desc())
+                .limit(limit)
+            )
+
+            return list(session.execute(query).scalars().all())
+
+    def list_messages(self, limit: int = 10000) -> List[Message]:
+        """List all messages up to limit.
+
+        Args:
+            limit: Maximum number of messages to return
+
+        Returns:
+            List of messages ordered by date descending
+        """
+        with self.session() as session:
+            query = (
+                select(Message)
+                .order_by(Message.date.desc())
+                .limit(limit)
+            )
+            return list(session.execute(query).scalars().all())
+
+    def update_message_tags(
+        self,
+        message_id: str,
+        tags: List[str],
+        confidence: Optional[float] = None,
+        user_edited: bool = False,
+    ) -> Optional[Classification]:
+        """Update tags for a message classification.
+
+        Args:
+            message_id: Message ID
+            tags: New list of tags
+            confidence: Optional confidence score
+            user_edited: Whether this is a user edit (stores feedback if True)
+
+        Returns:
+            Updated classification or None if message not found
+        """
+        with self.session() as session:
+            classification = session.get(Classification, message_id)
+            if classification:
+                old_tags = classification.tags.copy() if classification.tags else []
+
+                classification.tags = tags
+                if confidence is not None:
+                    classification.confidence = confidence
+                classification.classified_at = datetime.utcnow()
+
+                # Store feedback if this is a user edit with changed tags
+                if user_edited and old_tags != tags:
+                    feedback = Feedback(
+                        message_id=message_id,
+                        original_tags=old_tags,
+                        corrected_tags=tags,
+                    )
+                    session.add(feedback)
+
+                session.commit()
+                session.refresh(classification)
+                return classification
+            return None
+
+    def has_user_feedback(self, message_id: str) -> bool:
+        """Check if a message has user feedback (indicating user-edited tags).
+
+        Args:
+            message_id: Message ID to check
+
+        Returns:
+            True if the message has feedback entries
+        """
+        with self.session() as session:
+            result = session.query(Feedback).filter(
+                Feedback.message_id == message_id
+            ).first()
+            return result is not None
+
+    def refresh_tag_stats(self) -> Dict[str, int]:
+        """Recalculate tag statistics.
+
+        Returns:
+            Dictionary of tag names to counts
+        """
+        from sqlalchemy import func
+
+        with self.session() as session:
+            # Get all classifications with their tags
+            classifications = session.execute(select(Classification)).scalars().all()
+
+            # Count tags
+            tag_counts: Dict[str, int] = {}
+            for classification in classifications:
+                for tag in classification.tags:
+                    tag_counts[tag] = tag_counts.get(tag, 0) + 1
+
+            logger.info(f"Refreshed tag stats: {len(tag_counts)} unique tags")
+            return tag_counts
+
     # Utility methods
 
     def close(self) -> None:

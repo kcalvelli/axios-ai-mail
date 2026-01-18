@@ -2,6 +2,7 @@
  * SettingsPage - Configuration and settings management
  */
 
+import { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -20,9 +21,32 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  Card,
+  CardContent,
+  CardActions,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  LinearProgress,
+  FormControlLabel,
+  Checkbox,
+  CircularProgress,
 } from '@mui/material';
-import { SmartToy, Sync, Label } from '@mui/icons-material';
-import { useState } from 'react';
+import {
+  SmartToy,
+  Sync,
+  Label,
+  Build,
+  Refresh,
+  PlayArrow,
+  Stop,
+  CheckCircle,
+  Error as ErrorIcon,
+} from '@mui/icons-material';
+import axios from 'axios';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -56,6 +80,7 @@ export function SettingsPage() {
           <Tab icon={<SmartToy />} label="AI Configuration" />
           <Tab icon={<Sync />} label="Sync Settings" />
           <Tab icon={<Label />} label="Tag Taxonomy" />
+          <Tab icon={<Build />} label="Maintenance" />
         </Tabs>
 
         <TabPanel value={activeTab} index={0}>
@@ -68,6 +93,10 @@ export function SettingsPage() {
 
         <TabPanel value={activeTab} index={2}>
           <TagTaxonomyPanel />
+        </TabPanel>
+
+        <TabPanel value={activeTab} index={3}>
+          <MaintenancePanel />
         </TabPanel>
       </Paper>
     </Box>
@@ -270,45 +299,79 @@ function SyncSettingsPanel() {
   );
 }
 
+interface TagConfig {
+  tags: Array<{
+    name: string;
+    description: string;
+    category?: string;
+    source: 'default' | 'custom' | 'unknown';
+  }>;
+  use_default_tags: boolean;
+  excluded_tags: string[];
+  total_count: number;
+  default_count: number;
+  custom_count: number;
+}
+
+const CATEGORY_COLORS: Record<string, 'error' | 'primary' | 'secondary' | 'success' | 'info' | 'warning' | 'default'> = {
+  priority: 'error',
+  work: 'primary',
+  personal: 'secondary',
+  finance: 'success',
+  shopping: 'warning',
+  travel: 'info',
+  developer: 'info',
+  marketing: 'warning',
+  social: 'default',
+  system: 'default',
+};
+
 function TagTaxonomyPanel() {
-  // Default tag taxonomy from the codebase
-  const tagGroups = [
-    {
-      name: 'Priority',
-      tags: ['urgent', 'important', 'review'],
-      color: 'error',
-    },
-    {
-      name: 'Work',
-      tags: ['work', 'project', 'meeting', 'deadline'],
-      color: 'primary',
-    },
-    {
-      name: 'Personal',
-      tags: ['personal', 'family', 'friends', 'hobby'],
-      color: 'secondary',
-    },
-    {
-      name: 'Finance',
-      tags: ['finance', 'invoice', 'payment', 'expense'],
-      color: 'success',
-    },
-    {
-      name: 'Travel',
-      tags: ['travel', 'booking', 'itinerary', 'flight'],
-      color: 'info',
-    },
-    {
-      name: 'Marketing',
-      tags: ['marketing', 'newsletter', 'promotion', 'announcement'],
-      color: 'warning',
-    },
-    {
-      name: 'Social',
-      tags: ['social', 'notification', 'update', 'reminder'],
-      color: 'default',
-    },
-  ];
+  const [tagConfig, setTagConfig] = useState<TagConfig | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchTagConfig = async () => {
+      try {
+        setLoading(true);
+        const response = await axios.get('/api/maintenance/tag-config');
+        setTagConfig(response.data);
+        setError(null);
+      } catch (err) {
+        console.error('Failed to fetch tag config:', err);
+        setError('Failed to load tag configuration');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTagConfig();
+  }, []);
+
+  // Group tags by category
+  const groupedTags = tagConfig?.tags.reduce((acc, tag) => {
+    const category = tag.category || 'other';
+    if (!acc[category]) {
+      acc[category] = [];
+    }
+    acc[category].push(tag);
+    return acc;
+  }, {} as Record<string, typeof tagConfig.tags>) || {};
+
+  // Sort categories in a specific order
+  const categoryOrder = ['priority', 'work', 'personal', 'finance', 'shopping', 'travel', 'developer', 'marketing', 'social', 'system', 'other'];
+  const sortedCategories = Object.keys(groupedTags).sort(
+    (a, b) => categoryOrder.indexOf(a) - categoryOrder.indexOf(b)
+  );
+
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" p={4}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <Box>
@@ -317,25 +380,88 @@ function TagTaxonomyPanel() {
         classification. Configured in Nix.
       </Alert>
 
-      <Stack spacing={3}>
-        {tagGroups.map((group) => (
-          <Box key={group.name}>
-            <Typography variant="h6" gutterBottom>
-              {group.name}
-            </Typography>
-            <Stack direction="row" spacing={1} flexWrap="wrap" gap={1}>
-              {group.tags.map((tag) => (
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+      )}
+
+      {tagConfig && (
+        <>
+          {/* Config Status */}
+          <Paper sx={{ p: 2, mb: 3 }}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={4}>
+                <Typography variant="body2" color="text.secondary">
+                  Use Default Tags
+                </Typography>
                 <Chip
-                  key={tag}
-                  label={tag}
-                  color={group.color as any}
-                  variant="outlined"
+                  label={tagConfig.use_default_tags ? 'Enabled' : 'Disabled'}
+                  color={tagConfig.use_default_tags ? 'success' : 'default'}
+                  size="small"
                 />
-              ))}
-            </Stack>
-          </Box>
-        ))}
-      </Stack>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <Typography variant="body2" color="text.secondary">
+                  Total Tags
+                </Typography>
+                <Typography variant="h6">{tagConfig.total_count}</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {tagConfig.default_count} default, {tagConfig.custom_count} custom
+                </Typography>
+              </Grid>
+              {tagConfig.excluded_tags.length > 0 && (
+                <Grid item xs={12} md={4}>
+                  <Typography variant="body2" color="text.secondary">
+                    Excluded Tags
+                  </Typography>
+                  <Typography variant="body2">
+                    {tagConfig.excluded_tags.join(', ')}
+                  </Typography>
+                </Grid>
+              )}
+            </Grid>
+          </Paper>
+
+          {/* Tags by Category */}
+          <Stack spacing={3}>
+            {sortedCategories.map((category) => (
+              <Box key={category}>
+                <Typography variant="h6" gutterBottom sx={{ textTransform: 'capitalize' }}>
+                  {category}
+                </Typography>
+                <Stack direction="row" spacing={1} flexWrap="wrap" gap={1}>
+                  {groupedTags[category].map((tag) => (
+                    <Box key={tag.name} position="relative">
+                      <Chip
+                        label={
+                          <Box display="flex" alignItems="center" gap={0.5}>
+                            {tag.name}
+                            {tag.source === 'custom' && (
+                              <Chip
+                                label="Custom"
+                                size="small"
+                                sx={{
+                                  height: 16,
+                                  fontSize: '0.6rem',
+                                  ml: 0.5,
+                                }}
+                              />
+                            )}
+                          </Box>
+                        }
+                        color={CATEGORY_COLORS[category] || 'default'}
+                        variant={tag.source === 'custom' ? 'filled' : 'outlined'}
+                        title={tag.description}
+                      />
+                    </Box>
+                  ))}
+                </Stack>
+              </Box>
+            ))}
+          </Stack>
+        </>
+      )}
 
       <Divider sx={{ my: 3 }} />
 
@@ -354,6 +480,316 @@ function TagTaxonomyPanel() {
           </Typography>
         </Alert>
       </Box>
+    </Box>
+  );
+}
+
+interface JobStatus {
+  job_id: string;
+  operation: string;
+  status: 'pending' | 'running' | 'completed' | 'cancelled' | 'failed';
+  progress: number;
+  total: number;
+  errors: string[];
+  error_count: number;
+  started_at: string | null;
+  completed_at: string | null;
+}
+
+function MaintenancePanel() {
+  const [activeJob, setActiveJob] = useState<JobStatus | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    operation: 'reclassify-all' | 'reclassify-unclassified' | null;
+    overrideUserEdits: boolean;
+  }>({ open: false, operation: null, overrideUserEdits: false });
+  const [refreshingStats, setRefreshingStats] = useState(false);
+  const [lastResult, setLastResult] = useState<{
+    operation: string;
+    status: string;
+    timestamp: Date;
+    errors: number;
+  } | null>(null);
+
+  // Poll for job status when there's an active job
+  useEffect(() => {
+    if (!activeJob || ['completed', 'cancelled', 'failed'].includes(activeJob.status)) {
+      return;
+    }
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await axios.get(`/api/maintenance/jobs/${activeJob.job_id}`);
+        const job = response.data as JobStatus;
+        setActiveJob(job);
+
+        if (['completed', 'cancelled', 'failed'].includes(job.status)) {
+          setLastResult({
+            operation: job.operation,
+            status: job.status,
+            timestamp: new Date(),
+            errors: job.error_count,
+          });
+        }
+      } catch (err) {
+        console.error('Failed to poll job status:', err);
+      }
+    }, 1000);
+
+    return () => clearInterval(pollInterval);
+  }, [activeJob]);
+
+  const startReclassifyAll = async (overrideUserEdits: boolean) => {
+    try {
+      const response = await axios.post('/api/maintenance/reclassify-all', {
+        override_user_edits: overrideUserEdits,
+      });
+      setActiveJob(response.data);
+      setConfirmDialog({ open: false, operation: null, overrideUserEdits: false });
+    } catch (err) {
+      console.error('Failed to start reclassify all:', err);
+    }
+  };
+
+  const startReclassifyUnclassified = async () => {
+    try {
+      const response = await axios.post('/api/maintenance/reclassify-unclassified');
+      setActiveJob(response.data);
+      setConfirmDialog({ open: false, operation: null, overrideUserEdits: false });
+    } catch (err) {
+      console.error('Failed to start reclassify unclassified:', err);
+    }
+  };
+
+  const cancelJob = async () => {
+    if (!activeJob) return;
+    try {
+      await axios.post(`/api/maintenance/jobs/${activeJob.job_id}/cancel`);
+    } catch (err) {
+      console.error('Failed to cancel job:', err);
+    }
+  };
+
+  const refreshStats = async () => {
+    setRefreshingStats(true);
+    try {
+      await axios.post('/api/maintenance/refresh-stats');
+      setLastResult({
+        operation: 'refresh-stats',
+        status: 'completed',
+        timestamp: new Date(),
+        errors: 0,
+      });
+    } catch (err) {
+      console.error('Failed to refresh stats:', err);
+      setLastResult({
+        operation: 'refresh-stats',
+        status: 'failed',
+        timestamp: new Date(),
+        errors: 1,
+      });
+    } finally {
+      setRefreshingStats(false);
+    }
+  };
+
+  const isJobRunning = activeJob && ['pending', 'running'].includes(activeJob.status);
+  const progressPercent = activeJob && activeJob.total > 0
+    ? Math.round((activeJob.progress / activeJob.total) * 100)
+    : 0;
+
+  return (
+    <Box>
+      <Alert severity="info" sx={{ mb: 3 }}>
+        Maintenance operations help keep your email database and classifications
+        up to date. Use these tools to reclassify messages or refresh statistics.
+      </Alert>
+
+      {/* Active Job Progress */}
+      {isJobRunning && activeJob && (
+        <Paper sx={{ p: 2, mb: 3 }}>
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+            <Typography variant="h6">
+              {activeJob.operation === 'reclassify-all'
+                ? 'Reclassifying All Messages'
+                : 'Reclassifying Unclassified Messages'}
+            </Typography>
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<Stop />}
+              onClick={cancelJob}
+              size="small"
+            >
+              Cancel
+            </Button>
+          </Box>
+          <LinearProgress variant="determinate" value={progressPercent} sx={{ mb: 1 }} />
+          <Typography variant="body2" color="text.secondary">
+            Progress: {activeJob.progress} / {activeJob.total} ({progressPercent}%)
+            {activeJob.error_count > 0 && (
+              <span style={{ color: 'red', marginLeft: 8 }}>
+                {activeJob.error_count} error(s)
+              </span>
+            )}
+          </Typography>
+        </Paper>
+      )}
+
+      {/* Last Operation Result */}
+      {lastResult && !isJobRunning && (
+        <Alert
+          severity={lastResult.status === 'completed' ? 'success' : lastResult.status === 'cancelled' ? 'warning' : 'error'}
+          icon={lastResult.status === 'completed' ? <CheckCircle /> : <ErrorIcon />}
+          sx={{ mb: 3 }}
+          onClose={() => setLastResult(null)}
+        >
+          <Typography variant="body2">
+            <strong>{lastResult.operation}</strong>: {lastResult.status}
+            {lastResult.errors > 0 && ` with ${lastResult.errors} error(s)`}
+            {' '}at {lastResult.timestamp.toLocaleTimeString()}
+          </Typography>
+        </Alert>
+      )}
+
+      <Grid container spacing={3}>
+        {/* Reclassify All Messages */}
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Reclassify All Messages
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Re-run AI classification on all messages in your database.
+                Useful when you've updated your tag taxonomy or want to
+                re-evaluate classifications with the current AI model.
+              </Typography>
+            </CardContent>
+            <CardActions>
+              <Button
+                startIcon={<Refresh />}
+                variant="contained"
+                onClick={() => setConfirmDialog({
+                  open: true,
+                  operation: 'reclassify-all',
+                  overrideUserEdits: false,
+                })}
+                disabled={!!isJobRunning}
+              >
+                Reclassify All
+              </Button>
+            </CardActions>
+          </Card>
+        </Grid>
+
+        {/* Reclassify Unclassified */}
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Reclassify Unclassified
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Run AI classification only on messages that haven't been
+                classified yet. Faster than reclassifying all messages.
+              </Typography>
+            </CardContent>
+            <CardActions>
+              <Button
+                startIcon={<PlayArrow />}
+                variant="contained"
+                onClick={() => setConfirmDialog({
+                  open: true,
+                  operation: 'reclassify-unclassified',
+                  overrideUserEdits: false,
+                })}
+                disabled={!!isJobRunning}
+              >
+                Classify Unclassified
+              </Button>
+            </CardActions>
+          </Card>
+        </Grid>
+
+        {/* Refresh Statistics */}
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Refresh Statistics
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Recalculate tag counts and statistics. Use this if the
+                sidebar tag counts appear incorrect or out of sync.
+              </Typography>
+            </CardContent>
+            <CardActions>
+              <Button
+                startIcon={refreshingStats ? <CircularProgress size={20} /> : <Sync />}
+                variant="outlined"
+                onClick={refreshStats}
+                disabled={refreshingStats || !!isJobRunning}
+              >
+                {refreshingStats ? 'Refreshing...' : 'Refresh Stats'}
+              </Button>
+            </CardActions>
+          </Card>
+        </Grid>
+      </Grid>
+
+      {/* Confirmation Dialog */}
+      <Dialog
+        open={confirmDialog.open}
+        onClose={() => setConfirmDialog({ open: false, operation: null, overrideUserEdits: false })}
+      >
+        <DialogTitle>
+          {confirmDialog.operation === 'reclassify-all'
+            ? 'Reclassify All Messages?'
+            : 'Classify Unclassified Messages?'}
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {confirmDialog.operation === 'reclassify-all'
+              ? 'This will re-run AI classification on all messages. This may take a while depending on the number of messages.'
+              : 'This will run AI classification on messages that have not been classified yet.'}
+          </DialogContentText>
+          {confirmDialog.operation === 'reclassify-all' && (
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={confirmDialog.overrideUserEdits}
+                  onChange={(e) => setConfirmDialog({
+                    ...confirmDialog,
+                    overrideUserEdits: e.target.checked,
+                  })}
+                />
+              }
+              label="Override user-edited tags (will replace manual corrections)"
+              sx={{ mt: 2 }}
+            />
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setConfirmDialog({ open: false, operation: null, overrideUserEdits: false })}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              if (confirmDialog.operation === 'reclassify-all') {
+                startReclassifyAll(confirmDialog.overrideUserEdits);
+              } else {
+                startReclassifyUnclassified();
+              }
+            }}
+          >
+            Start
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

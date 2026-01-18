@@ -197,7 +197,18 @@ let
       model = cfg.ai.model;
       endpoint = cfg.ai.endpoint;
       temperature = cfg.ai.temperature;
+      useDefaultTags = cfg.ai.useDefaultTags;
       tags = cfg.ai.tags;
+      excludeTags = cfg.ai.excludeTags;
+      labelPrefix = cfg.ai.labelPrefix;
+      labelColors = cfg.ai.labelColors;
+    };
+
+    # Global sync config
+    sync = {
+      frequency = cfg.sync.frequency;
+      maxMessagesPerSync = cfg.sync.maxMessagesPerSync;
+      enableWebhooks = cfg.sync.enableWebhooks;
     };
 
     ui = {
@@ -349,6 +360,17 @@ in {
         description = "LLM temperature (0.0-1.0, lower = more deterministic).";
       };
 
+      useDefaultTags = mkOption {
+        type = types.bool;
+        default = true;
+        description = ''
+          Use the expanded default tag taxonomy (35 tags covering Priority, Work,
+          Personal, Finance, Shopping, Travel, Developer, Marketing, Social, System).
+          Custom tags in 'tags' will be appended to defaults.
+          Set to false to use only custom tags.
+        '';
+      };
+
       tags = mkOption {
         type = types.listOf (types.submodule {
           options = {
@@ -365,19 +387,77 @@ in {
             };
           };
         });
-        default = [
-          { name = "work"; description = "Work-related emails from colleagues, managers, or work tools"; }
-          { name = "personal"; description = "Personal correspondence from friends and family"; }
-          { name = "finance"; description = "Bills, transactions, statements, invoices"; }
-          { name = "shopping"; description = "Receipts, order confirmations, shipping notifications"; }
-          { name = "travel"; description = "Flight confirmations, hotel bookings, itineraries"; }
-          { name = "dev"; description = "Developer notifications: GitHub, GitLab, CI/CD"; }
-          { name = "social"; description = "Social media notifications"; }
-          { name = "newsletter"; description = "Newsletters and subscriptions"; }
-          { name = "junk"; description = "Promotional emails, spam, marketing"; }
-        ];
-        description = "Tag taxonomy for AI classification.";
+        default = [];
+        description = ''
+          Custom tags for AI classification. When useDefaultTags is true (default),
+          these are appended to the default taxonomy. When false, only these tags are used.
+        '';
+        example = literalExpression ''
+          [
+            { name = "client-acme"; description = "Emails from ACME Corp"; }
+            { name = "internal"; description = "Internal company communications"; }
+          ]
+        '';
       };
+
+      excludeTags = mkOption {
+        type = types.listOf types.str;
+        default = [];
+        description = ''
+          Tag names to exclude from the default taxonomy.
+          Only effective when useDefaultTags is true.
+        '';
+        example = [ "hobby" "social" ];
+      };
+
+      labelPrefix = mkOption {
+        type = types.str;
+        default = "AI";
+        description = "Prefix for AI-generated labels in email providers.";
+      };
+
+      labelColors = mkOption {
+        type = types.attrsOf types.str;
+        default = {};
+        description = ''
+          Override colors for specific tags. Colors are auto-derived from tag
+          categories by default (Priority=red, Work=blue, Finance=green, etc.).
+          Only specify overrides for tags that need different colors.
+        '';
+        example = literalExpression ''
+          {
+            urgent = "orange";  # Override default red
+            client-acme = "purple";  # Color for custom tag
+          }
+        '';
+      };
+    };
+
+    # Global sync configuration (can be overridden per-account)
+    sync = mkOption {
+      type = types.submodule {
+        options = {
+          frequency = mkOption {
+            type = types.str;
+            default = "5m";
+            description = "Default sync frequency (systemd timer format).";
+          };
+
+          maxMessagesPerSync = mkOption {
+            type = types.int;
+            default = 100;
+            description = "Maximum messages to fetch per sync.";
+          };
+
+          enableWebhooks = mkOption {
+            type = types.bool;
+            default = false;
+            description = "Enable real-time webhooks (provider-specific).";
+          };
+        };
+      };
+      default = {};
+      description = "Global sync configuration. Can be overridden per-account.";
     };
 
     ui = {

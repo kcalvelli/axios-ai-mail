@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 
 from ..config.loader import ConfigLoader
 from ..db.database import Database
-from .routes import accounts, attachments, drafts, messages, send, stats, sync
+from .routes import accounts, attachments, drafts, maintenance, messages, send, stats, sync
 from .websocket import router as websocket_router
 
 # Configure logging for the entire axios_ai_mail package
@@ -63,6 +63,7 @@ app.include_router(sync.router, prefix="/api", tags=["sync"])
 app.include_router(drafts.router, prefix="/api", tags=["drafts"])
 app.include_router(attachments.router, prefix="/api", tags=["attachments"])
 app.include_router(send.router, prefix="/api", tags=["send"])
+app.include_router(maintenance.router, prefix="/api", tags=["maintenance"])
 app.include_router(websocket_router, tags=["websocket"])
 
 # Serve static files (frontend build) if they exist

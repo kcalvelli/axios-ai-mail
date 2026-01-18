@@ -74,8 +74,19 @@ export default function DraftsPage() {
     }
   };
 
-  const formatDate = (dateString: string) => {
+  const formatRelativeTime = (dateString: string) => {
     const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins} minute${diffMins === 1 ? '' : 's'} ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours === 1 ? '' : 's'} ago`;
+    if (diffDays < 7) return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
+
     return date.toLocaleDateString(undefined, {
       month: 'short',
       day: 'numeric',
@@ -83,6 +94,11 @@ export default function DraftsPage() {
       minute: '2-digit',
     });
   };
+
+  // Sort drafts by updated_at descending (most recent first)
+  const sortedDrafts = [...drafts].sort((a, b) =>
+    new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+  );
 
   const getSnippet = (text: string | null) => {
     if (!text) return '(No content)';
@@ -109,26 +125,35 @@ export default function DraftsPage() {
         </Alert>
       )}
 
-      {drafts.length === 0 ? (
+      {sortedDrafts.length === 0 ? (
         <Paper sx={{ p: 4, textAlign: 'center' }}>
-          <Typography color="text.secondary">
+          <Typography color="text.secondary" gutterBottom>
             No drafts saved
+          </Typography>
+          <Typography
+            variant="body2"
+            color="primary"
+            sx={{ cursor: 'pointer', mt: 1 }}
+            onClick={() => navigate('/compose')}
+          >
+            Start composing a new message
           </Typography>
         </Paper>
       ) : (
         <Paper>
           <List disablePadding>
-            {drafts.map((draft, index) => (
+            {sortedDrafts.map((draft, index) => (
               <ListItem
                 key={draft.id}
                 disablePadding
-                divider={index < drafts.length - 1}
+                divider={index < sortedDrafts.length - 1}
                 secondaryAction={
                   <Box>
                     <IconButton
                       edge="end"
                       onClick={(e) => handleDeleteDraft(draft.id, e)}
                       sx={{ mr: 1 }}
+                      title="Delete draft"
                     >
                       <DeleteIcon />
                     </IconButton>
@@ -143,7 +168,7 @@ export default function DraftsPage() {
                           {draft.subject || '(No subject)'}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          {formatDate(draft.updated_at)}
+                          {formatRelativeTime(draft.updated_at)}
                         </Typography>
                       </Box>
                     }

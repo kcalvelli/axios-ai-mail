@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box,
@@ -17,6 +17,11 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
 } from '@mui/material';
 import {
   Send as SendIcon,
@@ -26,6 +31,7 @@ import {
   FormatItalic as FormatItalicIcon,
   FormatListBulleted as BulletListIcon,
   FormatListNumbered as NumberedListIcon,
+  Save as SaveIcon,
 } from '@mui/icons-material';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -80,6 +86,14 @@ export default function Compose() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [loadingDraft, setLoadingDraft] = useState(!!existingDraftId);
+
+  // Auto-save and dirty tracking state
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [isDirty, setIsDirty] = useState(false);
+  const [showDiscardDialog, setShowDiscardDialog] = useState(false);
+  const lastSavedContentRef = useRef<string>('');
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Rich text editor - declared early so it can be used in effects
   const editor = useEditor({
@@ -212,16 +226,34 @@ export default function Compose() {
       .filter(email => email.length > 0);
   };
 
+  // Get current content hash for dirty checking
+  const getCurrentContentHash = useCallback(() => {
+    const htmlContent = editor?.getHTML() || '';
+    return JSON.stringify({ to, cc, bcc, subject, body: htmlContent, accountId: selectedAccountId });
+  }, [editor, to, cc, bcc, subject, selectedAccountId]);
+
+  // Check if content has changed
+  const checkDirty = useCallback(() => {
+    const currentContent = getCurrentContentHash();
+    const dirty = currentContent !== lastSavedContentRef.current;
+    setIsDirty(dirty);
+    return dirty;
+  }, [getCurrentContentHash]);
+
   // Create or update draft
-  const saveDraft = async (): Promise<string | null> => {
-    if (!to || !selectedAccountId) return null;
+  const saveDraft = useCallback(async (showStatus = false): Promise<string | null> => {
+    // Allow partial drafts - only require account
+    if (!selectedAccountId) return null;
 
     const htmlContent = editor?.getHTML() || '';
     const textContent = editor?.getText() || '';
 
+    // Don't save if content is completely empty
+    if (!to && !subject && !textContent.trim()) return null;
+
     const draftData = {
       account_id: selectedAccountId,
-      subject,
+      subject: subject || '',
       to_emails: parseEmails(to),
       cc_emails: showCc ? parseEmails(cc) : undefined,
       bcc_emails: showBcc ? parseEmails(bcc) : undefined,
@@ -231,24 +263,84 @@ export default function Compose() {
       in_reply_to: replyTo || undefined,
     };
 
+    if (showStatus) setSavingDraft(true);
+
     try {
+      let savedDraftId = draftId;
+
       if (draftId) {
         // Update existing draft
         await axios.patch(`/api/drafts/${draftId}`, draftData);
-        return draftId;
       } else {
         // Create new draft
         const response = await axios.post('/api/drafts', draftData);
-        const newDraftId = response.data.id;
-        setDraftId(newDraftId);
-        return newDraftId;
+        savedDraftId = response.data.id;
+        setDraftId(savedDraftId);
       }
+
+      // Update last saved state
+      lastSavedContentRef.current = getCurrentContentHash();
+      setLastSavedAt(new Date());
+      setIsDirty(false);
+
+      return savedDraftId;
     } catch (err) {
       console.error('Failed to save draft:', err);
-      setError('Failed to save draft');
+      if (showStatus) setError('Failed to save draft');
       return null;
+    } finally {
+      if (showStatus) setSavingDraft(false);
+    }
+  }, [selectedAccountId, editor, to, subject, cc, bcc, showCc, showBcc, threadId, replyTo, draftId, getCurrentContentHash]);
+
+  // Explicit save draft handler
+  const handleSaveDraft = async () => {
+    const saved = await saveDraft(true);
+    if (saved) {
+      // Show brief success state (clear error if any)
+      setError(null);
     }
   };
+
+  // Auto-save effect
+  useEffect(() => {
+    // Clear existing timer
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
+
+    // Only auto-save if there's content and changes
+    if (!selectedAccountId || loadingDraft) return;
+
+    const hasContent = to || subject || editor?.getText()?.trim();
+    if (!hasContent) return;
+
+    // Check for changes and schedule auto-save
+    if (checkDirty()) {
+      autoSaveTimerRef.current = setTimeout(() => {
+        saveDraft(false);
+      }, 30000); // 30 seconds
+    }
+
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+    };
+  }, [to, cc, bcc, subject, editor?.getHTML(), selectedAccountId, loadingDraft, checkDirty, saveDraft]);
+
+  // Browser beforeunload warning
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isDirty]);
 
   // Handle file upload
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -343,8 +435,17 @@ export default function Compose() {
     }
   };
 
-  // Discard draft
-  const handleDiscard = async () => {
+  // Handle close/discard - check for unsaved changes
+  const handleCloseClick = () => {
+    if (isDirty) {
+      setShowDiscardDialog(true);
+    } else {
+      navigate('/');
+    }
+  };
+
+  // Discard draft and navigate away
+  const handleDiscardConfirm = async () => {
     if (draftId) {
       try {
         await axios.delete(`/api/drafts/${draftId}`);
@@ -352,7 +453,21 @@ export default function Compose() {
         console.error('Failed to delete draft:', err);
       }
     }
+    setShowDiscardDialog(false);
     navigate('/');
+  };
+
+  // Save and close
+  const handleSaveAndClose = async () => {
+    await saveDraft(true);
+    setShowDiscardDialog(false);
+    navigate('/');
+  };
+
+  // Format last saved time
+  const formatLastSaved = (date: Date | null) => {
+    if (!date) return null;
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
   // Format file size
@@ -374,8 +489,28 @@ export default function Compose() {
     <Container maxWidth="md" sx={{ py: 4 }}>
       <Paper elevation={3} sx={{ p: 3 }}>
         <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="h5">New Message</Typography>
-          <IconButton onClick={handleDiscard} size="small">
+          <Box display="flex" alignItems="center" gap={2}>
+            <Typography variant="h5">
+              {existingDraftId ? 'Edit Draft' : 'New Message'}
+            </Typography>
+            {/* Save status indicator */}
+            {savingDraft && (
+              <Typography variant="caption" color="text.secondary">
+                Saving...
+              </Typography>
+            )}
+            {!savingDraft && lastSavedAt && (
+              <Typography variant="caption" color="text.secondary">
+                Saved at {formatLastSaved(lastSavedAt)}
+              </Typography>
+            )}
+            {isDirty && !savingDraft && (
+              <Typography variant="caption" color="warning.main">
+                Unsaved changes
+              </Typography>
+            )}
+          </Box>
+          <IconButton onClick={handleCloseClick} size="small">
             <CloseIcon />
           </IconButton>
         </Box>
@@ -562,9 +697,19 @@ export default function Compose() {
               startIcon={sending ? <CircularProgress size={20} /> : <SendIcon />}
               onClick={handleSend}
               disabled={sending || !to || !subject}
-              sx={{ mr: 2 }}
+              sx={{ mr: 1 }}
             >
               {sending ? 'Sending...' : 'Send'}
+            </Button>
+
+            <Button
+              variant="outlined"
+              startIcon={savingDraft ? <CircularProgress size={20} /> : <SaveIcon />}
+              onClick={handleSaveDraft}
+              disabled={savingDraft || !selectedAccountId}
+              sx={{ mr: 1 }}
+            >
+              {savingDraft ? 'Saving...' : 'Save Draft'}
             </Button>
 
             <Button
@@ -582,10 +727,29 @@ export default function Compose() {
             </Button>
           </Box>
 
-          <Button variant="outlined" onClick={handleDiscard}>
+          <Button variant="outlined" color="error" onClick={handleCloseClick}>
             Discard
           </Button>
         </Box>
+
+        {/* Unsaved changes confirmation dialog */}
+        <Dialog open={showDiscardDialog} onClose={() => setShowDiscardDialog(false)}>
+          <DialogTitle>Unsaved Changes</DialogTitle>
+          <DialogContent>
+            <DialogContentText>
+              You have unsaved changes. Would you like to save your draft before closing?
+            </DialogContentText>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setShowDiscardDialog(false)}>Cancel</Button>
+            <Button onClick={handleDiscardConfirm} color="error">
+              Discard
+            </Button>
+            <Button onClick={handleSaveAndClose} variant="contained">
+              Save Draft
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Paper>
     </Container>
   );

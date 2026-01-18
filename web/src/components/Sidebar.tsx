@@ -2,6 +2,7 @@
  * Sidebar component - Navigation and filters
  */
 
+import { useEffect, useState } from 'react';
 import {
   Drawer,
   Toolbar,
@@ -16,6 +17,7 @@ import {
   CircularProgress,
   FormControlLabel,
   Switch,
+  Badge,
 } from '@mui/material';
 import {
   Inbox,
@@ -30,6 +32,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { TagChip } from './TagChip';
 import { useTags } from '../hooks/useStats';
 import { useAppStore } from '../store/appStore';
+import axios from 'axios';
 
 const DRAWER_WIDTH = 280;
 
@@ -49,11 +52,32 @@ export function Sidebar({ open }: SidebarProps) {
     setIsUnreadOnly,
   } = useAppStore();
 
+  // Draft count state
+  const [draftCount, setDraftCount] = useState(0);
+
+  // Fetch draft count
+  useEffect(() => {
+    const fetchDraftCount = async () => {
+      try {
+        const response = await axios.get('/api/drafts/count');
+        setDraftCount(response.data.count);
+      } catch (err) {
+        console.error('Failed to fetch draft count:', err);
+      }
+    };
+
+    fetchDraftCount();
+
+    // Refresh count periodically and when navigating
+    const interval = setInterval(fetchDraftCount, 30000);
+    return () => clearInterval(interval);
+  }, [location.pathname]);
+
   const folderItems = [
-    { text: 'Inbox', icon: <Inbox />, path: '/', folder: 'inbox' },
-    { text: 'Drafts', icon: <Drafts />, path: '/drafts', folder: null },
-    { text: 'Sent', icon: <Send />, path: '/?folder=sent', folder: 'sent' },
-    { text: 'Trash', icon: <Delete />, path: '/?folder=trash', folder: 'trash' },
+    { text: 'Inbox', icon: <Inbox />, path: '/', folder: 'inbox', badge: 0 },
+    { text: 'Drafts', icon: <Drafts />, path: '/drafts', folder: null, badge: draftCount },
+    { text: 'Sent', icon: <Send />, path: '/?folder=sent', folder: 'sent', badge: 0 },
+    { text: 'Trash', icon: <Delete />, path: '/?folder=trash', folder: 'trash', badge: 0 },
   ];
 
   const menuItems = [
@@ -90,7 +114,15 @@ export function Sidebar({ open }: SidebarProps) {
                 }
                 onClick={() => navigate(item.path)}
               >
-                <ListItemIcon>{item.icon}</ListItemIcon>
+                <ListItemIcon>
+                  {item.badge > 0 ? (
+                    <Badge badgeContent={item.badge} color="primary">
+                      {item.icon}
+                    </Badge>
+                  ) : (
+                    item.icon
+                  )}
+                </ListItemIcon>
                 <ListItemText primary={item.text} />
               </ListItemButton>
             </ListItem>

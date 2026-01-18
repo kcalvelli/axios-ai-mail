@@ -13,17 +13,26 @@ router = APIRouter(prefix="/drafts", tags=["drafts"])
 
 
 class DraftCreate(BaseModel):
-    """Request model for creating a draft."""
+    """Request model for creating a draft.
+
+    Only account_id is required - partial drafts are allowed.
+    """
 
     account_id: str
-    subject: str
-    to_emails: List[str]
+    subject: Optional[str] = ""  # Allow empty subject for partial drafts
+    to_emails: Optional[List[str]] = []  # Allow empty recipients for partial drafts
     cc_emails: Optional[List[str]] = None
     bcc_emails: Optional[List[str]] = None
     body_text: Optional[str] = None
     body_html: Optional[str] = None
     thread_id: Optional[str] = None
     in_reply_to: Optional[str] = None
+
+
+class DraftCountResponse(BaseModel):
+    """Response model for draft count."""
+
+    count: int
 
 
 class DraftUpdate(BaseModel):
@@ -98,6 +107,22 @@ async def create_draft(draft: DraftCreate, request: Request):
         created_at=created_draft.created_at.isoformat(),
         updated_at=created_draft.updated_at.isoformat(),
     )
+
+
+@router.get("/count", response_model=DraftCountResponse)
+async def get_draft_count(request: Request, account_id: Optional[str] = None):
+    """Get the count of drafts.
+
+    Args:
+        request: FastAPI request
+        account_id: Optional account ID filter
+
+    Returns:
+        Draft count
+    """
+    db = request.app.state.db
+    drafts = db.list_drafts(account_id=account_id)
+    return DraftCountResponse(count=len(drafts))
 
 
 @router.get("", response_model=List[DraftResponse])
