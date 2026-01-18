@@ -25,15 +25,26 @@ interface MessageCardProps {
   onClick?: () => void;
   /** Compact mode for mobile - reduces padding, hides checkbox and some controls */
   compact?: boolean;
+  /** Selection mode - when true, clicking toggles selection instead of opening */
+  selectionMode?: boolean;
 }
 
-export function MessageCard({ message, onClick, compact = false }: MessageCardProps) {
+export function MessageCard({ message, onClick, compact = false, selectionMode = false }: MessageCardProps) {
   const theme = useMuiTheme();
   const { toggleTag, toggleMessageSelection, isMessageSelected } = useAppStore();
   const markRead = useMarkRead();
   const isDark = theme.palette.mode === 'dark';
 
   const isSelected = isMessageSelected(message.id);
+
+  // In selection mode, clicking toggles selection instead of opening
+  const handleCardClick = () => {
+    if (selectionMode) {
+      toggleMessageSelection(message.id);
+    } else {
+      onClick?.();
+    }
+  };
 
   // Theme-aware background colors
   const getBackgroundColor = () => {
@@ -87,9 +98,12 @@ export function MessageCard({ message, onClick, compact = false }: MessageCardPr
     }
   };
 
+  // Show checkbox in selection mode even when compact
+  const showCheckbox = !compact || selectionMode;
+
   return (
     <Card
-      onClick={onClick}
+      onClick={handleCardClick}
       sx={{
         cursor: 'pointer',
         mb: compact ? 0.5 : 1,
@@ -102,13 +116,13 @@ export function MessageCard({ message, onClick, compact = false }: MessageCardPr
     >
       <CardContent sx={{ p: compact ? 1.5 : 2, '&:last-child': { pb: compact ? 1.5 : 2 } }}>
         <Box display="flex" justifyContent="space-between" alignItems="start">
-          {/* Checkbox - hidden in compact mode */}
-          {!compact && (
+          {/* Checkbox - show in selection mode even on mobile */}
+          {showCheckbox && (
             <Checkbox
               checked={isSelected}
               onChange={handleCheckboxChange}
               onClick={(e) => e.stopPropagation()}
-              sx={{ p: 0, mr: 2 }}
+              sx={{ p: 0, mr: compact ? 1 : 2 }}
             />
           )}
 

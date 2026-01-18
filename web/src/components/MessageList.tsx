@@ -429,6 +429,7 @@ export function MessageList() {
               message={message}
               onClick={() => navigate(`/messages/${message.id}`)}
               compact={isMobile}
+              selectionMode={isMobile && selectedMessageIds.size > 0}
             />
           ))
         )}
