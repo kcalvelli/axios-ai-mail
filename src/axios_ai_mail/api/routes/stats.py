@@ -13,12 +13,16 @@ router = APIRouter()
 
 @router.get("/tags", response_model=TagsListResponse)
 async def list_tags(request: Request):
-    """List all tags (AI + account) with counts and percentages."""
+    """List all tags (AI + account) with counts and percentages.
+
+    Only counts messages in inbox (excludes trash) so counts match
+    what users see when filtering by tag.
+    """
     db = request.app.state.db
 
     try:
-        # Get all messages
-        all_messages = db.query_messages(limit=100000)
+        # Get messages in inbox only (exclude trash)
+        all_messages = db.query_messages(folder="inbox", limit=100000)
         total_messages = len(all_messages)
 
         # Count AI tags
@@ -77,13 +81,16 @@ async def list_tags(request: Request):
 
 @router.get("/stats", response_model=StatsResponse)
 async def get_stats(request: Request):
-    """Get overall system statistics."""
+    """Get overall system statistics.
+
+    Only counts messages in inbox (excludes trash).
+    """
     db = request.app.state.db
 
     try:
-        # Get all messages
-        all_messages = db.query_messages(limit=100000)
-        unread_messages = db.query_messages(is_unread=True, limit=100000)
+        # Get messages in inbox only (exclude trash)
+        all_messages = db.query_messages(folder="inbox", limit=100000)
+        unread_messages = db.query_messages(folder="inbox", is_unread=True, limit=100000)
 
         # Count classified messages
         classified_count = sum(1 for msg in all_messages if db.has_classification(msg.id))
