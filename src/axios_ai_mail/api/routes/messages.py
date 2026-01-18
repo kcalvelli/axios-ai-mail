@@ -1,5 +1,6 @@
 """Message-related API endpoints."""
 
+import asyncio
 import logging
 from typing import Optional, List
 
@@ -16,6 +17,7 @@ from ..models import (
     SmartReply,
     SmartReplyResponse,
 )
+from ..websocket import send_messages_updated, send_messages_deleted, send_messages_restored
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -177,6 +179,7 @@ async def bulk_mark_read(request: Request, body: BulkReadRequest):
 
     try:
         updated_count = 0
+        updated_ids = []
         errors = []
 
         for message_id in body.message_ids:
@@ -184,11 +187,17 @@ async def bulk_mark_read(request: Request, body: BulkReadRequest):
                 updated_message = db.update_message_read_status(message_id, body.is_unread)
                 if updated_message:
                     updated_count += 1
+                    updated_ids.append(message_id)
                 else:
                     errors.append({"message_id": message_id, "error": "Not found"})
             except Exception as e:
                 errors.append({"message_id": message_id, "error": str(e)})
                 logger.error(f"Error updating message {message_id}: {e}")
+
+        # Broadcast update to all clients
+        if updated_ids:
+            action = "unread" if body.is_unread else "read"
+            asyncio.create_task(send_messages_updated(updated_ids, action))
 
         return {
             "updated": updated_count,
@@ -208,6 +217,7 @@ async def bulk_delete(request: Request, body: BulkDeleteRequest):
 
     try:
         moved_to_trash_count = 0
+        moved_ids = []
         provider_synced_count = 0
         provider_failed_count = 0
         errors = []
@@ -223,6 +233,7 @@ async def bulk_delete(request: Request, body: BulkDeleteRequest):
                 updated = db.move_to_trash(message_id)
                 if updated:
                     moved_to_trash_count += 1
+                    moved_ids.append(message_id)
 
                     # Phase 2: Sync to provider (best effort)
                     try:
@@ -240,6 +251,10 @@ async def bulk_delete(request: Request, body: BulkDeleteRequest):
             except Exception as e:
                 errors.append({"message_id": message_id, "error": str(e)})
                 logger.error(f"Error deleting message {message_id}: {e}")
+
+        # Broadcast delete to all clients
+        if moved_ids:
+            asyncio.create_task(send_messages_deleted(moved_ids, permanent=False))
 
         return {
             "moved_to_trash": moved_to_trash_count,
@@ -261,6 +276,7 @@ async def bulk_restore(request: Request, body: BulkDeleteRequest):
 
     try:
         restored_count = 0
+        restored_ids = []
         provider_synced_count = 0
         provider_failed_count = 0
         errors = []
@@ -276,6 +292,7 @@ async def bulk_restore(request: Request, body: BulkDeleteRequest):
                 updated = db.restore_from_trash(message_id)
                 if updated:
                     restored_count += 1
+                    restored_ids.append(message_id)
 
                     # Phase 2: Sync to provider (best effort)
                     try:
@@ -293,6 +310,10 @@ async def bulk_restore(request: Request, body: BulkDeleteRequest):
             except Exception as e:
                 errors.append({"message_id": message_id, "error": str(e)})
                 logger.error(f"Error restoring message {message_id}: {e}")
+
+        # Broadcast restore to all clients
+        if restored_ids:
+            asyncio.create_task(send_messages_restored(restored_ids))
 
         return {
             "restored": restored_count,
@@ -314,6 +335,7 @@ async def bulk_permanent_delete(request: Request, body: BulkDeleteRequest):
 
     try:
         deleted_count = 0
+        deleted_ids = []
         provider_synced_count = 0
         provider_failed_count = 0
         errors = []
@@ -342,11 +364,16 @@ async def bulk_permanent_delete(request: Request, body: BulkDeleteRequest):
                 success = db.delete_message(message_id)
                 if success:
                     deleted_count += 1
+                    deleted_ids.append(message_id)
                 else:
                     errors.append({"message_id": message_id, "error": "Failed to delete"})
             except Exception as e:
                 errors.append({"message_id": message_id, "error": str(e)})
                 logger.error(f"Error permanently deleting message {message_id}: {e}")
+
+        # Broadcast permanent delete to all clients
+        if deleted_ids:
+            asyncio.create_task(send_messages_deleted(deleted_ids, permanent=True))
 
         return {
             "deleted": deleted_count,
@@ -428,6 +455,9 @@ async def update_message_tags(
                 original_tags=classification.tags,
                 corrected_tags=body.tags,
             )
+
+        # Broadcast update to all clients
+        asyncio.create_task(send_messages_updated([message_id], "tags_updated"))
 
         # Get updated classification
         updated_classification = db.get_classification(message_id)
@@ -522,6 +552,10 @@ async def mark_message_read(
         if not updated_message:
             raise HTTPException(status_code=404, detail="Message not found")
 
+        # Broadcast update to all clients
+        action = "unread" if body.is_unread else "read"
+        asyncio.create_task(send_messages_updated([message_id], action))
+
         classification = db.get_classification(message_id)
         return serialize_message(updated_message, classification)
 
@@ -562,6 +596,9 @@ async def delete_message(request: Request, message_id: str):
         except Exception as e:
             logger.error(f"Provider sync failed for message {message_id}: {e}", exc_info=True)
             # Don't fail the request - database operation succeeded
+
+        # Broadcast delete to all clients
+        asyncio.create_task(send_messages_deleted([message_id], permanent=False))
 
         return {
             "status": "moved_to_trash",
@@ -605,6 +642,9 @@ async def restore_message(request: Request, message_id: str):
         except Exception as e:
             logger.error(f"Provider sync failed for message {message_id}: {e}", exc_info=True)
             # Don't fail the request - database operation succeeded
+
+        # Broadcast restore to all clients
+        asyncio.create_task(send_messages_restored([message_id]))
 
         classification = db.get_classification(message_id)
         response = serialize_message(updated_message, classification)

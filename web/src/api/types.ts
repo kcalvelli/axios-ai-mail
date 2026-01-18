@@ -115,6 +115,9 @@ export type WebSocketMessageType =
   | 'sync_started'
   | 'sync_completed'
   | 'message_classified'
+  | 'messages_updated'
+  | 'messages_deleted'
+  | 'messages_restored'
   | 'new_messages'
   | 'error'
   | 'pong';
@@ -132,6 +135,9 @@ export interface WebSocketMessage {
   timestamp?: string;
   account_id?: string;
   message_id?: string;
+  message_ids?: string[];  // For bulk operations
+  action?: string;  // For messages_updated (read, unread, tags_updated)
+  permanent?: boolean;  // For messages_deleted
   tags?: string[];
   stats?: {
     fetched: number;

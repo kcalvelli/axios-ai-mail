@@ -117,6 +117,49 @@ async def send_new_messages(messages: List[dict]):
     })
 
 
+async def send_messages_updated(message_ids: List[str], action: str):
+    """Send message updated event to all clients.
+
+    Args:
+        message_ids: List of message IDs that were updated
+        action: The action performed (read, unread, tags_updated)
+    """
+    await manager.broadcast({
+        "type": "messages_updated",
+        "message_ids": message_ids,
+        "action": action,
+        "timestamp": datetime.utcnow().isoformat(),
+    })
+
+
+async def send_messages_deleted(message_ids: List[str], permanent: bool = False):
+    """Send message deleted event to all clients.
+
+    Args:
+        message_ids: List of message IDs that were deleted
+        permanent: Whether the deletion was permanent
+    """
+    await manager.broadcast({
+        "type": "messages_deleted",
+        "message_ids": message_ids,
+        "permanent": permanent,
+        "timestamp": datetime.utcnow().isoformat(),
+    })
+
+
+async def send_messages_restored(message_ids: List[str]):
+    """Send message restored event to all clients.
+
+    Args:
+        message_ids: List of message IDs that were restored from trash
+    """
+    await manager.broadcast({
+        "type": "messages_restored",
+        "message_ids": message_ids,
+        "timestamp": datetime.utcnow().isoformat(),
+    })
+
+
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     """WebSocket endpoint for real-time updates."""

@@ -71,6 +71,37 @@ export function useWebSocket() {
             queryClient.invalidateQueries({ queryKey: messageKeys.lists() });
             break;
 
+          case 'messages_updated':
+            // Another client updated messages (read status, tags, etc.)
+            console.log('Messages updated by another client:', message.message_ids, message.action);
+            // Invalidate the specific messages and lists
+            if (message.message_ids && Array.isArray(message.message_ids)) {
+              message.message_ids.forEach((id: string) => {
+                queryClient.invalidateQueries({
+                  queryKey: messageKeys.detail(id),
+                });
+              });
+            }
+            queryClient.invalidateQueries({ queryKey: messageKeys.lists() });
+            queryClient.invalidateQueries({ queryKey: statsKeys.tags });
+            break;
+
+          case 'messages_deleted':
+            // Another client deleted/trashed messages
+            console.log('Messages deleted by another client:', message.message_ids, message.permanent ? '(permanent)' : '(to trash)');
+            // Invalidate lists and stats
+            queryClient.invalidateQueries({ queryKey: messageKeys.lists() });
+            queryClient.invalidateQueries({ queryKey: statsKeys.tags });
+            queryClient.invalidateQueries({ queryKey: statsKeys.stats });
+            break;
+
+          case 'messages_restored':
+            // Another client restored messages from trash
+            console.log('Messages restored by another client:', message.message_ids);
+            // Invalidate lists
+            queryClient.invalidateQueries({ queryKey: messageKeys.lists() });
+            break;
+
           case 'error':
             setSyncStatus('error');
             console.error('WebSocket error:', message.message);
