@@ -292,10 +292,11 @@
   - Hardware recommendations
   - **Done**: Created `docs/AI_MODELS.md` with hardware requirements and model comparison
 
-- [ ] 9.3 Run openspec validate --strict
+- [x] 9.3 Run openspec validate --strict
   - Create spec deltas if needed
   - Verify scenarios cover requirements
   - Fix validation errors
+  - **Done**: Archived obsolete `lifecycle-aware-tagging-v2` change, 8/8 validations pass
 
 ## Dependency Order
 
@@ -326,10 +327,11 @@
 7. Integration (7.1-7.4) ✅ COMPLETE
    └── Depends on all above
 
-8. Testing (8.1-8.4) 🔄 IN PROGRESS
+8. Testing (8.1-8.4) ✅ MOSTLY COMPLETE
    └── Depends on implementation
+   └── Frontend unit tests (8.1-8.2) skipped - requires vitest setup
 
-9. Documentation (9.1-9.3) ⏳ PENDING
+9. Documentation (9.1-9.3) ✅ COMPLETE
    └── Depends on all above
 ```
 
