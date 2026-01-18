@@ -14,6 +14,7 @@ import {
 } from '@mui/material';
 import { Mail, MailOutline, AttachFile } from '@mui/icons-material';
 import { TagChip } from './TagChip';
+import { ConfidenceBadge } from './ConfidenceBadge';
 import { useAppStore } from '../store/appStore';
 import { useMarkRead } from '../hooks/useMessages';
 import type { Message } from '../api/types';
@@ -154,9 +155,9 @@ export function MessageCard({ message, onClick }: MessageCardProps) {
               {message.snippet}
             </Typography>
 
-            {/* Tags */}
-            {message.tags.length > 0 && (
-              <Stack direction="row" spacing={0.5} flexWrap="wrap" gap={0.5}>
+            {/* Tags and Confidence */}
+            {(message.tags.length > 0 || message.confidence !== undefined) && (
+              <Stack direction="row" spacing={0.5} flexWrap="wrap" gap={0.5} alignItems="center">
                 {message.tags.map((tag) => (
                   <TagChip
                     key={tag}
@@ -164,6 +165,7 @@ export function MessageCard({ message, onClick }: MessageCardProps) {
                     onClick={handleTagClick(tag)}
                   />
                 ))}
+                <ConfidenceBadge confidence={message.confidence} size="small" />
               </Stack>
             )}
           </Box>

@@ -19,6 +19,7 @@ export interface Message {
   can_archive: boolean;
   classified_at?: string | null; // ISO datetime string
   has_attachments: boolean;
+  confidence?: number | null; // Classification confidence 0.0-1.0
 }
 
 export interface MessagesListResponse {

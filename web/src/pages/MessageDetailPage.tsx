@@ -42,6 +42,7 @@ import {
 } from '../hooks/useMessages';
 import { useTags } from '../hooks/useStats';
 import { TagChip } from '../components/TagChip';
+import { ConfidenceBadgeAlways } from '../components/ConfidenceBadge';
 
 export function MessageDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -437,10 +438,23 @@ export function MessageDetailPage() {
 
         {/* Metadata */}
         {message.classified_at && (
-          <Box mt={3}>
+          <Box mt={3} display="flex" alignItems="center" gap={1}>
             <Typography variant="caption" color="text.secondary">
               Classified on {new Date(message.classified_at).toLocaleString()}
             </Typography>
+            {message.confidence !== undefined && message.confidence !== null && (
+              <>
+                <Typography variant="caption" color="text.secondary">
+                  &bull;
+                </Typography>
+                <Box display="flex" alignItems="center" gap={0.5}>
+                  <Typography variant="caption" color="text.secondary">
+                    Confidence:
+                  </Typography>
+                  <ConfidenceBadgeAlways confidence={message.confidence} size="small" showLabel />
+                </Box>
+              </>
+            )}
           </Box>
         )}
       </Paper>

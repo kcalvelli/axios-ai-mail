@@ -60,6 +60,7 @@ def serialize_message(message: Message, classification: Optional[Classification]
             "todo": classification.todo,
             "can_archive": classification.can_archive,
             "classified_at": classification.classified_at,
+            "confidence": classification.confidence,
         })
 
     return data
