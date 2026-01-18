@@ -481,6 +481,11 @@ in {
         ExecStart = "${cfg.package}/bin/axios-ai-mail web --port ${toString cfg.ui.port}";
         Restart = "on-failure";
         RestartSec = "5s";
+
+        # Environment for proper logging
+        Environment = [
+          "PYTHONUNBUFFERED=1"
+        ];
       };
 
       Install = {

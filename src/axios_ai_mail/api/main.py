@@ -1,6 +1,7 @@
 """FastAPI application for axios-ai-mail web UI."""
 
 import logging
+import sys
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -11,6 +12,17 @@ from ..config.loader import ConfigLoader
 from ..db.database import Database
 from .routes import accounts, attachments, drafts, messages, send, stats, sync
 from .websocket import router as websocket_router
+
+# Configure logging for the entire axios_ai_mail package
+# This ensures all our loggers output to stdout (for journalctl)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    handlers=[logging.StreamHandler(sys.stdout)],
+)
+# Set our package's logger level
+logging.getLogger("axios_ai_mail").setLevel(logging.INFO)
 
 logger = logging.getLogger(__name__)
 
