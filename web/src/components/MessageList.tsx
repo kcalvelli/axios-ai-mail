@@ -65,6 +65,50 @@ export function MessageList() {
     setPage(1);
   }, [selectedAccount, selectedTags, isUnreadOnly, searchQuery, folder]);
 
+  // Build filters
+  const ITEMS_PER_PAGE = 50;
+  const filters: any = {
+    limit: ITEMS_PER_PAGE,
+    offset: (page - 1) * ITEMS_PER_PAGE,
+    folder: folder,
+  };
+
+  if (selectedAccount) {
+    filters.account_id = selectedAccount;
+  }
+
+  if (selectedTags.length > 0) {
+    // Pass all selected tags (backend uses OR logic - matches any tag)
+    filters.tags = selectedTags;
+  }
+
+  if (isUnreadOnly) {
+    filters.is_unread = true;
+  }
+
+  if (searchQuery) {
+    filters.search = searchQuery;
+  }
+
+  // Fetch messages
+  const { data, isLoading, error } = useMessages(filters);
+
+  // Handle edge case: if current page is empty but there are still messages,
+  // go back to the previous page (e.g., after deleting all messages on last page)
+  useEffect(() => {
+    if (
+      !isLoading &&
+      data &&
+      data.messages.length === 0 &&
+      data.total > 0 &&
+      page > 1
+    ) {
+      // Calculate the correct page to go to
+      const maxPage = Math.ceil(data.total / ITEMS_PER_PAGE);
+      setPage(Math.min(page - 1, maxPage));
+    }
+  }, [data, isLoading, page]);
+
   // Bulk operation handlers
   const handleBulkDelete = () => {
     const messageIds = Array.from(selectedMessageIds);
@@ -179,34 +223,6 @@ export function MessageList() {
       },
     });
   };
-
-  // Build filters
-  const ITEMS_PER_PAGE = 50;
-  const filters: any = {
-    limit: ITEMS_PER_PAGE,
-    offset: (page - 1) * ITEMS_PER_PAGE,
-    folder: folder,
-  };
-
-  if (selectedAccount) {
-    filters.account_id = selectedAccount;
-  }
-
-  if (selectedTags.length > 0) {
-    // Pass all selected tags (backend uses OR logic - matches any tag)
-    filters.tags = selectedTags;
-  }
-
-  if (isUnreadOnly) {
-    filters.is_unread = true;
-  }
-
-  if (searchQuery) {
-    filters.search = searchQuery;
-  }
-
-  // Fetch messages
-  const { data, isLoading, error } = useMessages(filters);
 
   // Loading state
   if (isLoading) {
