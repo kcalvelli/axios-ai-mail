@@ -110,7 +110,15 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   ];
 
   return (
-    <Box sx={{ overflow: 'auto', p: 2 }}>
+    <Box
+      sx={{
+        overflow: 'auto',
+        p: 2,
+        // Hide scrollbar while keeping scroll functionality
+        scrollbarWidth: 'none', // Firefox
+        '&::-webkit-scrollbar': { display: 'none' }, // Chrome/Safari
+      }}
+    >
       {/* Folders */}
       <List>
         {folderItems.map((item) => (

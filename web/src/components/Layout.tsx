@@ -6,6 +6,7 @@ import { Box, Drawer, Toolbar } from '@mui/material';
 import { TopBar } from './TopBar';
 import { Sidebar } from './Sidebar';
 import { OfflineIndicator } from './OfflineIndicator';
+import { PullToRefresh } from './PullToRefresh';
 import { useAppStore } from '../store/appStore';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { Outlet } from 'react-router-dom';
@@ -59,11 +60,10 @@ export function Layout() {
           component="main"
           sx={{
             flexGrow: 1,
-            // Responsive padding: less on mobile, balanced on desktop
-            // On desktop with sidebar open, reduce left padding since content is offset
-            pt: { xs: 1, sm: 2, md: 2 },
-            pb: { xs: 1, sm: 2, md: 2 },
-            px: { xs: 1, sm: 2, md: 2 },
+            // Minimal padding for maximum content area
+            pt: { xs: 1, sm: 1 },
+            pb: { xs: 1, sm: 1 },
+            px: { xs: 0.5, sm: 1 },
             // On mobile: always full width
             // On desktop: account for sidebar when open
             width: isMobile
@@ -78,7 +78,9 @@ export function Layout() {
           }}
         >
           <Toolbar />
-          <Outlet />
+          <PullToRefresh>
+            <Outlet />
+          </PullToRefresh>
         </Box>
       </Box>
     </Box>
