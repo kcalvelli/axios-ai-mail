@@ -361,7 +361,7 @@ export function MessageList() {
         </Box>
       )}
 
-      <Box p={2}>
+      <Box p={1}>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
           <Typography variant="body2" color="text.secondary">
             {data.total} {data.total === 1 ? 'message' : 'messages'}

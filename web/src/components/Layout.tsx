@@ -60,10 +60,10 @@ export function Layout() {
           component="main"
           sx={{
             flexGrow: 1,
-            // Minimal padding for maximum content area
-            pt: { xs: 1, sm: 1 },
-            pb: { xs: 1, sm: 1 },
-            px: { xs: 0.5, sm: 1 },
+            // No horizontal padding - let child components handle their own
+            pt: { xs: 0.5, sm: 0.5 },
+            pb: { xs: 0.5, sm: 0.5 },
+            px: 0,
             // On mobile: always full width
             // On desktop: account for sidebar when open
             width: isMobile
