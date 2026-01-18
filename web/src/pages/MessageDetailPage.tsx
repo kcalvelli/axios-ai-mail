@@ -21,10 +21,18 @@ import {
   DialogActions,
   Divider,
 } from '@mui/material';
-import { ArrowBack, Mail, MailOutline, Delete, Reply, Forward } from '@mui/icons-material';
+import { ArrowBack, Mail, MailOutline, Delete, Reply, Forward, AttachFile, Download } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
+import axios from 'axios';
 import DOMPurify from 'dompurify';
+
+interface Attachment {
+  id: string;
+  filename: string;
+  content_type: string;
+  size: number;
+}
 import {
   useMessage,
   useUpdateTags,
@@ -48,6 +56,8 @@ export function MessageDetailPage() {
   const [editingTags, setEditingTags] = useState(false);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [attachmentsLoading, setAttachmentsLoading] = useState(false);
 
   // Auto-mark as read when message is opened
   useEffect(() => {
@@ -58,6 +68,52 @@ export function MessageDetailPage() {
       });
     }
   }, [message?.id]); // Only run when message ID changes
+
+  // Fetch attachments when message loads
+  useEffect(() => {
+    const fetchAttachments = async () => {
+      if (!id) return;
+      setAttachmentsLoading(true);
+      try {
+        const response = await axios.get(`/api/attachments/messages/${id}/attachments`);
+        setAttachments(response.data);
+      } catch (err) {
+        console.error('Failed to fetch attachments:', err);
+        setAttachments([]);
+      } finally {
+        setAttachmentsLoading(false);
+      }
+    };
+    fetchAttachments();
+  }, [id]);
+
+  // Format file size
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  // Download attachment
+  const handleDownloadAttachment = async (attachment: Attachment) => {
+    try {
+      const response = await axios.get(
+        `/api/attachments/${attachment.id}/download?message_id=${id}`,
+        { responseType: 'blob' }
+      );
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', attachment.filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to download attachment:', err);
+    }
+  };
 
   const handleMarkRead = () => {
     if (message) {
@@ -303,6 +359,33 @@ export function MessageDetailPage() {
             </Stack>
           )}
         </Box>
+
+        {/* Attachments Section */}
+        {(attachments.length > 0 || attachmentsLoading) && (
+          <Box mt={3}>
+            <Typography variant="subtitle2" gutterBottom>
+              <AttachFile fontSize="small" sx={{ verticalAlign: 'middle', mr: 0.5 }} />
+              Attachments ({attachments.length})
+            </Typography>
+
+            {attachmentsLoading ? (
+              <CircularProgress size={20} />
+            ) : (
+              <Stack direction="row" spacing={1} flexWrap="wrap" gap={1}>
+                {attachments.map((att) => (
+                  <Chip
+                    key={att.id}
+                    label={`${att.filename} (${formatFileSize(att.size)})`}
+                    icon={<Download />}
+                    onClick={() => handleDownloadAttachment(att)}
+                    variant="outlined"
+                    sx={{ cursor: 'pointer' }}
+                  />
+                ))}
+              </Stack>
+            )}
+          </Box>
+        )}
 
         <Divider sx={{ my: 3 }} />
 
