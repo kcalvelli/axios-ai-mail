@@ -504,6 +504,7 @@ function MaintenancePanel() {
     overrideUserEdits: boolean;
   }>({ open: false, operation: null, overrideUserEdits: false });
   const [refreshingStats, setRefreshingStats] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<{
     operation: string;
     status: string;
@@ -540,24 +541,32 @@ function MaintenancePanel() {
   }, [activeJob]);
 
   const startReclassifyAll = async (overrideUserEdits: boolean) => {
+    setError(null);
     try {
       const response = await axios.post('/api/maintenance/reclassify-all', {
         override_user_edits: overrideUserEdits,
       });
       setActiveJob(response.data);
       setConfirmDialog({ open: false, operation: null, overrideUserEdits: false });
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to start reclassify all:', err);
+      const message = err.response?.data?.detail || err.message || 'Failed to start reclassification';
+      setError(message);
+      setConfirmDialog({ open: false, operation: null, overrideUserEdits: false });
     }
   };
 
   const startReclassifyUnclassified = async () => {
+    setError(null);
     try {
       const response = await axios.post('/api/maintenance/reclassify-unclassified');
       setActiveJob(response.data);
       setConfirmDialog({ open: false, operation: null, overrideUserEdits: false });
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to start reclassify unclassified:', err);
+      const message = err.response?.data?.detail || err.message || 'Failed to start reclassification';
+      setError(message);
+      setConfirmDialog({ open: false, operation: null, overrideUserEdits: false });
     }
   };
 
@@ -604,6 +613,13 @@ function MaintenancePanel() {
         Maintenance operations help keep your email database and classifications
         up to date. Use these tools to reclassify messages or refresh statistics.
       </Alert>
+
+      {/* Error Display */}
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
 
       {/* Active Job Progress */}
       {isJobRunning && activeJob && (

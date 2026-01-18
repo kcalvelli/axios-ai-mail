@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 
 from ..config.loader import ConfigLoader
 from ..db.database import Database
+from ..ai_classifier import AIClassifier, AIConfig
 from .routes import accounts, attachments, drafts, maintenance, messages, send, stats, sync
 from .websocket import router as websocket_router
 
@@ -91,6 +92,20 @@ async def startup_event():
         app.state.config = config
         ConfigLoader.sync_to_database(app.state.db, config)
         logger.info("Configuration synced to database")
+
+        # Initialize AI classifier from config
+        ai_config = config.get("ai", {})
+        if ai_config.get("enable", True):
+            # Get merged tags from config
+            merged_tags = ConfigLoader.get_merged_tags(config)
+            classifier_config = AIConfig(
+                model=ai_config.get("model", "llama3.2"),
+                endpoint=ai_config.get("endpoint", "http://localhost:11434"),
+                temperature=ai_config.get("temperature", 0.3),
+                custom_tags=merged_tags,
+            )
+            app.state.classifier = AIClassifier(classifier_config)
+            logger.info(f"AI classifier initialized with model {classifier_config.model}")
 
 
 @app.get("/api/health")

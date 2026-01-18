@@ -10,7 +10,27 @@ from typing import Dict, List, Optional
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from pydantic import BaseModel
 
+from ...providers.base import Message as ProviderMessage
+
 logger = logging.getLogger(__name__)
+
+
+def db_message_to_provider_message(db_msg) -> ProviderMessage:
+    """Convert database Message to provider Message for classifier."""
+    return ProviderMessage(
+        id=db_msg.id,
+        thread_id=db_msg.thread_id or db_msg.id,
+        subject=db_msg.subject,
+        from_email=db_msg.from_email,
+        to_emails=db_msg.to_emails or [],
+        date=db_msg.date,
+        snippet=db_msg.snippet or "",
+        body_text=db_msg.body_text,
+        body_html=db_msg.body_html,
+        labels=set(db_msg.provider_labels or []),
+        is_unread=db_msg.is_unread,
+        folder=db_msg.folder or "inbox",
+    )
 
 router = APIRouter(prefix="/maintenance", tags=["maintenance"])
 
@@ -150,16 +170,22 @@ async def run_reclassify(
                         job.progress += 1
                         continue
 
-                    # Reclassify the message
-                    result = await classifier.classify_message(message)
+                    # Convert database message to provider message for classifier
+                    provider_msg = db_message_to_provider_message(message)
+
+                    # Reclassify the message (classifier.classify is synchronous, run in thread)
+                    result = await asyncio.to_thread(classifier.classify, provider_msg)
 
                     if result:
-                        # Update message tags
-                        db.update_message_tags(
+                        # Update classification in database
+                        db.store_classification(
                             message_id=message.id,
                             tags=result.tags,
+                            priority=result.priority,
+                            todo=result.todo,
+                            can_archive=result.can_archive,
+                            model=classifier.config.model,
                             confidence=result.confidence,
-                            user_edited=False,
                         )
 
                     job.progress += 1
