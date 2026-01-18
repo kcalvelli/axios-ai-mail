@@ -64,11 +64,12 @@ async def send_message(send_request: SendRequest, request: Request):
 
     try:
         # Build MIME message
-        # Note: from_name could be added from account settings if configured
+        # Use real_name from account settings if configured
+        from_name = account.settings.get("real_name") or None
         mime_message = MIMEBuilder.build_from_draft(
             draft=draft,
             attachments=attachments,
-            from_name=None,  # Just use email address, no display name
+            from_name=from_name,
             from_email=account.email,
         )
 
