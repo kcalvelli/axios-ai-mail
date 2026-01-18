@@ -2,54 +2,54 @@
 
 ## 1. Backend - Smart Reply Generation
 
-- [ ] 1.1 Add reply generation method to AIClassifier
+- [x] 1.1 Add reply generation method to AIClassifier
   - Create `generate_replies(message: Message) -> List[str]` method
   - Build prompt requesting 3-4 short, contextual replies
   - Parse JSON response with reply suggestions
   - Handle edge cases (empty response, invalid JSON)
   - Return list of reply strings
 
-- [ ] 1.2 Create reply generation prompt
+- [x] 1.2 Create reply generation prompt
   - Include message subject, sender, snippet
   - Request professional but friendly tone
   - Ask for variety (casual, neutral, formal if applicable)
   - Limit to 1-2 sentences each
   - Specify JSON output format
 
-- [ ] 1.3 Add smart replies API endpoint
+- [x] 1.3 Add smart replies API endpoint
   - Create `GET /api/messages/{id}/smart-replies` endpoint
   - Return `{"replies": [{"id": "1", "text": "..."}], "generated_at": "..."}`
   - Check message exists (404 if not)
   - Check message is not from sent folder (return empty array)
   - Check message tags (skip generation for newsletter/junk)
 
-- [ ] 1.4 Add response models
+- [x] 1.4 Add response models
   - Create `SmartReplyResponse` Pydantic model
   - Create `SmartReply` model with id and text fields
   - Add to API models
 
 ## 2. Frontend - Smart Replies Component
 
-- [ ] 2.1 Create SmartReplies component
+- [x] 2.1 Create SmartReplies component
   - Create `web/src/components/SmartReplies.tsx`
   - Accept `messageId` and `onSelectReply` props
   - Display replies as MUI Chips
   - Show loading skeleton while fetching
   - Hide on error (graceful degradation)
 
-- [ ] 2.2 Add smart replies hook
+- [x] 2.2 Add smart replies hook
   - Create `useSmartReplies(messageId)` hook in `useMessages.ts`
   - Fetch from `/api/messages/{id}/smart-replies`
   - Handle loading, error, and data states
   - Configure appropriate staleTime (5 minutes)
 
-- [ ] 2.3 Integrate into MessageDetailPage
+- [x] 2.3 Integrate into MessageDetailPage
   - Import SmartReplies component
   - Add below message body, before metadata section
   - Only show for inbox messages (not sent/trash)
   - Pass handler to navigate to compose with reply
 
-- [ ] 2.4 Update Compose page for body param
+- [x] 2.4 Update Compose page for body param
   - Read `body` query parameter
   - Pre-populate editor content with body value
   - Maintain existing quote behavior (append below body)
@@ -57,18 +57,18 @@
 
 ## 3. Styling and UX
 
-- [ ] 3.1 Style SmartReplies component
+- [x] 3.1 Style SmartReplies component
   - Use MUI Chip with outlined variant
   - Add hover effect and cursor pointer
   - Add "AI" icon or badge to indicate AI-generated
   - Responsive layout (wrap on small screens)
 
-- [ ] 3.2 Add loading skeleton
+- [x] 3.2 Add loading skeleton
   - Show 3 placeholder chips while loading
   - Use MUI Skeleton component
   - Match size/spacing of real chips
 
-- [ ] 3.3 Add section header
+- [x] 3.3 Add section header
   - Add "Quick Replies" or "Suggested Replies" label
   - Add subtle AI indicator
   - Optional: Add info tooltip explaining feature

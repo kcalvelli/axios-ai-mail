@@ -58,6 +58,7 @@ export default function Compose() {
   const defaultAccountId = searchParams.get('account_id') || '';
   const quoteFrom = searchParams.get('quote_from') || '';
   const quoteDate = searchParams.get('quote_date') || '';
+  const defaultBody = searchParams.get('body') || ''; // Pre-filled body (e.g., from smart replies)
 
   // Account state
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -184,17 +185,24 @@ export default function Compose() {
         const quoteHeader = `<p><br></p><p>On ${formattedDate}, ${quoteFrom} wrote:</p>`;
         const quotedContent = `<blockquote style="border-left: 2px solid #ccc; margin-left: 0; padding-left: 1em; color: #666;">${originalBody}</blockquote>`;
 
-        editor.commands.setContent(`<p><br></p>${quoteHeader}${quotedContent}`);
-        // Move cursor to the beginning for top-posting
+        // If there's a pre-filled body (e.g., from smart replies), include it above the quote
+        const prefilledContent = defaultBody ? `<p>${defaultBody}</p>` : '<p><br></p>';
+
+        editor.commands.setContent(`${prefilledContent}${quoteHeader}${quotedContent}`);
+        // Move cursor to the end of the pre-filled content for editing
         editor.commands.focus('start');
       } catch (err) {
         console.error('Failed to load original message for quote:', err);
-        // Continue without quote - not a critical error
+        // If quote fails but we have a pre-filled body, still set it
+        if (defaultBody) {
+          editor.commands.setContent(`<p>${defaultBody}</p>`);
+          editor.commands.focus('end');
+        }
       }
     };
 
     loadQuote();
-  }, [replyTo, existingDraftId, editor, quoteFrom, quoteDate]);
+  }, [replyTo, existingDraftId, editor, quoteFrom, quoteDate, defaultBody]);
 
   // Parse email addresses from comma-separated string
   const parseEmails = (emailString: string): string[] => {

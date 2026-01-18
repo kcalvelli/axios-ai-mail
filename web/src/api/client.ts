@@ -14,6 +14,7 @@ import type {
   UpdateTagsRequest,
   MarkReadRequest,
   TriggerSyncRequest,
+  SmartReplyResponse,
 } from './types';
 
 // Create axios instance
@@ -97,6 +98,10 @@ export const messages = {
   // Clear trash (permanently delete all messages in trash)
   clearTrash: () =>
     api.post<{ deleted: number; total: number; errors: any[] }>('/messages/clear-trash').then((r) => r.data),
+
+  // Smart replies (AI-generated reply suggestions)
+  getSmartReplies: (id: string) =>
+    api.get<SmartReplyResponse>(`/messages/${id}/smart-replies`).then((r) => r.data),
 };
 
 // Account endpoints

@@ -13,6 +13,8 @@ from ..models import (
     MessagesListResponse,
     UpdateTagsRequest,
     MarkReadRequest,
+    SmartReply,
+    SmartReplyResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -772,4 +774,102 @@ async def search_messages(
 
     except Exception as e:
         logger.error(f"Error searching messages: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/messages/{message_id}/smart-replies", response_model=SmartReplyResponse)
+async def get_smart_replies(request: Request, message_id: str):
+    """Generate AI-powered smart reply suggestions for a message.
+
+    Returns 3-4 short, contextual reply suggestions based on message content.
+    Returns empty replies array for:
+    - Messages in Sent folder
+    - Messages tagged as newsletter or junk
+    - When AI generation fails (graceful degradation)
+    """
+    db = request.app.state.db
+    from datetime import datetime
+    from ...ai_classifier import AIClassifier, AIConfig
+
+    try:
+        # Check if message exists
+        message = db.get_message(message_id)
+        if not message:
+            raise HTTPException(status_code=404, detail="Message not found")
+
+        # Check if message is from sent folder - don't generate replies for own messages
+        if message.folder == "sent":
+            logger.debug(f"Skipping smart replies for sent message {message_id}")
+            return SmartReplyResponse(
+                replies=[],
+                generated_at=datetime.utcnow(),
+            )
+
+        # Check classification - skip newsletters and junk
+        classification = db.get_classification(message_id)
+        if classification:
+            skip_tags = {"newsletter", "junk"}
+            if any(tag in skip_tags for tag in classification.tags):
+                logger.debug(
+                    f"Skipping smart replies for message {message_id} "
+                    f"with tags {classification.tags}"
+                )
+                return SmartReplyResponse(
+                    replies=[],
+                    generated_at=datetime.utcnow(),
+                )
+
+        # Create provider Message object for AI classifier
+        from ...providers.base import Message as ProviderMessage
+
+        provider_message = ProviderMessage(
+            id=message.id,
+            thread_id=message.thread_id or "",
+            subject=message.subject,
+            from_email=message.from_email,
+            to_emails=message.to_emails,
+            date=message.date,
+            snippet=message.snippet,
+            body_text=message.body_text,
+            body_html=message.body_html,
+            is_unread=message.is_unread,
+            has_attachments=message.has_attachments,
+            labels=set(message.provider_labels) if message.provider_labels else set(),
+        )
+
+        # Generate replies using AI classifier
+        try:
+            # Get AI config from app state if available, otherwise use defaults
+            ai_config = getattr(request.app.state, "ai_config", None)
+            if ai_config is None:
+                ai_config = AIConfig()
+
+            classifier = AIClassifier(ai_config)
+            reply_texts = classifier.generate_replies(provider_message)
+
+            # Convert to SmartReply objects with IDs
+            replies = [
+                SmartReply(id=str(i + 1), text=text)
+                for i, text in enumerate(reply_texts)
+            ]
+
+            return SmartReplyResponse(
+                replies=replies,
+                generated_at=datetime.utcnow(),
+            )
+
+        except Exception as ai_error:
+            # Graceful degradation - return empty replies on AI error
+            logger.warning(
+                f"AI reply generation failed for message {message_id}: {ai_error}"
+            )
+            return SmartReplyResponse(
+                replies=[],
+                generated_at=datetime.utcnow(),
+            )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting smart replies for {message_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

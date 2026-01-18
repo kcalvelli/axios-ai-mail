@@ -97,6 +97,17 @@ export interface TriggerSyncRequest {
   max_messages?: number;
 }
 
+// Smart Replies types
+export interface SmartReply {
+  id: string;
+  text: string;
+}
+
+export interface SmartReplyResponse {
+  replies: SmartReply[];
+  generated_at: string; // ISO datetime string
+}
+
 // WebSocket message types
 export type WebSocketMessageType =
   | 'connected'

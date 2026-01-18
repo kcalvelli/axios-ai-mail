@@ -244,3 +244,120 @@ RESPOND WITH ONLY A JSON OBJECT (no markdown, no explanation):
 
         logger.info(f"Classified {len(results)}/{len(messages)} messages")
         return results
+
+    def _build_reply_prompt(self, message: Message) -> str:
+        """Build prompt for generating smart reply suggestions.
+
+        Args:
+            message: Message to generate replies for
+
+        Returns:
+            Prompt string
+        """
+        prompt = f"""
+Generate 3-4 short, contextual reply suggestions for this email.
+
+EMAIL CONTENT:
+Subject: {message.subject}
+From: {message.from_email}
+Date: {message.date}
+Content: {message.snippet}
+
+GUIDELINES:
+1. Keep each reply to 1-2 sentences maximum
+2. Be professional but friendly
+3. Provide variety: include casual, neutral, and formal options if appropriate
+4. Make replies contextually relevant to the message content
+5. Don't include greetings or signatures - just the core message
+6. Replies should be complete thoughts that can stand alone
+
+RESPOND WITH ONLY A JSON OBJECT (no markdown, no explanation):
+{{
+  "replies": [
+    "Reply suggestion 1",
+    "Reply suggestion 2",
+    "Reply suggestion 3"
+  ]
+}}
+"""
+        return prompt
+
+    def generate_replies(self, message: Message) -> List[str]:
+        """Generate smart reply suggestions for a message.
+
+        Args:
+            message: Message to generate replies for
+
+        Returns:
+            List of reply suggestion strings (3-4 items)
+
+        Raises:
+            Exception: If reply generation fails
+        """
+        prompt = self._build_reply_prompt(message)
+
+        try:
+            response = requests.post(
+                f"{self.config.endpoint}/api/generate",
+                json={
+                    "model": self.config.model,
+                    "prompt": prompt,
+                    "format": "json",
+                    "stream": False,
+                    "options": {
+                        "temperature": 0.7,  # Higher temperature for more creative replies
+                    },
+                },
+                timeout=self.config.timeout,
+            )
+
+            response.raise_for_status()
+            result = response.json()
+
+            # Parse LLM response
+            response_json = result.get("response", "")
+            response_data = json.loads(response_json)
+
+            # Extract replies
+            replies = response_data.get("replies", [])
+
+            # Validate and filter
+            if not isinstance(replies, list):
+                logger.warning(f"Invalid replies format for message {message.id}")
+                return []
+
+            # Filter to strings only and limit length
+            valid_replies = []
+            for reply in replies:
+                if isinstance(reply, str) and reply.strip():
+                    # Truncate very long replies
+                    cleaned = reply.strip()[:500]
+                    valid_replies.append(cleaned)
+
+            logger.info(
+                f"Generated {len(valid_replies)} smart replies for message {message.id[:8]}"
+            )
+
+            return valid_replies[:4]  # Max 4 replies
+
+        except requests.exceptions.Timeout:
+            logger.error(
+                f"Ollama request timed out after {self.config.timeout}s "
+                f"generating replies for message {message.id}"
+            )
+            raise
+        except requests.exceptions.RequestException as e:
+            logger.error(
+                f"Ollama API error generating replies for message {message.id}: {e}"
+            )
+            raise
+        except json.JSONDecodeError as e:
+            logger.error(
+                f"Failed to parse LLM response for replies on message {message.id}: {e}"
+            )
+            return []  # Return empty on parse error (graceful degradation)
+        except Exception as e:
+            logger.error(
+                f"Unexpected error generating replies for message {message.id}: {e}"
+            )
+            raise

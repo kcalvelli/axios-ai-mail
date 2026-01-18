@@ -43,6 +43,7 @@ import {
 import { useTags } from '../hooks/useStats';
 import { TagChip } from '../components/TagChip';
 import { ConfidenceBadgeAlways } from '../components/ConfidenceBadge';
+import { SmartReplies } from '../components/SmartReplies';
 
 export function MessageDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -195,6 +196,23 @@ export function MessageDetailPage() {
       // Navigate to compose page with forward parameters
       const params = new URLSearchParams({
         subject: message.subject.startsWith('Fwd: ') ? message.subject : `Fwd: ${message.subject}`,
+      });
+      navigate(`/compose?${params.toString()}`);
+    }
+  };
+
+  const handleSelectSmartReply = (replyText: string) => {
+    if (message) {
+      // Navigate to compose page with the smart reply pre-filled
+      const params = new URLSearchParams({
+        reply_to: message.id,
+        to: message.from_email,
+        subject: message.subject.startsWith('Re: ') ? message.subject : `Re: ${message.subject}`,
+        thread_id: message.thread_id || '',
+        account_id: message.account_id,
+        quote_from: message.from_email,
+        quote_date: message.date,
+        body: replyText,
       });
       navigate(`/compose?${params.toString()}`);
     }
@@ -435,6 +453,14 @@ export function MessageDetailPage() {
             </Typography>
           )}
         </Box>
+
+        {/* Smart Replies - AI-generated quick reply suggestions */}
+        <SmartReplies
+          messageId={message.id}
+          onSelectReply={handleSelectSmartReply}
+          folder={message.provider_labels.includes('SENT') ? 'sent' : undefined}
+          tags={message.tags}
+        />
 
         {/* Metadata */}
         {message.classified_at && (

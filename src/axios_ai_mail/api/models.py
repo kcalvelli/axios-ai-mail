@@ -165,3 +165,20 @@ class WebSocketMessage(BaseModel):
     type: str
     data: dict = {}
     timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+
+# Smart Replies Models
+
+
+class SmartReply(BaseModel):
+    """Individual smart reply suggestion."""
+
+    id: str
+    text: str
+
+
+class SmartReplyResponse(BaseModel):
+    """Smart reply suggestions response."""
+
+    replies: List[SmartReply]
+    generated_at: datetime

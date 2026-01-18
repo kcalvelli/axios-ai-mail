@@ -13,6 +13,7 @@ export const messageKeys = {
   list: (filters: any) => [...messageKeys.lists(), filters] as const,
   details: () => [...messageKeys.all, 'detail'] as const,
   detail: (id: string) => [...messageKeys.details(), id] as const,
+  smartReplies: (id: string) => [...messageKeys.detail(id), 'smart-replies'] as const,
 };
 
 // Hooks
@@ -207,5 +208,15 @@ export function useClearTrash() {
       queryClient.invalidateQueries({ queryKey: messageKeys.lists() });
       queryClient.invalidateQueries({ queryKey: messageKeys.details() });
     },
+  });
+}
+
+export function useSmartReplies(messageId: string, enabled: boolean = true) {
+  return useQuery({
+    queryKey: messageKeys.smartReplies(messageId),
+    queryFn: () => messages.getSmartReplies(messageId),
+    enabled: !!messageId && enabled,
+    staleTime: 5 * 60 * 1000, // 5 minutes - replies don't need to be refreshed often
+    retry: false, // Don't retry on failure (graceful degradation)
   });
 }
