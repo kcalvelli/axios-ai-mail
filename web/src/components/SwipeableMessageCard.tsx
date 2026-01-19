@@ -1,7 +1,7 @@
 /**
  * SwipeableMessageCard component - Message card with swipe gestures for mobile
  * Swipe left: Delete (move to trash)
- * Swipe right: Select (enter selection mode or toggle selection)
+ * Swipe right: Select (enter selection mode with this message selected)
  */
 
 import { useCallback } from 'react';
@@ -26,22 +26,19 @@ interface SwipeableMessageCardProps {
   message: Message;
   onClick?: () => void;
   onDelete?: (messageId: string) => void;
-  /** Disable swipe gestures (e.g., when in selection mode) */
-  disableSwipe?: boolean;
 }
 
 export function SwipeableMessageCard({
   message,
   onClick,
   onDelete,
-  disableSwipe = false,
 }: SwipeableMessageCardProps) {
   const theme = useTheme();
   const isOnline = useOnlineStatus();
   const toast = useToast();
   const { enterSelectionMode, selectionMode, toggleMessageSelection } = useAppStore();
 
-  // Haptic feedback when swipe commits
+  // Haptic feedback
   const triggerHaptic = useCallback(() => {
     if ('vibrate' in navigator) {
       navigator.vibrate(10);
@@ -59,14 +56,9 @@ export function SwipeableMessageCard({
 
   const handleSelect = useCallback(() => {
     triggerHaptic();
-    if (selectionMode) {
-      // Already in selection mode, just toggle this message
-      toggleMessageSelection(message.id);
-    } else {
-      // Enter selection mode with this message selected
-      enterSelectionMode(message.id);
-    }
-  }, [triggerHaptic, selectionMode, toggleMessageSelection, enterSelectionMode, message.id]);
+    // Always enter selection mode with this message - simple and clear
+    enterSelectionMode(message.id);
+  }, [triggerHaptic, enterSelectionMode, message.id]);
 
   const handleClick = useCallback(() => {
     if (selectionMode) {
@@ -120,9 +112,8 @@ export function SwipeableMessageCard({
     </TrailingActions>
   );
 
-  // When in selection mode or swipe is disabled, render without swipe wrapper
-  // but still allow tapping to toggle selection
-  if (disableSwipe || selectionMode) {
+  // In selection mode, show simple tappable cards (no swipe)
+  if (selectionMode) {
     return (
       <Box
         sx={{
@@ -134,17 +125,18 @@ export function SwipeableMessageCard({
         <MessageCard
           message={message}
           compact
-          selectionMode={selectionMode}
+          selectionMode={true}
         />
       </Box>
     );
   }
 
+  // Normal mode - swipeable
   return (
     <SwipeableListItem
       leadingActions={leadingActions()}
       trailingActions={trailingActions()}
-      threshold={0.4}
+      threshold={0.3}
       listType={ListType.IOS}
     >
       <Box
@@ -178,7 +170,7 @@ export function SwipeableMessageList({
   onDelete,
 }: SwipeableMessageListProps) {
   return (
-    <SwipeableList threshold={0.4} type={ListType.IOS}>
+    <SwipeableList threshold={0.3} type={ListType.IOS}>
       {messages.map((message) => (
         <SwipeableMessageCard
           key={message.id}
