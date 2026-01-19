@@ -37,7 +37,7 @@ export function BulkActionBar({
   onPermanentDelete,
   isTrash = false,
 }: BulkActionBarProps) {
-  const { selectedMessageIds, clearSelection } = useAppStore();
+  const { selectedMessageIds, exitSelectionMode, selectionMode } = useAppStore();
 
   const selectedCount = selectedMessageIds.size;
 
@@ -148,14 +148,14 @@ export function BulkActionBar({
 
         <Divider orientation="vertical" flexItem />
 
-        {/* Clear Selection */}
+        {/* Clear Selection / Exit Selection Mode */}
         <Button
           size="small"
           startIcon={<Close />}
-          onClick={clearSelection}
+          onClick={exitSelectionMode}
           variant="text"
         >
-          Clear
+          {selectionMode ? 'Exit' : 'Clear'}
         </Button>
       </Paper>
     </Box>

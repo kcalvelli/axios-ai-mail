@@ -47,6 +47,8 @@ export function MessageList() {
     selectedMessageIds,
     clearSelection,
     selectAllMessages,
+    selectionMode,
+    exitSelectionMode,
   } = useAppStore();
 
   const bulkDelete = useBulkDelete();
@@ -126,7 +128,7 @@ export function MessageList() {
 
     bulkDelete.mutate(messageIds, {
       onSuccess: () => {
-        clearSelection();
+        exitSelectionMode();
         toast.success(
           `Moved ${messageIds.length} ${messageIds.length === 1 ? 'message' : 'messages'} to trash`,
           {
@@ -148,7 +150,7 @@ export function MessageList() {
       { messageIds, isUnread: false },
       {
         onSuccess: () => {
-          clearSelection();
+          exitSelectionMode();
           toast.success(
             `Marked ${messageIds.length} ${messageIds.length === 1 ? 'message' : 'messages'} as read`
           );
@@ -165,7 +167,7 @@ export function MessageList() {
       { messageIds, isUnread: true },
       {
         onSuccess: () => {
-          clearSelection();
+          exitSelectionMode();
           toast.success(
             `Marked ${messageIds.length} ${messageIds.length === 1 ? 'message' : 'messages'} as unread`
           );
@@ -180,7 +182,7 @@ export function MessageList() {
 
     bulkRestore.mutate(messageIds, {
       onSuccess: () => {
-        clearSelection();
+        exitSelectionMode();
         toast.success(
           `Restored ${messageIds.length} ${messageIds.length === 1 ? 'message' : 'messages'}`
         );
@@ -198,7 +200,7 @@ export function MessageList() {
 
     bulkPermanentDelete.mutate(messageIds, {
       onSuccess: () => {
-        clearSelection();
+        exitSelectionMode();
         setPermanentDeleteDialogOpen(false);
         toast.success(
           `Permanently deleted ${messageIds.length} ${messageIds.length === 1 ? 'message' : 'messages'}`
@@ -398,7 +400,7 @@ export function MessageList() {
         </Box>
 
         {/* Swipeable cards on mobile touch devices, regular cards on desktop */}
-        {isMobile && isTouchDevice && selectedMessageIds.size === 0 ? (
+        {isMobile && isTouchDevice ? (
           <SwipeableMessageList
             messages={data.messages}
             onMessageClick={(message) => navigate(`/messages/${message.id}`)}
@@ -425,7 +427,7 @@ export function MessageList() {
               message={message}
               onClick={() => navigate(`/messages/${message.id}`)}
               compact={isMobile}
-              selectionMode={isMobile && selectedMessageIds.size > 0}
+              selectionMode={selectionMode}
             />
           ))
         )}

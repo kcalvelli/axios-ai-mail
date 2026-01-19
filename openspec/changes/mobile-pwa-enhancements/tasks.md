@@ -3,27 +3,27 @@
 ## 1. Long-Press Multi-Select
 
 ### 1.1 Touch Gesture Handler
-- [ ] 1.1.1 Create `useLongPress` hook with 500ms threshold
-- [ ] 1.1.2 Detect touch movement to distinguish from swipe (>10px cancels)
-- [ ] 1.1.3 Add haptic feedback on long-press activation
-- [ ] 1.1.4 Visual press indicator (ripple/scale effect during hold)
+- [x] 1.1.1 Create `useLongPress` hook with 500ms threshold
+- [x] 1.1.2 Detect touch movement to distinguish from swipe (>10px cancels)
+- [x] 1.1.3 Add haptic feedback on long-press activation
+- [x] 1.1.4 Visual press indicator (scale effect during hold)
 
 ### 1.2 Selection Mode State
-- [ ] 1.2.1 Add selection mode state to appStore
-- [ ] 1.2.2 Track selected message IDs (already exists: `selectedMessages`)
-- [ ] 1.2.3 Add `enterSelectionMode` / `exitSelectionMode` actions
+- [x] 1.2.1 Add selection mode state to appStore
+- [x] 1.2.2 Track selected message IDs (already exists: `selectedMessages`)
+- [x] 1.2.3 Add `enterSelectionMode` / `exitSelectionMode` actions
 
 ### 1.3 Selection Mode UI
-- [ ] 1.3.1 Create `SelectionToolbar` component (floating action bar)
-- [ ] 1.3.2 Show selection count badge
-- [ ] 1.3.3 Bulk action buttons: Delete, Archive, Mark Read/Unread
-- [ ] 1.3.4 Exit button (X) to clear selection and exit mode
+- [x] 1.3.1 BulkActionBar already exists (floating action bar)
+- [x] 1.3.2 Show selection count badge (already exists)
+- [x] 1.3.3 Bulk action buttons: Delete, Archive, Mark Read/Unread (already exists)
+- [x] 1.3.4 Exit button (X) updated to exit selection mode
 
 ### 1.4 Integrate with MessageList
-- [ ] 1.4.1 Wrap message cards with long-press handler
-- [ ] 1.4.2 Disable swipe when in selection mode
-- [ ] 1.4.3 Tap toggles selection in selection mode
-- [ ] 1.4.4 Visual selection indicator (checkbox/highlight)
+- [x] 1.4.1 Wrap SwipeableMessageCard with long-press handler
+- [x] 1.4.2 Disable swipe when in selection mode
+- [x] 1.4.3 Tap toggles selection in selection mode
+- [x] 1.4.4 Visual selection indicator (checkbox/highlight)
 
 ## 2. PWA Push Notifications
 

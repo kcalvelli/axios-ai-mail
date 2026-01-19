@@ -2,6 +2,7 @@
  * SwipeableMessageCard component - Message card with swipe gestures for mobile
  * Swipe left: Delete (move to trash)
  * Swipe right: Reply
+ * Long press: Enter selection mode
  */
 
 import { Box, useTheme } from '@mui/material';
@@ -18,6 +19,8 @@ import 'react-swipeable-list/dist/styles.css';
 import { MessageCard } from './MessageCard';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { useToast } from '../hooks/useToast';
+import { useLongPress } from '../hooks/useLongPress';
+import { useAppStore } from '../store/appStore';
 import type { Message } from '../api/types';
 
 interface SwipeableMessageCardProps {
@@ -25,6 +28,8 @@ interface SwipeableMessageCardProps {
   onClick?: () => void;
   onDelete?: (messageId: string) => void;
   onReply?: (message: Message) => void;
+  /** Disable swipe gestures (e.g., when in selection mode) */
+  disableSwipe?: boolean;
 }
 
 export function SwipeableMessageCard({
@@ -32,10 +37,30 @@ export function SwipeableMessageCard({
   onClick,
   onDelete,
   onReply,
+  disableSwipe = false,
 }: SwipeableMessageCardProps) {
   const theme = useTheme();
   const isOnline = useOnlineStatus();
   const toast = useToast();
+  const { enterSelectionMode, selectionMode, toggleMessageSelection } = useAppStore();
+
+  // Long press to enter selection mode
+  const { handlers: longPressHandlers, isPressed, pressProgress } = useLongPress({
+    threshold: 500,
+    movementThreshold: 10,
+    enabled: !selectionMode, // Disable long-press if already in selection mode
+    onLongPress: () => {
+      enterSelectionMode(message.id);
+    },
+    onTap: () => {
+      // In selection mode, tap toggles selection
+      if (selectionMode) {
+        toggleMessageSelection(message.id);
+      } else {
+        onClick?.();
+      }
+    },
+  });
 
   // Haptic feedback when swipe commits
   const triggerHaptic = () => {
@@ -102,6 +127,29 @@ export function SwipeableMessageCard({
     </TrailingActions>
   );
 
+  // When in selection mode or swipe is disabled, render without swipe wrapper
+  if (disableSwipe || selectionMode) {
+    return (
+      <Box
+        sx={{
+          width: '100%',
+          backgroundColor: theme.palette.background.paper,
+          // Visual feedback for long press progress
+          transform: isPressed ? `scale(${1 - pressProgress * 0.02})` : 'scale(1)',
+          opacity: isPressed ? 1 - pressProgress * 0.1 : 1,
+          transition: isPressed ? 'none' : 'transform 0.2s, opacity 0.2s',
+        }}
+        {...longPressHandlers}
+      >
+        <MessageCard
+          message={message}
+          compact
+          selectionMode={selectionMode}
+        />
+      </Box>
+    );
+  }
+
   return (
     <SwipeableListItem
       leadingActions={leadingActions()}
@@ -109,10 +157,19 @@ export function SwipeableMessageCard({
       threshold={0.4}
       listType={ListType.IOS}
     >
-      <Box sx={{ width: '100%', backgroundColor: theme.palette.background.paper }}>
+      <Box
+        sx={{
+          width: '100%',
+          backgroundColor: theme.palette.background.paper,
+          // Visual feedback for long press progress
+          transform: isPressed ? `scale(${1 - pressProgress * 0.02})` : 'scale(1)',
+          opacity: isPressed ? 1 - pressProgress * 0.1 : 1,
+          transition: isPressed ? 'none' : 'transform 0.2s, opacity 0.2s',
+        }}
+        {...longPressHandlers}
+      >
         <MessageCard
           message={message}
-          onClick={onClick}
           compact
         />
       </Box>

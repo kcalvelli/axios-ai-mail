@@ -23,6 +23,7 @@ interface AppState {
 
   // Bulk selection
   selectedMessageIds: Set<string>;
+  selectionMode: boolean;  // True when in multi-select mode (mobile long-press)
 
   // Actions
   setSelectedAccount: (accountId: string | null) => void;
@@ -39,6 +40,8 @@ interface AppState {
   selectAllMessages: (ids: string[]) => void;
   clearSelection: () => void;
   isMessageSelected: (id: string) => boolean;
+  enterSelectionMode: (initialMessageId?: string) => void;
+  exitSelectionMode: () => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -51,6 +54,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   // Start with drawer closed on mobile, open on desktop
   drawerOpen: !isMobileDevice(),
   selectedMessageIds: new Set<string>(),
+  selectionMode: false,
 
   // Actions
   setSelectedAccount: (accountId) => set({ selectedAccount: accountId }),
@@ -92,4 +96,22 @@ export const useAppStore = create<AppState>((set, get) => ({
   clearSelection: () => set({ selectedMessageIds: new Set<string>() }),
 
   isMessageSelected: (id) => get().selectedMessageIds.has(id),
+
+  enterSelectionMode: (initialMessageId) =>
+    set((state) => {
+      const newSelection = new Set(state.selectedMessageIds);
+      if (initialMessageId) {
+        newSelection.add(initialMessageId);
+      }
+      return {
+        selectionMode: true,
+        selectedMessageIds: newSelection,
+      };
+    }),
+
+  exitSelectionMode: () =>
+    set({
+      selectionMode: false,
+      selectedMessageIds: new Set<string>(),
+    }),
 }));
