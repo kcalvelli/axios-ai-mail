@@ -1,5 +1,11 @@
 # Implementation Tasks
 
+> **STATUS: Partially Complete - Core features done, remaining items backlogged**
+>
+> Completed: Long-press multi-select, App shortcuts, Share target, Read/unread sync defect
+>
+> Backlogged: PWA Push Notifications, Background Sync (can return to these later)
+
 ## 1. Long-Press Multi-Select
 
 ### 1.1 Touch Gesture Handler
