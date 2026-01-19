@@ -163,6 +163,17 @@ export function MessageCard({ message, onClick, compact = false, selectionMode =
                 {message.has_attachments && (
                   <AttachFile fontSize="small" color="primary" />
                 )}
+                {/* Unread indicator - always visible, especially important on mobile */}
+                {message.is_unread && (
+                  <Box
+                    sx={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: '50%',
+                      backgroundColor: theme.palette.primary.main,
+                    }}
+                  />
+                )}
                 <Typography variant="caption" color="text.secondary">
                   {formatDate(message.date)}
                 </Typography>
