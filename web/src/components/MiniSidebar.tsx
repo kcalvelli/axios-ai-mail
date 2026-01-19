@@ -106,22 +106,20 @@ export function MiniSidebar({ onNavigate }: MiniSidebarProps) {
   return (
     <Box
       sx={{
-        width: RAIL_WIDTH,
+        width: '100%',
         height: '100%',
         overflow: 'auto',
         py: 1,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
+        px: 1, // Match Sidebar padding pattern
         boxSizing: 'border-box',
         scrollbarWidth: 'none',
         '&::-webkit-scrollbar': { display: 'none' },
       }}
     >
       {/* Folders */}
-      <List disablePadding sx={{ width: '100%' }}>
+      <List disablePadding>
         {folderItems.map((item) => (
-          <ListItem key={item.text} disablePadding sx={{ justifyContent: 'center' }}>
+          <ListItem key={item.text} disablePadding>
             <Tooltip title={item.text} placement="right">
               <ListItemButton
                 selected={isFolderSelected(item)}
@@ -129,9 +127,7 @@ export function MiniSidebar({ onNavigate }: MiniSidebarProps) {
                 sx={{
                   minHeight: 48,
                   justifyContent: 'center',
-                  px: 0,
-                  mx: 1,
-                  borderRadius: 2,
+                  px: 1,
                 }}
               >
                 <ListItemIcon sx={{ minWidth: 'auto', justifyContent: 'center' }}>
@@ -153,12 +149,12 @@ export function MiniSidebar({ onNavigate }: MiniSidebarProps) {
         ))}
       </List>
 
-      <Divider sx={{ my: 1, width: '80%' }} />
+      <Divider sx={{ my: 2 }} />
 
       {/* Menu items */}
-      <List disablePadding sx={{ width: '100%' }}>
+      <List disablePadding>
         {menuItems.map((item) => (
-          <ListItem key={item.text} disablePadding sx={{ justifyContent: 'center' }}>
+          <ListItem key={item.text} disablePadding>
             <Tooltip title={item.text} placement="right">
               <ListItemButton
                 selected={isMenuSelected(item)}
@@ -166,9 +162,7 @@ export function MiniSidebar({ onNavigate }: MiniSidebarProps) {
                 sx={{
                   minHeight: 48,
                   justifyContent: 'center',
-                  px: 0,
-                  mx: 1,
-                  borderRadius: 2,
+                  px: 1,
                 }}
               >
                 <ListItemIcon sx={{ minWidth: 'auto', justifyContent: 'center' }}>
