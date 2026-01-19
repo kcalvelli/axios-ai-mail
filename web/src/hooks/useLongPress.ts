@@ -15,7 +15,7 @@ export interface LongPressOptions {
   threshold?: number;
   /** Max movement in px before cancelling long press (default: 5px) */
   movementThreshold?: number;
-  /** Minimum hold time in ms to register as tap (default: 0ms) */
+  /** Minimum hold time in ms to register as tap (default: 50ms, filters accidental scroll taps) */
   minTapTime?: number;
   /** Callback when long press activates */
   onLongPress: () => void;
@@ -45,8 +45,8 @@ export interface LongPressResult {
 
 export function useLongPress({
   threshold = 800,  // Increased from 500ms for more deliberate long-press
-  movementThreshold = 5,  // Reduced from 10px - cancel long press quickly on any movement
-  minTapTime = 0,  // Allow instant taps - scrolling is handled by cancelledByMovement
+  movementThreshold = 3,  // Very sensitive - cancel long press immediately on any movement (swipe)
+  minTapTime = 50,  // Small buffer to filter accidental taps during scroll (50ms still allows quick taps)
   onLongPress,
   onTap,
   enabled = true,

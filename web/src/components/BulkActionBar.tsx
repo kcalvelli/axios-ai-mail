@@ -1,7 +1,6 @@
 /**
  * BulkActionBar component - Floating action bar for bulk operations
- * On mobile: Positioned at top for easier access
- * On desktop: Positioned at bottom
+ * Fixed at bottom of viewport on all devices for easy thumb access
  */
 
 import {
@@ -56,10 +55,11 @@ export function BulkActionBar({
     <Box
       sx={{
         position: 'fixed',
-        // Mobile: top for easier access, Desktop: bottom
-        ...(isMobile
-          ? { top: 56, left: 0, right: 0, pt: 1 }
-          : { bottom: 0, left: 0, right: 0, pb: 2 }),
+        // Fixed at bottom of viewport for thumb access
+        bottom: isMobile ? 16 : 0,
+        left: 0,
+        right: 0,
+        pb: isMobile ? 0 : 2,
         zIndex: 1000,
         display: 'flex',
         justifyContent: 'center',
