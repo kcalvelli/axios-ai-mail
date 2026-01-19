@@ -11,7 +11,6 @@
  * Actions:
  *   r - Reply
  *   f - Forward
- *   e - Archive (mark read)
  *   # or d - Delete
  *   u - Toggle read/unread
  *   ? - Show help
@@ -32,8 +31,6 @@ interface KeyboardNavigationOptions {
   onDelete?: (messageId: string) => void;
   /** Callback for toggle read action */
   onToggleRead?: (messageId: string) => void;
-  /** Callback for archive action */
-  onArchive?: (messageId: string) => void;
   /** Whether keyboard navigation is enabled */
   enabled?: boolean;
 }
@@ -44,7 +41,6 @@ export function useKeyboardNavigation({
   onForward,
   onDelete,
   onToggleRead,
-  onArchive,
   enabled = true,
 }: KeyboardNavigationOptions) {
   const navigate = useNavigate();
@@ -149,14 +145,6 @@ export function useKeyboardNavigation({
           }
           break;
 
-        case 'e':
-          e.preventDefault();
-          if (selectedMessageId && onArchive) {
-            onArchive(selectedMessageId);
-            selectNextMessage(messageIds);
-          }
-          break;
-
         case '?':
           e.preventDefault();
           setHelpOpen((prev) => !prev);
@@ -176,7 +164,6 @@ export function useKeyboardNavigation({
       onForward,
       onDelete,
       onToggleRead,
-      onArchive,
     ]
   );
 
@@ -211,7 +198,6 @@ export const KEYBOARD_SHORTCUTS = [
       { key: 'r', description: 'Reply' },
       { key: 'f', description: 'Forward' },
       { key: 'u', description: 'Toggle read/unread' },
-      { key: 'e', description: 'Archive' },
       { key: '# / d', description: 'Delete' },
     ],
   },
