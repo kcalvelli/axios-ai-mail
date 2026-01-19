@@ -45,8 +45,6 @@ export function Layout() {
             '& .MuiDrawer-paper': {
               width: DRAWER_WIDTH,
               boxSizing: 'border-box',
-              // DEBUG: red background to see actual drawer bounds
-              backgroundColor: 'rgba(255,0,0,0.1)',
             },
           }}
           // Enable swipe to open on mobile
