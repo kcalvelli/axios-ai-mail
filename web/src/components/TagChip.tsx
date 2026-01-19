@@ -33,6 +33,12 @@ export function TagChip({ tag, onClick, onDelete, size = 'small', selected = fal
         borderWidth: 2,
         color: selected ? '#fff' : color,
         fontWeight: selected ? 600 : 500,
+        maxWidth: '100%', // Allow chip to use full container width
+        '& .MuiChip-label': {
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        },
         '&:hover': {
           backgroundColor: selected ? color : `${color}22`,
           opacity: selected ? 0.9 : 1,

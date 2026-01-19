@@ -173,7 +173,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
       <Divider sx={{ my: 2 }} />
 
       {/* Filters */}
-      <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, px: 1 }}>
+      <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
         Filters
       </Typography>
 
@@ -186,7 +186,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
           />
         }
         label="Unread only"
-        sx={{ mb: 2, ml: 0.5 }}
+        sx={{ mb: 2 }}
       />
 
       <Divider sx={{ my: 2 }} />
@@ -197,7 +197,6 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         justifyContent="space-between"
         alignItems="center"
         mb={1}
-        px={1} // Align with list item content
       >
         <Typography variant="subtitle2" color="text.secondary">
           Tags
@@ -219,7 +218,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
           <CircularProgress size={24} />
         </Box>
       ) : tagsData && tagsData.tags.length > 0 ? (
-        <Box display="flex" flexDirection="column" gap={1} px={1}>
+        <Box display="flex" flexDirection="column" gap={1}>
           {tagsData.tags.map((tag) => (
             <Box
               key={tag.name}
@@ -227,7 +226,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
               alignItems="center"
               justifyContent="space-between"
             >
-              <Box sx={{ flex: 1, minWidth: 0, mr: 1 }}>
+              <Box sx={{ flex: 1, minWidth: 0, mr: 1, display: 'flex' }}>
                 <TagChip
                   tag={tag.name}
                   onClick={() => toggleTag(tag.name)}
@@ -247,7 +246,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
           ))}
         </Box>
       ) : (
-        <Typography variant="body2" color="text.secondary" px={1}>
+        <Typography variant="body2" color="text.secondary">
           No tags yet
         </Typography>
       )}
