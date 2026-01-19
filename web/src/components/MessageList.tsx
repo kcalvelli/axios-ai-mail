@@ -411,7 +411,7 @@ export function MessageList() {
         </Box>
       )}
 
-      <Box sx={{ py: 1, px: 0 }}>
+      <Box sx={{ py: 1, px: 1 }}>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
           {/* Left side: message count, Select All, Clear Trash */}
           <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
