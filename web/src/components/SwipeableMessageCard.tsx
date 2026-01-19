@@ -116,10 +116,7 @@ export function SwipeableMessageCard({
   if (selectionMode) {
     return (
       <Box
-        sx={{
-          width: '100%',
-          backgroundColor: theme.palette.background.paper,
-        }}
+        sx={{ width: '100%' }}
         onClick={handleClick}
       >
         <MessageCard
@@ -140,10 +137,7 @@ export function SwipeableMessageCard({
       listType={ListType.IOS}
     >
       <Box
-        sx={{
-          width: '100%',
-          backgroundColor: theme.palette.background.paper,
-        }}
+        sx={{ width: '100%' }}
         onClick={handleClick}
       >
         <MessageCard
@@ -169,16 +163,32 @@ export function SwipeableMessageList({
   onMessageClick,
   onDelete,
 }: SwipeableMessageListProps) {
+  const theme = useTheme();
+
   return (
-    <SwipeableList threshold={0.3} type={ListType.IOS}>
-      {messages.map((message) => (
-        <SwipeableMessageCard
-          key={message.id}
-          message={message}
-          onClick={() => onMessageClick(message)}
-          onDelete={onDelete}
-        />
-      ))}
-    </SwipeableList>
+    <Box
+      sx={{
+        // Ensure page background shows through card margins
+        backgroundColor: theme.palette.background.default,
+        // Override swipeable-list styles that might set backgrounds
+        '& .swipeable-list-item': {
+          backgroundColor: 'transparent !important',
+        },
+        '& .swipeable-list-item__content': {
+          backgroundColor: 'transparent !important',
+        },
+      }}
+    >
+      <SwipeableList threshold={0.3} type={ListType.IOS}>
+        {messages.map((message) => (
+          <SwipeableMessageCard
+            key={message.id}
+            message={message}
+            onClick={() => onMessageClick(message)}
+            onDelete={onDelete}
+          />
+        ))}
+      </SwipeableList>
+    </Box>
   );
 }
