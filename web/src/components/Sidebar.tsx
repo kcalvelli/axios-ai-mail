@@ -113,7 +113,8 @@ export function Sidebar({ onNavigate }: SidebarProps) {
     <Box
       sx={{
         overflow: 'auto',
-        p: 1,
+        py: 1,
+        px: 1.5,
         // Hide scrollbar while keeping scroll functionality
         scrollbarWidth: 'none', // Firefox
         '&::-webkit-scrollbar': { display: 'none' }, // Chrome/Safari
@@ -225,14 +226,20 @@ export function Sidebar({ onNavigate }: SidebarProps) {
               alignItems="center"
               justifyContent="space-between"
             >
-              <TagChip
-                tag={tag.name}
-                onClick={() => toggleTag(tag.name)}
-                size="small"
-                selected={selectedTags.includes(tag.name)}
-                isAccountTag={tag.type === 'account'}
-              />
-              <Typography variant="caption" color="text.secondary" sx={{ ml: 1, flexShrink: 0 }}>
+              <Box sx={{ flex: 1, minWidth: 0, mr: 1 }}>
+                <TagChip
+                  tag={tag.name}
+                  onClick={() => toggleTag(tag.name)}
+                  size="small"
+                  selected={selectedTags.includes(tag.name)}
+                  isAccountTag={tag.type === 'account'}
+                />
+              </Box>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ minWidth: 20, textAlign: 'right', flexShrink: 0 }}
+              >
                 {tag.count}
               </Typography>
             </Box>
