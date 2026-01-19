@@ -55,3 +55,60 @@ journalctl --user -u axios-ai-mail-web.service -f
 - Manual execution bypasses systemd and won't pick up changes on rebuild
 - Creates confusion with multiple instances from different Nix store paths
 - Loses systemd's restart-on-failure and logging benefits
+
+# NixOS/Home-Manager Integration
+
+This project uses the **overlay pattern** for Nix packaging, which is more idiomatic and avoids eval cache issues.
+
+## User's NixOS flake.nix configuration:
+
+```nix
+{
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    home-manager.url = "github:nix-community/home-manager";
+
+    axios-ai-mail = {
+      url = "github:kcalvelli/axios-ai-mail";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+  };
+
+  outputs = { self, nixpkgs, home-manager, axios-ai-mail, ... }: {
+    nixosConfigurations.hostname = nixpkgs.lib.nixosSystem {
+      system = "x86_64-linux";
+      modules = [
+        # Apply the axios-ai-mail overlay to nixpkgs
+        {
+          nixpkgs.overlays = [ axios-ai-mail.overlays.default ];
+        }
+
+        home-manager.nixosModules.home-manager
+        {
+          home-manager.users.username = { pkgs, ... }: {
+            imports = [ axios-ai-mail.homeManagerModules.default ];
+
+            programs.axios-ai-mail = {
+              enable = true;
+              # ... rest of config
+            };
+          };
+        }
+      ];
+    };
+  };
+}
+```
+
+## Key Points:
+
+1. **Apply the overlay**: Add `axios-ai-mail.overlays.default` to `nixpkgs.overlays`
+2. **Import the module**: Import `axios-ai-mail.homeManagerModules.default` in home-manager
+3. **Packages via pkgs**: The module uses `pkgs.axios-ai-mail` and `pkgs.axios-ai-mail-web` from the overlay
+
+## Troubleshooting Cache Issues:
+
+If rebuilds aren't picking up changes, clear the eval cache:
+```bash
+rm -rf ~/.cache/nix/eval-cache-v*
+```

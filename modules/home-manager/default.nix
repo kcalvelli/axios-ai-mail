@@ -1,13 +1,13 @@
-{ config, lib, pkgs, axios-ai-mail-web, ... }:
+{ config, lib, pkgs, ... }:
 
 with lib;
 
 let
   cfg = config.programs.axios-ai-mail;
 
-  # Web frontend package is passed from the flake
-  # This ensures the npmDepsHash is only defined in flake.nix
-  webFrontend = axios-ai-mail-web;
+  # Web frontend package comes from overlay (pkgs.axios-ai-mail-web)
+  # Apply the axios-ai-mail overlay to your nixpkgs for this to work
+  webFrontend = pkgs.axios-ai-mail-web;
 
   # Submodule for individual email accounts
   accountOption = types.submodule ({ name, config, ... }: {
