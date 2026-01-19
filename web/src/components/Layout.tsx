@@ -40,7 +40,7 @@ export function Layout() {
           open={drawerOpen}
           onClose={handleDrawerClose}
           sx={{
-            width: DRAWER_WIDTH,
+            width: drawerOpen ? DRAWER_WIDTH : 0,
             flexShrink: 0,
             '& .MuiDrawer-paper': {
               width: DRAWER_WIDTH,
