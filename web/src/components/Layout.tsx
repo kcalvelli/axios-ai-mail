@@ -128,16 +128,16 @@ export function Layout() {
         </Box>
       </Box>
 
-      {/* M3 FAB for Compose - icon only pill shape, top-right to avoid action bar */}
+      {/* M3 FAB for Compose - bottom-right (standard Material Design position) */}
       {showFab && (
         <Fab
           onClick={handleCompose}
           aria-label="Compose new email"
           sx={{
             position: 'fixed',
-            // Top-right of content area (below app bar) to avoid overlapping action bar
-            top: 64 + 16, // AppBar height (56) + Toolbar spacer + margin
-            right: 16,
+            // Bottom-right corner (standard FAB position, clears top area for controls)
+            bottom: isMobile ? 72 : 24, // Account for mobile bottom nav or action bar
+            right: isMobile ? 16 : 24,
             // M3: Primary Container color for FAB
             backgroundColor: isDark ? '#4F378B' : theme.palette.primary.main,
             color: isDark ? '#EADDFF' : '#ffffff',
@@ -148,8 +148,8 @@ export function Layout() {
             borderRadius: '16px',
             width: 56,
             height: 56,
-            // Elevated above content
-            zIndex: theme.zIndex.fab,
+            // Elevated above content and bulk action bar
+            zIndex: theme.zIndex.fab + 1,
             // No shadow in AMOLED dark mode
             boxShadow: isDark ? 'none' : undefined,
           }}

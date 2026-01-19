@@ -149,6 +149,23 @@ export function ReadingPane({
           overflow: 'auto',
           pr: 1,
           flexShrink: 0,
+          // Thin scrollbar (single line style)
+          '&::-webkit-scrollbar': {
+            width: 4,
+          },
+          '&::-webkit-scrollbar-track': {
+            background: 'transparent',
+          },
+          '&::-webkit-scrollbar-thumb': {
+            background: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)',
+            borderRadius: 2,
+          },
+          '&::-webkit-scrollbar-thumb:hover': {
+            background: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)',
+          },
+          // Firefox
+          scrollbarWidth: 'thin',
+          scrollbarColor: isDark ? 'rgba(255,255,255,0.2) transparent' : 'rgba(0,0,0,0.2) transparent',
         }}
       >
         {/* Layout toggle */}
