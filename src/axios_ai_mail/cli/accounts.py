@@ -401,9 +401,11 @@ def _check_imap_account(db_account, account_config: dict, verbose: bool) -> None
             supports_keywords = "KEYWORD" in caps
             supports_idle = "IDLE" in caps
 
-            console.print(f"[green]✓ Capabilities retrieved[/green]")
-            console.print(f"  KEYWORD extension: {'[green]Yes[/green]' if supports_keywords else '[yellow]No (tags won\\'t sync to server)[/yellow]'}")
-            console.print(f"  IDLE extension: {'Yes' if supports_idle else 'No'}")
+            console.print("[green]✓ Capabilities retrieved[/green]")
+            keyword_status = "[green]Yes[/green]" if supports_keywords else "[yellow]No (tags will not sync to server)[/yellow]"
+            console.print(f"  KEYWORD extension: {keyword_status}")
+            idle_status = "Yes" if supports_idle else "No"
+            console.print(f"  IDLE extension: {idle_status}")
 
             if verbose:
                 console.print(f"  [dim]All capabilities: {caps}[/dim]")
