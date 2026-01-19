@@ -1,5 +1,7 @@
 /**
  * BulkActionBar component - Floating action bar for bulk operations
+ * On mobile: Positioned at top for easier access
+ * On desktop: Positioned at bottom
  */
 
 import {
@@ -10,6 +12,8 @@ import {
   Button,
   Tooltip,
   Divider,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import {
   Delete,
@@ -38,6 +42,8 @@ export function BulkActionBar({
   isTrash = false,
 }: BulkActionBarProps) {
   const { selectedMessageIds, exitSelectionMode, selectionMode } = useAppStore();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const selectedCount = selectedMessageIds.size;
 
@@ -50,13 +56,13 @@ export function BulkActionBar({
     <Box
       sx={{
         position: 'fixed',
-        bottom: 0,
-        left: 0,
-        right: 0,
+        // Mobile: top for easier access, Desktop: bottom
+        ...(isMobile
+          ? { top: 56, left: 0, right: 0, pt: 1 }
+          : { bottom: 0, left: 0, right: 0, pb: 2 }),
         zIndex: 1000,
         display: 'flex',
         justifyContent: 'center',
-        pb: 2,
         pointerEvents: 'none', // Allow clicks through the Box
       }}
     >

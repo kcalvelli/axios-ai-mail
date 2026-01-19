@@ -128,11 +128,11 @@ export function Layout() {
         </Box>
       </Box>
 
-      {/* M3 Extended FAB for Compose (mobile only) */}
+      {/* M3 FAB for Compose - icon only pill shape */}
       {showFab && (
         <Fab
-          variant="extended"
           onClick={handleCompose}
+          aria-label="Compose new email"
           sx={{
             position: 'fixed',
             bottom: 16,
@@ -143,18 +143,17 @@ export function Layout() {
             '&:hover': {
               backgroundColor: isDark ? '#5E4994' : theme.palette.primary.dark,
             },
-            // M3 Extended FAB: 16px border-radius, 56px height
+            // M3 FAB: pill shape (fully rounded), 56px height
             borderRadius: '16px',
+            width: 56,
             height: 56,
-            px: 2.5,
             // Elevated above content
             zIndex: theme.zIndex.fab,
             // No shadow in AMOLED dark mode
             boxShadow: isDark ? 'none' : undefined,
           }}
         >
-          <EditIcon sx={{ mr: 1 }} />
-          Compose
+          <EditIcon />
         </Fab>
       )}
     </Box>

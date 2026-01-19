@@ -372,19 +372,21 @@ export function MessageList() {
           {/* Action buttons */}
           {data.total > 0 && (
             <Box display="flex" gap={1}>
-              {/* Select All / Deselect All button - always show */}
-              <Button
-                size="small"
-                color="primary"
-                startIcon={<CheckBox />}
-                onClick={handleSelectAll}
-                variant="outlined"
-              >
-                {allSelected ? 'Deselect All' : 'Select All'}
-              </Button>
+              {/* Select All / Deselect All button - hidden on mobile unless in selection mode */}
+              {(!isMobile || selectionMode) && (
+                <Button
+                  size="small"
+                  color="primary"
+                  startIcon={<CheckBox />}
+                  onClick={handleSelectAll}
+                  variant="outlined"
+                >
+                  {allSelected ? 'Deselect All' : 'Select All'}
+                </Button>
+              )}
 
-              {/* Clear Trash button - only in trash folder */}
-              {isTrash && (
+              {/* Clear Trash button - only in trash folder, hidden on mobile */}
+              {isTrash && !isMobile && (
                 <Button
                   size="small"
                   color="error"

@@ -11,10 +11,12 @@
 import { useCallback, useRef, useState } from 'react';
 
 export interface LongPressOptions {
-  /** Threshold in ms before long press triggers (default: 500ms) */
+  /** Threshold in ms before long press triggers (default: 800ms) */
   threshold?: number;
   /** Max movement in px before cancelling (default: 10px) */
   movementThreshold?: number;
+  /** Minimum hold time in ms to register as tap vs scroll (default: 100ms) */
+  minTapTime?: number;
   /** Callback when long press activates */
   onLongPress: () => void;
   /** Callback for regular tap (not long press) */
@@ -42,8 +44,9 @@ export interface LongPressResult {
 }
 
 export function useLongPress({
-  threshold = 500,
+  threshold = 800,  // Increased from 500ms for more deliberate long-press
   movementThreshold = 10,
+  minTapTime = 100,  // Minimum hold time to distinguish tap from scroll
   onLongPress,
   onTap,
   enabled = true,
@@ -56,6 +59,7 @@ export function useLongPress({
   const startPosRef = useRef<{ x: number; y: number } | null>(null);
   const longPressTriggeredRef = useRef(false);
   const startTimeRef = useRef<number>(0);
+  const cancelledByMovementRef = useRef(false);
 
   const clearTimers = useCallback(() => {
     if (timerRef.current) {
@@ -81,6 +85,7 @@ export function useLongPress({
 
       startPosRef.current = { x, y };
       longPressTriggeredRef.current = false;
+      cancelledByMovementRef.current = false;
       startTimeRef.current = Date.now();
       setIsPressed(true);
       setPressProgress(0);
@@ -114,8 +119,9 @@ export function useLongPress({
       const dy = Math.abs(y - startPosRef.current.y);
       const distance = Math.sqrt(dx * dx + dy * dy);
 
-      // Cancel long press if moved too much (user is swiping)
+      // Cancel long press if moved too much (user is scrolling/swiping)
       if (distance > movementThreshold) {
+        cancelledByMovementRef.current = true;  // Mark as cancelled by movement (scroll)
         clearTimers();
         setIsPressed(false);
         setPressProgress(0);
@@ -127,16 +133,22 @@ export function useLongPress({
 
   const handlePressEnd = useCallback(() => {
     const wasLongPress = longPressTriggeredRef.current;
+    const wasCancelledByMovement = cancelledByMovementRef.current;
+    const holdDuration = Date.now() - startTimeRef.current;
+
     clearTimers();
     setIsPressed(false);
     setPressProgress(0);
     startPosRef.current = null;
 
-    // If it wasn't a long press and we have a tap handler, call it
-    if (!wasLongPress && onTap) {
+    // Only trigger tap if:
+    // 1. It wasn't a long press
+    // 2. It wasn't cancelled by movement (user was scrolling)
+    // 3. The hold duration was at least minTapTime (prevents accidental taps while scrolling)
+    if (!wasLongPress && !wasCancelledByMovement && holdDuration >= minTapTime && onTap) {
       onTap();
     }
-  }, [clearTimers, onTap]);
+  }, [clearTimers, onTap, minTapTime]);
 
   const handlers = {
     // Touch events (mobile)
