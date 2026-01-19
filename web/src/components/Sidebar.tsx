@@ -114,14 +114,14 @@ export function Sidebar({ onNavigate }: SidebarProps) {
       sx={{
         overflow: 'auto',
         py: 1,
-        px: 1.5,
+        px: 1, // 8px padding - Material Design compact spacing
         // Hide scrollbar while keeping scroll functionality
         scrollbarWidth: 'none', // Firefox
         '&::-webkit-scrollbar': { display: 'none' }, // Chrome/Safari
       }}
     >
       {/* Folders */}
-      <List>
+      <List disablePadding>
         {folderItems.map((item) => (
           <ListItem key={item.text} disablePadding>
             <ListItemButton
@@ -131,9 +131,9 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                   : location.pathname === '/' && location.search === (item.folder === 'inbox' ? '' : `?folder=${item.folder}`)
               }
               onClick={() => handleNavigation(item.path)}
-              sx={{ minHeight: 48 }} // Touch-friendly height
+              sx={{ minHeight: 48, px: 1 }} // Touch-friendly height, tighter padding
             >
-              <ListItemIcon>
+              <ListItemIcon sx={{ minWidth: 36 }}>
                 {item.badge > 0 ? (
                   <Badge
                     badgeContent={item.badge > 99 ? '99+' : item.badge}
@@ -155,15 +155,15 @@ export function Sidebar({ onNavigate }: SidebarProps) {
       <Divider sx={{ my: 2 }} />
 
       {/* Navigation */}
-      <List>
+      <List disablePadding>
         {menuItems.map((item) => (
           <ListItem key={item.text} disablePadding>
             <ListItemButton
               selected={location.pathname === item.path}
               onClick={() => handleNavigation(item.path)}
-              sx={{ minHeight: 48 }} // Touch-friendly height
+              sx={{ minHeight: 48, px: 1 }} // Touch-friendly height, tighter padding
             >
-              <ListItemIcon>{item.icon}</ListItemIcon>
+              <ListItemIcon sx={{ minWidth: 36 }}>{item.icon}</ListItemIcon>
               <ListItemText primary={item.text} />
             </ListItemButton>
           </ListItem>
@@ -173,7 +173,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
       <Divider sx={{ my: 2 }} />
 
       {/* Filters */}
-      <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+      <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, px: 1 }}>
         Filters
       </Typography>
 
@@ -186,7 +186,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
           />
         }
         label="Unread only"
-        sx={{ mb: 2 }}
+        sx={{ mb: 2, ml: 0.5 }}
       />
 
       <Divider sx={{ my: 2 }} />
@@ -197,6 +197,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         justifyContent="space-between"
         alignItems="center"
         mb={1}
+        px={1} // Align with list item content
       >
         <Typography variant="subtitle2" color="text.secondary">
           Tags
@@ -218,7 +219,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
           <CircularProgress size={24} />
         </Box>
       ) : tagsData && tagsData.tags.length > 0 ? (
-        <Box display="flex" flexDirection="column" gap={1}>
+        <Box display="flex" flexDirection="column" gap={1} px={1}>
           {tagsData.tags.map((tag) => (
             <Box
               key={tag.name}
@@ -246,7 +247,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
           ))}
         </Box>
       ) : (
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" color="text.secondary" px={1}>
           No tags yet
         </Typography>
       )}
