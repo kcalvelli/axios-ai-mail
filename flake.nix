@@ -11,14 +11,12 @@
   in {
     # Home-Manager Module - self-contained, no overlay needed
     # Just import and set programs.axios-ai-mail.enable = true
-    homeManagerModules.default = { pkgs, ... }: {
-      imports = [ ./modules/home-manager ];
-      config._module.args = {
-        # Pass pre-built packages from the flake - no user config needed
+    homeManagerModules.default = { pkgs, ... }@args:
+      # Import module with packages bound via closure - creates direct dependency
+      (import ./modules/home-manager {
         axios-ai-mail-pkg = self.packages.${pkgs.system}.default;
         axios-ai-mail-web-pkg = self.packages.${pkgs.system}.web;
-      };
-    };
+      }) args;
 
     # Python package
     packages = forAllSystems (system: let

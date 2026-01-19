@@ -1,12 +1,13 @@
-{ config, lib, pkgs, axios-ai-mail-pkg, axios-ai-mail-web-pkg, ... }:
+# Curried function: first takes packages from flake, then module args
+{ axios-ai-mail-pkg, axios-ai-mail-web-pkg }:
+{ config, lib, pkgs, ... }:
 
 with lib;
 
 let
   cfg = config.programs.axios-ai-mail;
 
-  # Packages are passed from the flake via _module.args
-  # No user configuration needed - just enable the module
+  # Packages come directly from flake closure - proper dependency tracking
   webFrontend = axios-ai-mail-web-pkg;
 
   # Submodule for individual email accounts
