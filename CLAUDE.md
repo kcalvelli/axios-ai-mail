@@ -58,29 +58,58 @@ journalctl --user -u axios-ai-mail-web.service -f
 
 # NixOS/Home-Manager Integration
 
-The flake is self-contained - just import the module and enable it. No overlays needed.
+Split architecture for proper Nix dependency tracking:
+- **NixOS module**: Applies overlay, runs web service (system-level)
+- **Home-manager module**: User accounts, AI config, sync timer
 
-## Usage in your flake:
+## Usage in your NixOS flake:
 
 ```nix
 {
   inputs.axios-ai-mail.url = "github:kcalvelli/axios-ai-mail";
 
-  # In your home-manager config:
-  home-manager.users.username = { ... }: {
-    imports = [ inputs.axios-ai-mail.homeManagerModules.default ];
+  outputs = { nixpkgs, axios-ai-mail, ... }: {
+    nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
+      modules = [
+        # 1. Apply overlay (adds pkgs.axios-ai-mail)
+        { nixpkgs.overlays = [ axios-ai-mail.overlays.default ]; }
 
-    programs.axios-ai-mail = {
-      enable = true;
-      # ... rest of config
+        # 2. Import NixOS module for web service
+        axios-ai-mail.nixosModules.default
+
+        # 3. Enable the service
+        {
+          services.axios-ai-mail = {
+            enable = true;
+            port = 8080;
+            user = "keith";  # Reads config from this user's home
+          };
+        }
+
+        # 4. Home-manager for user config (accounts, AI settings)
+        {
+          home-manager.users.keith = { ... }: {
+            imports = [ axios-ai-mail.homeManagerModules.default ];
+
+            programs.axios-ai-mail = {
+              enable = true;
+              accounts.gmail = {
+                provider = "gmail";
+                email = "user@gmail.com";
+                oauthTokenFile = "/run/agenix/gmail-token";
+              };
+              ai.model = "mistral";
+            };
+          };
+        }
+      ];
     };
   };
 }
 ```
 
-## Troubleshooting Cache Issues:
+## Key Points:
 
-If rebuilds aren't picking up changes, clear the eval cache:
-```bash
-rm -rf ~/.cache/nix/eval-cache-v*
-```
+1. **Overlay required**: Adds `pkgs.axios-ai-mail` - proper dependency tracking
+2. **NixOS module**: Runs web service as system service
+3. **Home-manager module**: User-specific config (accounts, settings)

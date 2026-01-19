@@ -1,14 +1,12 @@
-# Curried function: first takes packages from flake, then module args
-{ axios-ai-mail-pkg, axios-ai-mail-web-pkg }:
+# Home-manager module for axios-ai-mail user configuration
+# Handles: email accounts, AI settings, config file, sync timer
+# Web service is handled by the NixOS module (services.axios-ai-mail)
 { config, lib, pkgs, ... }:
 
 with lib;
 
 let
   cfg = config.programs.axios-ai-mail;
-
-  # Packages come directly from flake closure - proper dependency tracking
-  webFrontend = axios-ai-mail-web-pkg;
 
   # Submodule for individual email accounts
   accountOption = types.submodule ({ name, config, ... }: {
@@ -188,7 +186,6 @@ let
         smtp_host = account.smtp.host;
         smtp_port = account.smtp.port;
         smtp_tls = account.smtp.tls;
-        # SMTP uses same password as IMAP by default
         smtp_password_file = account.passwordFile;
       };
     }) cfg.accounts;
@@ -205,33 +202,22 @@ let
       labelColors = cfg.ai.labelColors;
     };
 
-    # Global sync config
     sync = {
       frequency = cfg.sync.frequency;
       maxMessagesPerSync = cfg.sync.maxMessagesPerSync;
       enableWebhooks = cfg.sync.enableWebhooks;
     };
-
-    ui = {
-      enable = cfg.ui.enable;
-      type = cfg.ui.type;
-      port = cfg.ui.port;
-    };
   };
-
-  # Package comes from flake - no fallback needed
-  # This ensures proper versioning and avoids eval cache issues
-  axios-ai-mail = axios-ai-mail-pkg;
 
 in {
   options.programs.axios-ai-mail = {
-    enable = mkEnableOption "axios-ai-mail v2";
+    enable = mkEnableOption "axios-ai-mail user configuration";
 
     package = mkOption {
       type = types.package;
-      default = axios-ai-mail;
+      default = pkgs.axios-ai-mail;
       defaultText = literalExpression "pkgs.axios-ai-mail";
-      description = "The axios-ai-mail package to use.";
+      description = "The axios-ai-mail package to use (from overlay).";
     };
 
     accounts = mkOption {
@@ -245,22 +231,15 @@ in {
             email = "user@gmail.com";
             realName = "John Doe";
             oauthTokenFile = config.sops.secrets."gmail-oauth".path;
-            sync.frequency = "5m";
-            labels.prefix = "AI";
           };
 
           work = {
             provider = "imap";
             email = "user@fastmail.com";
-            realName = "John Doe";
             passwordFile = config.sops.secrets."fastmail-password".path;
             imap = {
               host = "imap.fastmail.com";
               port = 993;
-            };
-            smtp = {
-              host = "smtp.fastmail.com";
-              port = 465;
             };
           };
         }
@@ -297,10 +276,8 @@ in {
         type = types.bool;
         default = true;
         description = ''
-          Use the expanded default tag taxonomy (35 tags covering Priority, Work,
-          Personal, Finance, Shopping, Travel, Developer, Marketing, Social, System).
+          Use the expanded default tag taxonomy (35 tags).
           Custom tags in 'tags' will be appended to defaults.
-          Set to false to use only custom tags.
         '';
       };
 
@@ -310,37 +287,22 @@ in {
             name = mkOption {
               type = types.str;
               description = "Tag name (lowercase, no spaces).";
-              example = "work";
             };
 
             description = mkOption {
               type = types.str;
               description = "Tag description for LLM prompt.";
-              example = "Work-related emails";
             };
           };
         });
         default = [];
-        description = ''
-          Custom tags for AI classification. When useDefaultTags is true (default),
-          these are appended to the default taxonomy. When false, only these tags are used.
-        '';
-        example = literalExpression ''
-          [
-            { name = "client-acme"; description = "Emails from ACME Corp"; }
-            { name = "internal"; description = "Internal company communications"; }
-          ]
-        '';
+        description = "Custom tags for AI classification.";
       };
 
       excludeTags = mkOption {
         type = types.listOf types.str;
         default = [];
-        description = ''
-          Tag names to exclude from the default taxonomy.
-          Only effective when useDefaultTags is true.
-        '';
-        example = [ "hobby" "social" ];
+        description = "Tag names to exclude from the default taxonomy.";
       };
 
       labelPrefix = mkOption {
@@ -352,21 +314,10 @@ in {
       labelColors = mkOption {
         type = types.attrsOf types.str;
         default = {};
-        description = ''
-          Override colors for specific tags. Colors are auto-derived from tag
-          categories by default (Priority=red, Work=blue, Finance=green, etc.).
-          Only specify overrides for tags that need different colors.
-        '';
-        example = literalExpression ''
-          {
-            urgent = "orange";  # Override default red
-            client-acme = "purple";  # Color for custom tag
-          }
-        '';
+        description = "Override colors for specific tags.";
       };
     };
 
-    # Global sync configuration (can be overridden per-account)
     sync = mkOption {
       type = types.submodule {
         options = {
@@ -390,32 +341,11 @@ in {
         };
       };
       default = {};
-      description = "Global sync configuration. Can be overridden per-account.";
-    };
-
-    ui = {
-      enable = mkOption {
-        type = types.bool;
-        default = false;
-        description = "Enable web UI (Phase 2 feature).";
-      };
-
-      type = mkOption {
-        type = types.enum [ "web" "cli" ];
-        default = "cli";
-        description = "UI type.";
-      };
-
-      port = mkOption {
-        type = types.port;
-        default = 8080;
-        description = "Web UI port (if enabled).";
-      };
+      description = "Global sync configuration.";
     };
   };
 
   config = mkIf cfg.enable {
-    # Assertions for validation
     assertions = [
       {
         assertion = cfg.accounts != {};
@@ -424,20 +354,13 @@ in {
     ] ++ (lib.flatten (lib.mapAttrsToList (name: account: [
       {
         assertion = (account.provider == "gmail" || account.provider == "outlook") -> account.oauthTokenFile != null;
-        message = "axios-ai-mail account '${name}': OAuth providers (gmail, outlook) require oauthTokenFile";
+        message = "axios-ai-mail account '${name}': OAuth providers require oauthTokenFile";
       }
       {
         assertion = account.provider == "imap" -> (account.passwordFile != null && account.imap != null);
         message = "axios-ai-mail account '${name}': IMAP provider requires passwordFile and imap configuration";
       }
-      {
-        assertion = account.provider == "imap" -> account.imap.host != "";
-        message = "axios-ai-mail account '${name}': IMAP provider requires imap.host";
-      }
     ]) cfg.accounts));
-
-    # Install package
-    home.packages = [ cfg.package ];
 
     # Create data directory
     home.file."${config.xdg.dataHome}/axios-ai-mail/.keep".text = "";
@@ -445,7 +368,7 @@ in {
     # Generate runtime configuration
     xdg.configFile."axios-ai-mail/config.yaml".text = builtins.toJSON runtimeConfig;
 
-    # Systemd services
+    # Sync service and timer (user-level, runs as this user)
     systemd.user.services.axios-ai-mail-sync = {
       Unit = {
         Description = "axios-ai-mail sync service";
@@ -456,54 +379,21 @@ in {
       Service = {
         Type = "oneshot";
         ExecStart = "${cfg.package}/bin/axios-ai-mail sync run";
-
-        # Environment
-        Environment = [
-          "PYTHONUNBUFFERED=1"
-        ];
+        Environment = [ "PYTHONUNBUFFERED=1" ];
       };
     };
 
     systemd.user.timers.axios-ai-mail-sync = {
-      Unit = {
-        Description = "axios-ai-mail sync timer";
-      };
+      Unit.Description = "axios-ai-mail sync timer";
 
       Timer = {
         OnBootSec = "2min";
-        OnUnitActiveSec = "5min"; # Default, can be overridden per-account
+        OnUnitActiveSec = cfg.sync.frequency;
         Unit = "axios-ai-mail-sync.service";
         Persistent = true;
       };
 
-      Install = {
-        WantedBy = [ "timers.target" ];
-      };
-    };
-
-    # Optional: Web UI service (Phase 2)
-    systemd.user.services.axios-ai-mail-web = mkIf cfg.ui.enable {
-      Unit = {
-        Description = "axios-ai-mail web UI";
-        After = [ "network-online.target" ];
-        Wants = [ "network-online.target" ];
-      };
-
-      Service = {
-        Type = "simple";
-        ExecStart = "${cfg.package}/bin/axios-ai-mail web --port ${toString cfg.ui.port}";
-        Restart = "on-failure";
-        RestartSec = "5s";
-
-        # Environment for proper logging
-        Environment = [
-          "PYTHONUNBUFFERED=1"
-        ];
-      };
-
-      Install = {
-        WantedBy = [ "default.target" ];
-      };
+      Install.WantedBy = [ "timers.target" ];
     };
   };
 }
