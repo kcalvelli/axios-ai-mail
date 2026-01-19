@@ -227,7 +227,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
               key={tag.name}
               display="flex"
               alignItems="center"
-              gap={1}
+              justifyContent="space-between"
             >
               <TagChip
                 tag={tag.name}
@@ -239,6 +239,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
               <Typography
                 variant="caption"
                 color="text.secondary"
+                sx={{ flexShrink: 0 }}
               >
                 {tag.count}
               </Typography>
