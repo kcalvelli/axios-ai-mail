@@ -89,7 +89,7 @@ export function MessageDetailPage() {
   const messageIds = messagesData?.messages.map((m) => m.id) || [];
 
   // Keyboard navigation callbacks
-  const handleKeyboardReply = useCallback((messageId: string) => {
+  const handleKeyboardReply = useCallback((_messageId: string) => {
     if (message) {
       const params = new URLSearchParams({
         reply_to: message.id,
@@ -104,7 +104,7 @@ export function MessageDetailPage() {
     }
   }, [message, navigate]);
 
-  const handleKeyboardDelete = useCallback((messageId: string) => {
+  const handleKeyboardDelete = useCallback((_messageId: string) => {
     if (message) {
       deleteMessage.mutate(message.id, {
         onSuccess: () => {
@@ -121,7 +121,7 @@ export function MessageDetailPage() {
     }
   }, [message, messageIds, deleteMessage, navigate]);
 
-  const handleKeyboardToggleRead = useCallback((messageId: string) => {
+  const handleKeyboardToggleRead = useCallback((_messageId: string) => {
     if (message) {
       markRead.mutate({
         id: message.id,
@@ -130,7 +130,7 @@ export function MessageDetailPage() {
     }
   }, [message, markRead]);
 
-  const handleKeyboardForward = useCallback((messageId: string) => {
+  const handleKeyboardForward = useCallback((_messageId: string) => {
     if (message) {
       const params = new URLSearchParams({
         forward_from: message.id,

@@ -386,6 +386,15 @@ export function MessageList() {
         id: messageId,
         data: { is_unread: !message.is_unread },
       });
+    } else {
+      // Message not in current list - fetch current status and toggle
+      // This can happen if the list was refreshed or message is on another page
+      console.warn(`Message ${messageId} not found in current list, attempting direct toggle`);
+      // Default to marking as read if we can't determine current state
+      markReadMutation.mutate({
+        id: messageId,
+        data: { is_unread: false },
+      });
     }
   };
 
