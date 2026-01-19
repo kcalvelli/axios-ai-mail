@@ -207,6 +207,7 @@ axios-ai-mail accounts --help
 ## Roadmap
 
 ### Completed
+
 - [x] AI-powered classification with confidence scores
 - [x] Dark mode with system preference detection
 - [x] PWA support (installable as desktop/mobile app)
@@ -219,13 +220,14 @@ axios-ai-mail accounts --help
 - [x] Message threading
 - [x] Real-time sync via WebSockets
 - [x] Bulk operations with undo
+- [x] AI-generated quick replies
 
 ### Planned
+
 - [ ] Outlook/Office365 provider
 - [ ] User feedback loop for AI improvement
 - [ ] Calendar integration
 - [ ] Contact management
-- [ ] Smart replies (AI-generated)
 
 ## Contributing
 
