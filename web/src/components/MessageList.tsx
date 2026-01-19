@@ -365,40 +365,40 @@ export function MessageList() {
 
       <Box sx={{ py: 1, px: 0 }}>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-          <Typography variant="body2" color="text.secondary">
-            {data.total} {data.total === 1 ? 'message' : 'messages'}
-          </Typography>
+          {/* Left side: Select All button (only shown when in selection mode or has selections) */}
+          <Box display="flex" gap={1} alignItems="center">
+            {data.total > 0 && (selectionMode || selectedMessageIds.size > 0) && (
+              <Button
+                size="small"
+                color="primary"
+                startIcon={<CheckBox />}
+                onClick={handleSelectAll}
+                variant="outlined"
+              >
+                {allSelected ? 'Deselect All' : 'Select All'}
+              </Button>
+            )}
+          </Box>
 
-          {/* Action buttons */}
-          {data.total > 0 && (
-            <Box display="flex" gap={1}>
-              {/* Select All / Deselect All button - hidden on mobile unless in selection mode */}
-              {(!isMobile || selectionMode) && (
-                <Button
-                  size="small"
-                  color="primary"
-                  startIcon={<CheckBox />}
-                  onClick={handleSelectAll}
-                  variant="outlined"
-                >
-                  {allSelected ? 'Deselect All' : 'Select All'}
-                </Button>
-              )}
+          {/* Right side: message count + Clear Trash */}
+          <Box display="flex" gap={2} alignItems="center">
+            <Typography variant="body2" color="text.secondary">
+              {data.total} {data.total === 1 ? 'message' : 'messages'}
+            </Typography>
 
-              {/* Clear Trash button - only in trash folder, hidden on mobile */}
-              {isTrash && !isMobile && (
-                <Button
-                  size="small"
-                  color="error"
-                  startIcon={<DeleteSweep />}
-                  onClick={handleClearTrash}
-                  variant="outlined"
-                >
-                  Clear Trash
-                </Button>
-              )}
-            </Box>
-          )}
+            {/* Clear Trash button - only in trash folder, hidden on mobile */}
+            {isTrash && !isMobile && data.total > 0 && (
+              <Button
+                size="small"
+                color="error"
+                startIcon={<DeleteSweep />}
+                onClick={handleClearTrash}
+                variant="outlined"
+              >
+                Clear Trash
+              </Button>
+            )}
+          </Box>
         </Box>
 
         {/* Swipeable cards on mobile touch devices, regular cards on desktop */}
