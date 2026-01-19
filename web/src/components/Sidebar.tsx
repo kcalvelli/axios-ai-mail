@@ -112,9 +112,12 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   return (
     <Box
       sx={{
+        width: '100%',
+        height: '100%',
         overflow: 'auto',
         py: 1,
-        px: 1, // 8px padding - Material Design compact spacing
+        px: 1.5, // 12px padding - Material Design standard
+        boxSizing: 'border-box',
         // Hide scrollbar while keeping scroll functionality
         scrollbarWidth: 'none', // Firefox
         '&::-webkit-scrollbar': { display: 'none' }, // Chrome/Safari
