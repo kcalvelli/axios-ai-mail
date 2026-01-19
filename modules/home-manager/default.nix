@@ -362,6 +362,9 @@ in {
       }
     ]) cfg.accounts));
 
+    # Add CLI to user's PATH
+    home.packages = [ cfg.package ];
+
     # Create data directory
     home.file."${config.xdg.dataHome}/axios-ai-mail/.keep".text = "";
 
