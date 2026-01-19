@@ -182,9 +182,6 @@ export function Sidebar({ onNavigate, collapsed = false }: SidebarProps) {
                 px: 1,
                 justifyContent: collapsed ? 'center' : 'flex-start',
                 transition: `all ${transitionDuration}ms ease`,
-                // Pill-shaped rounded corners
-                borderRadius: 6,
-                mx: 0.5,
               }}
             >
               {renderIcon(item)}
@@ -217,9 +214,6 @@ export function Sidebar({ onNavigate, collapsed = false }: SidebarProps) {
                 px: 1,
                 justifyContent: collapsed ? 'center' : 'flex-start',
                 transition: `all ${transitionDuration}ms ease`,
-                // Pill-shaped rounded corners
-                borderRadius: 6,
-                mx: 0.5,
               }}
             >
               {collapsed ? (
