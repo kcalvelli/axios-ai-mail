@@ -38,7 +38,7 @@ import {
   Image as ImageIcon,
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useIsMobile } from '../hooks/useIsMobile';
 import axios from 'axios';
 import DOMPurify from 'dompurify';
@@ -51,11 +51,14 @@ interface Attachment {
 }
 import {
   useMessage,
+  useMessages,
   useUpdateTags,
   useMarkRead,
   useMessageBody,
   useDeleteMessage,
 } from '../hooks/useMessages';
+import { useKeyboardNavigation } from '../hooks/useKeyboardNavigation';
+import { useAppStore } from '../store/appStore';
 import { useTags } from '../hooks/useStats';
 import { TagChip } from '../components/TagChip';
 import { ConfidenceBadgeAlways } from '../components/ConfidenceBadge';
@@ -77,6 +80,80 @@ export function MessageDetailPage() {
   const updateTags = useUpdateTags();
   const markRead = useMarkRead();
   const deleteMessage = useDeleteMessage();
+
+  // Get messages for keyboard navigation (same folder as current message)
+  const { data: messagesData } = useMessages({
+    folder: message?.folder || 'inbox',
+    limit: 200,
+  });
+  const messageIds = messagesData?.messages.map((m) => m.id) || [];
+
+  // Keyboard navigation callbacks
+  const handleKeyboardReply = useCallback((messageId: string) => {
+    if (message) {
+      const params = new URLSearchParams({
+        reply_to: message.id,
+        to: message.from_email,
+        subject: message.subject.startsWith('Re: ') ? message.subject : `Re: ${message.subject}`,
+        thread_id: message.thread_id || '',
+        account_id: message.account_id,
+        quote_from: message.from_email,
+        quote_date: message.date,
+      });
+      navigate(`/compose?${params.toString()}`);
+    }
+  }, [message, navigate]);
+
+  const handleKeyboardDelete = useCallback((messageId: string) => {
+    if (message) {
+      deleteMessage.mutate(message.id, {
+        onSuccess: () => {
+          // Navigate to next message or back to list
+          const currentIndex = messageIds.indexOf(message.id);
+          const nextId = messageIds[currentIndex + 1] || messageIds[currentIndex - 1];
+          if (nextId) {
+            navigate(`/messages/${nextId}`, { replace: true });
+          } else {
+            navigate(-1);
+          }
+        },
+      });
+    }
+  }, [message, messageIds, deleteMessage, navigate]);
+
+  const handleKeyboardToggleRead = useCallback((messageId: string) => {
+    if (message) {
+      markRead.mutate({
+        id: message.id,
+        data: { is_unread: !message.is_unread },
+      });
+    }
+  }, [message, markRead]);
+
+  // Keyboard navigation hook (desktop only)
+  const { selectedMessageId, setSelectedMessageId } = useAppStore();
+
+  useKeyboardNavigation({
+    messageIds,
+    enabled: !isMobile,
+    onReply: handleKeyboardReply,
+    onDelete: handleKeyboardDelete,
+    onToggleRead: handleKeyboardToggleRead,
+  });
+
+  // Sync current message with app store selection
+  useEffect(() => {
+    if (id && id !== selectedMessageId) {
+      setSelectedMessageId(id);
+    }
+  }, [id, selectedMessageId, setSelectedMessageId]);
+
+  // Navigate to selected message when j/k changes selection
+  useEffect(() => {
+    if (selectedMessageId && selectedMessageId !== id && messageIds.includes(selectedMessageId)) {
+      navigate(`/messages/${selectedMessageId}`, { replace: true });
+    }
+  }, [selectedMessageId, id, messageIds, navigate]);
 
   const [editingTags, setEditingTags] = useState(false);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
