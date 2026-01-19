@@ -2,9 +2,13 @@
  * SwipeableMessageCard component - Message card with swipe gestures for mobile
  * Swipe left: Delete (move to trash)
  * Swipe right: Reply
- * Long press: Enter selection mode
+ * Long press: Enter selection mode (only if NOT swiping)
+ *
+ * Architecture: Swipe is primary gesture. Long press only triggers if user
+ * holds still (no swipe detected) for 800ms.
  */
 
+import { useState, useCallback } from 'react';
 import { Box, useTheme } from '@mui/material';
 import { Delete, Reply } from '@mui/icons-material';
 import {
@@ -44,15 +48,30 @@ export function SwipeableMessageCard({
   const toast = useToast();
   const { enterSelectionMode, selectionMode, toggleMessageSelection } = useAppStore();
 
+  // Track if swipe is in progress - when swiping, disable long press entirely
+  const [isSwiping, setIsSwiping] = useState(false);
+
+  const handleSwipeStart = useCallback(() => {
+    setIsSwiping(true);
+  }, []);
+
+  const handleSwipeEnd = useCallback(() => {
+    // Small delay before re-enabling long press to avoid accidental triggers
+    setTimeout(() => setIsSwiping(false), 100);
+  }, []);
+
   // Long press to enter selection mode
+  // Uses default thresholds: 800ms hold time, 3px movement to cancel
+  // DISABLED when swiping or already in selection mode
   const { handlers: longPressHandlers, isPressed, pressProgress } = useLongPress({
-    threshold: 500,
-    movementThreshold: 10,
-    enabled: !selectionMode, // Disable long-press if already in selection mode
+    enabled: !selectionMode && !isSwiping,
     onLongPress: () => {
       enterSelectionMode(message.id);
     },
     onTap: () => {
+      // Don't trigger tap if we were swiping
+      if (isSwiping) return;
+
       // In selection mode, tap toggles selection
       if (selectionMode) {
         toggleMessageSelection(message.id);
@@ -156,6 +175,8 @@ export function SwipeableMessageCard({
       trailingActions={trailingActions()}
       threshold={0.4}
       listType={ListType.IOS}
+      onSwipeStart={handleSwipeStart}
+      onSwipeEnd={handleSwipeEnd}
     >
       <Box
         sx={{

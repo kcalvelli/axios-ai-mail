@@ -128,14 +128,15 @@ export function Layout() {
         </Box>
       </Box>
 
-      {/* M3 FAB for Compose - icon only pill shape */}
+      {/* M3 FAB for Compose - icon only pill shape, top-right to avoid action bar */}
       {showFab && (
         <Fab
           onClick={handleCompose}
           aria-label="Compose new email"
           sx={{
             position: 'fixed',
-            bottom: 16,
+            // Top-right of content area (below app bar) to avoid overlapping action bar
+            top: 64 + 16, // AppBar height (56) + Toolbar spacer + margin
             right: 16,
             // M3: Primary Container color for FAB
             backgroundColor: isDark ? '#4F378B' : theme.palette.primary.main,
