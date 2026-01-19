@@ -57,6 +57,7 @@ export default function Compose() {
 
   // Get query parameters for reply/forward context
   const replyTo = searchParams.get('reply_to');
+  const forwardFrom = searchParams.get('forward_from');
   const threadId = searchParams.get('thread_id');
   const existingDraftId = searchParams.get('draft_id');
   const defaultSubject = searchParams.get('subject') || '';
@@ -236,6 +237,55 @@ export default function Compose() {
 
     loadQuote();
   }, [replyTo, existingDraftId, editor, quoteFrom, quoteDate, defaultBody]);
+
+  // Load forwarded message content
+  useEffect(() => {
+    const loadForward = async () => {
+      // Only load forward content if forwarding (not replying or editing a draft)
+      if (!forwardFrom || replyTo || existingDraftId || !editor) return;
+
+      try {
+        // Fetch the original message and body
+        const [msgResponse, bodyResponse] = await Promise.all([
+          axios.get(`/api/messages/${forwardFrom}`),
+          axios.get(`/api/messages/${forwardFrom}/body`),
+        ]);
+
+        const originalMessage = msgResponse.data;
+        const originalBody = bodyResponse.data.body_html || bodyResponse.data.body_text || '';
+
+        // Format the forward date
+        const formattedDate = originalMessage.date
+          ? new Date(originalMessage.date).toLocaleString('en-US', {
+              weekday: 'short',
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit',
+            })
+          : '';
+
+        // Build forwarded message header
+        const forwardHeader = `
+          <p><br></p>
+          <p>---------- Forwarded message ---------</p>
+          <p>From: ${originalMessage.from_email}</p>
+          <p>Date: ${formattedDate}</p>
+          <p>Subject: ${originalMessage.subject}</p>
+          <p>To: ${originalMessage.to_emails?.join(', ') || ''}</p>
+          <p><br></p>
+        `;
+
+        editor.commands.setContent(`<p><br></p>${forwardHeader}${originalBody}`);
+        editor.commands.focus('start');
+      } catch (err) {
+        console.error('Failed to load original message for forward:', err);
+      }
+    };
+
+    loadForward();
+  }, [forwardFrom, replyTo, existingDraftId, editor]);
 
   // Parse email addresses from comma-separated string
   const parseEmails = (emailString: string): string[] => {

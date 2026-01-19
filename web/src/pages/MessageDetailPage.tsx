@@ -130,6 +130,17 @@ export function MessageDetailPage() {
     }
   }, [message, markRead]);
 
+  const handleKeyboardForward = useCallback((messageId: string) => {
+    if (message) {
+      const params = new URLSearchParams({
+        forward_from: message.id,
+        subject: message.subject.startsWith('Fwd: ') ? message.subject : `Fwd: ${message.subject}`,
+        account_id: message.account_id,
+      });
+      navigate(`/compose?${params.toString()}`);
+    }
+  }, [message, navigate]);
+
   // Keyboard navigation hook (desktop only)
   const { selectedMessageId, setSelectedMessageId } = useAppStore();
 
@@ -137,6 +148,7 @@ export function MessageDetailPage() {
     messageIds,
     enabled: !isMobile,
     onReply: handleKeyboardReply,
+    onForward: handleKeyboardForward,
     onDelete: handleKeyboardDelete,
     onToggleRead: handleKeyboardToggleRead,
   });
