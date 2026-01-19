@@ -13,9 +13,9 @@ import { useCallback, useRef, useState } from 'react';
 export interface LongPressOptions {
   /** Threshold in ms before long press triggers (default: 800ms) */
   threshold?: number;
-  /** Max movement in px before cancelling (default: 10px) */
+  /** Max movement in px before cancelling long press (default: 5px) */
   movementThreshold?: number;
-  /** Minimum hold time in ms to register as tap vs scroll (default: 100ms) */
+  /** Minimum hold time in ms to register as tap (default: 0ms) */
   minTapTime?: number;
   /** Callback when long press activates */
   onLongPress: () => void;
@@ -45,8 +45,8 @@ export interface LongPressResult {
 
 export function useLongPress({
   threshold = 800,  // Increased from 500ms for more deliberate long-press
-  movementThreshold = 10,
-  minTapTime = 100,  // Minimum hold time to distinguish tap from scroll
+  movementThreshold = 5,  // Reduced from 10px - cancel long press quickly on any movement
+  minTapTime = 0,  // Allow instant taps - scrolling is handled by cancelledByMovement
   onLongPress,
   onTap,
   enabled = true,
