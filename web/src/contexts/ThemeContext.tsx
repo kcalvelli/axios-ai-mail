@@ -120,27 +120,62 @@ const lightTheme = createTheme({
   },
 });
 
-// Dark theme (OLED-friendly with true black)
+// M3 AMOLED Color Tokens
+const m3AmoledColors = {
+  // Surfaces - tonal hierarchy for AMOLED
+  surface: '#000000',              // Absolute black - main background
+  surfaceContainerLowest: '#0a0a0a',
+  surfaceContainerLow: '#121212',  // Navigation drawer
+  surfaceContainer: '#1E1E1E',     // Cards, elevated surfaces
+  surfaceContainerHigh: '#252525',
+  surfaceContainerHighest: '#2C2C2C',
+
+  // On-surface text colors
+  onSurface: '#E6E1E5',
+  onSurfaceVariant: '#CAC4D0',     // Secondary text, snippets
+
+  // Primary tonal
+  primary: '#D0BCFF',
+  primaryContainer: '#4F378B',
+  onPrimaryContainer: '#EADDFF',
+
+  // Secondary tonal (for active indicators)
+  secondary: '#CCC2DC',
+  secondaryContainer: '#4A4458',
+  onSecondaryContainer: '#E8DEF8',
+
+  // Outline
+  outline: '#938F99',
+  outlineVariant: '#49454F',
+};
+
+// Dark theme (M3 AMOLED-optimized)
 const darkTheme = createTheme({
   ...baseTheme,
   palette: {
     mode: 'dark',
-    primary: { main: '#90caf9', light: '#e3f2fd', dark: '#42a5f5' },
-    secondary: { main: '#f48fb1', light: '#fce4ec', dark: '#f06292' },
-    error: { main: '#f44336' },
+    primary: { main: m3AmoledColors.primary, light: '#E8DEF8', dark: '#9A82DB' },
+    secondary: { main: m3AmoledColors.secondary, light: '#E8DEF8', dark: '#9A82DB' },
+    error: { main: '#F2B8B5', dark: '#8C1D18' },
     warning: { main: '#ffa726' },
     info: { main: '#29b6f6' },
     success: { main: '#66bb6a' },
-    background: { default: '#000000', paper: '#0a0a0a' },
-    text: { primary: '#ffffff', secondary: 'rgba(255, 255, 255, 0.7)' },
+    background: {
+      default: m3AmoledColors.surface,           // #000000
+      paper: m3AmoledColors.surfaceContainer,    // #1E1E1E
+    },
+    text: {
+      primary: m3AmoledColors.onSurface,         // #E6E1E5
+      secondary: m3AmoledColors.onSurfaceVariant, // #CAC4D0
+    },
   },
   components: {
     ...baseTheme.components,
     MuiCssBaseline: {
       styleOverrides: {
         body: {
-          backgroundColor: '#000000',
-          color: '#ffffff',
+          backgroundColor: m3AmoledColors.surface,
+          color: m3AmoledColors.onSurface,
         },
       },
     },
@@ -148,11 +183,14 @@ const darkTheme = createTheme({
       styleOverrides: {
         root: {
           ...baseTheme.components.MuiCard.styleOverrides.root,
-          boxShadow: '0 1px 3px rgba(255,255,255,0.05)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
+          backgroundColor: m3AmoledColors.surfaceContainer,
+          // M3: No borders, use tonal surfaces for containment
+          border: 'none',
+          boxShadow: 'none',
           '&:hover': {
-            boxShadow: '0 2px 8px rgba(255,255,255,0.08)',
-            border: '1px solid rgba(255, 255, 255, 0.15)',
+            backgroundColor: m3AmoledColors.surfaceContainerHigh,
+            boxShadow: 'none',
+            border: 'none',
           },
         },
       },
@@ -160,21 +198,53 @@ const darkTheme = createTheme({
     MuiDrawer: {
       styleOverrides: {
         paper: {
-          borderRight: '1px solid rgba(255, 255, 255, 0.1)',
-          backgroundColor: '#000000',
+          backgroundColor: m3AmoledColors.surfaceContainerLow, // #121212
+          borderRight: 'none', // M3: No borders
         },
       },
     },
     MuiAppBar: {
       styleOverrides: {
         root: {
-          backgroundColor: '#000000',
-          boxShadow: '0 1px 0 rgba(255,255,255,0.1)',
+          backgroundColor: m3AmoledColors.surface, // #000000
+          boxShadow: 'none',
+        },
+      },
+    },
+    MuiListItemButton: {
+      styleOverrides: {
+        root: {
+          borderRadius: 28, // M3 Active Indicator pill shape
+          '&.Mui-selected': {
+            backgroundColor: m3AmoledColors.secondaryContainer,
+            '&:hover': {
+              backgroundColor: m3AmoledColors.secondaryContainer,
+            },
+          },
+        },
+      },
+    },
+    MuiFab: {
+      styleOverrides: {
+        root: {
+          backgroundColor: m3AmoledColors.primaryContainer,
+          color: m3AmoledColors.onPrimaryContainer,
+          '&:hover': {
+            backgroundColor: '#5E4994',
+          },
+        },
+        extended: {
+          borderRadius: 16,
+          padding: '0 20px',
+          height: 56,
         },
       },
     },
   },
 });
+
+// Export M3 colors for use in components
+export { m3AmoledColors };
 
 // Get initial mode from localStorage or default to system
 function getInitialMode(): ThemeMode {

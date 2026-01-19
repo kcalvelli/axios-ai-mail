@@ -1,6 +1,8 @@
 /**
  * MessageCard component - Single message card
  * Supports compact mode for mobile devices
+ *
+ * M3 AMOLED: Tonal surface containment, no borders
  */
 
 import {
@@ -18,6 +20,7 @@ import { TagChip } from './TagChip';
 import { ConfidenceBadge } from './ConfidenceBadge';
 import { useAppStore } from '../store/appStore';
 import { useMarkRead } from '../hooks/useMessages';
+import { sanitizeSnippet } from '../utils/sanitizeSnippet';
 import type { Message } from '../api/types';
 
 interface MessageCardProps {
@@ -46,14 +49,17 @@ export function MessageCard({ message, onClick, compact = false, selectionMode =
     }
   };
 
-  // Theme-aware background colors
+  // M3 AMOLED: Tonal surface hierarchy for visual distinction
   const getBackgroundColor = () => {
     if (isSelected) {
-      return isDark ? 'rgba(144, 202, 249, 0.15)' : '#e3f2fd';
+      // Selected state: slightly elevated surface
+      return isDark ? '#2C2C2C' : '#e3f2fd';
     }
     if (message.is_unread) {
-      return isDark ? 'rgba(255, 255, 255, 0.05)' : '#f5f5f5';
+      // Unread: Surface Container High for emphasis
+      return isDark ? '#252525' : '#f5f5f5';
     }
+    // Default: Surface Container (#1E1E1E in dark)
     return theme.palette.background.paper;
   };
 
@@ -108,13 +114,22 @@ export function MessageCard({ message, onClick, compact = false, selectionMode =
         cursor: 'pointer',
         mb: compact ? 0.5 : 1,
         backgroundColor: getBackgroundColor(),
-        borderLeft: message.is_unread ? `4px solid ${theme.palette.primary.main}` : 'none',
-        border: isSelected ? `2px solid ${theme.palette.primary.main}` : undefined,
+        // M3 AMOLED: No borders, use tonal surfaces for containment
+        // Subtle indicator for unread via left border only when selected
+        borderLeft: message.is_unread && !isDark
+          ? `4px solid ${theme.palette.primary.main}`
+          : 'none',
+        border: isSelected ? `2px solid ${theme.palette.primary.main}` : 'none',
+        // M3: 12px border-radius (via theme)
+        borderRadius: '12px',
         // Ensure full width for swipeable wrapper
         width: '100%',
+        // M3 AMOLED: No box shadow for dark mode
+        boxShadow: isDark ? 'none' : undefined,
       }}
     >
-      <CardContent sx={{ p: compact ? 1 : 1.5, '&:last-child': { pb: compact ? 1 : 1.5 } }}>
+      {/* M3: 16px internal padding */}
+      <CardContent sx={{ p: compact ? 1.5 : 2, '&:last-child': { pb: compact ? 1.5 : 2 } }}>
         <Box display="flex" justifyContent="space-between" alignItems="start">
           {/* Checkbox - show in selection mode even on mobile */}
           {showCheckbox && (
@@ -129,9 +144,10 @@ export function MessageCard({ message, onClick, compact = false, selectionMode =
           <Box flex={1} minWidth={0}>
             {/* From and Date */}
             <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
+              {/* M3 Typography: Title Medium for sender (fontWeight 500) */}
               <Typography
                 variant="subtitle2"
-                fontWeight={message.is_unread ? 600 : 400}
+                fontWeight={message.is_unread ? 600 : 500}
                 sx={{
                   color: 'text.primary',
                   overflow: 'hidden',
@@ -167,10 +183,9 @@ export function MessageCard({ message, onClick, compact = false, selectionMode =
               {message.subject}
             </Typography>
 
-            {/* Snippet - fewer lines in compact mode */}
+            {/* M3 Typography: Body Small for snippet (fontWeight 400, On-Surface Variant color) */}
             <Typography
               variant="body2"
-              color="text.secondary"
               sx={{
                 mb: compact ? 0.5 : 1,
                 overflow: 'hidden',
@@ -178,9 +193,13 @@ export function MessageCard({ message, onClick, compact = false, selectionMode =
                 display: '-webkit-box',
                 WebkitLineClamp: compact ? 1 : 2,
                 WebkitBoxOrient: 'vertical',
+                fontWeight: 400,
+                // M3: On-Surface Variant (#CAC4D0) for secondary content
+                color: isDark ? '#CAC4D0' : 'text.secondary',
               }}
             >
-              {message.snippet}
+              {/* Strip HTML/CSS from snippet for clean display */}
+              {sanitizeSnippet(message.snippet)}
             </Typography>
 
             {/* Tags and Confidence */}
