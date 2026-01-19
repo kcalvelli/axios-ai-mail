@@ -130,17 +130,14 @@ export function MessageCard({
         mb: compact ? 0.5 : 1,
         backgroundColor: getBackgroundColor(),
         // M3 AMOLED: No borders, use tonal surfaces for containment
-        // Subtle indicator for unread via left border only when selected
-        borderLeft: message.is_unread && !isDark
-          ? `4px solid ${theme.palette.primary.main}`
-          : 'none',
+        // Unread indicator is the dot, not a border (cleaner look)
         border: (isSelected || isReadingPaneSelected) ? `2px solid ${theme.palette.primary.main}` : 'none',
         // M3: 12px border-radius (via theme)
         borderRadius: '12px',
         // Ensure full width for swipeable wrapper
         width: '100%',
-        // M3 AMOLED: No box shadow for dark mode
-        boxShadow: isDark ? 'none' : undefined,
+        // M3: Subtle elevation in light mode, none in dark (AMOLED)
+        boxShadow: isDark ? 'none' : '0 1px 2px rgba(0,0,0,0.1)',
       }}
     >
       {/* M3: 16px internal padding */}
