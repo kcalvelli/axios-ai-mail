@@ -180,16 +180,39 @@ async def bulk_mark_read(request: Request, body: BulkReadRequest):
     try:
         updated_count = 0
         updated_ids = []
+        provider_synced_count = 0
+        provider_failed_count = 0
         errors = []
 
         for message_id in body.message_ids:
             try:
+                # Phase 1: Get message and update database
+                message = db.get_message(message_id)
+                if not message:
+                    errors.append({"message_id": message_id, "error": "Not found"})
+                    continue
+
                 updated_message = db.update_message_read_status(message_id, body.is_unread)
                 if updated_message:
                     updated_count += 1
                     updated_ids.append(message_id)
+
+                    # Phase 2: Sync to provider (best effort)
+                    try:
+                        account = db.get_account(message.account_id)
+                        if account:
+                            provider = ProviderFactory.create_from_account(account)
+                            provider.authenticate()
+                            if body.is_unread:
+                                provider.mark_as_unread(message_id)
+                            else:
+                                provider.mark_as_read(message_id)
+                            provider_synced_count += 1
+                    except Exception as e:
+                        provider_failed_count += 1
+                        logger.error(f"Provider sync failed for {message_id}: {e}")
                 else:
-                    errors.append({"message_id": message_id, "error": "Not found"})
+                    errors.append({"message_id": message_id, "error": "Update failed"})
             except Exception as e:
                 errors.append({"message_id": message_id, "error": str(e)})
                 logger.error(f"Error updating message {message_id}: {e}")
@@ -201,6 +224,8 @@ async def bulk_mark_read(request: Request, body: BulkReadRequest):
 
         return {
             "updated": updated_count,
+            "provider_synced": provider_synced_count,
+            "provider_failed": provider_failed_count,
             "total": len(body.message_ids),
             "errors": errors,
         }
@@ -552,12 +577,31 @@ async def mark_message_read(
         if not updated_message:
             raise HTTPException(status_code=404, detail="Message not found")
 
+        # Sync to provider (best effort)
+        provider_synced = False
+        try:
+            account = db.get_account(message.account_id)
+            if account:
+                provider = ProviderFactory.create_from_account(account)
+                provider.authenticate()
+                if body.is_unread:
+                    provider.mark_as_unread(message_id)
+                else:
+                    provider.mark_as_read(message_id)
+                provider_synced = True
+                logger.info(f"Synced read status to provider for message {message_id}")
+        except Exception as e:
+            logger.error(f"Provider sync failed for message {message_id}: {e}", exc_info=True)
+            # Don't fail the request - database operation succeeded
+
         # Broadcast update to all clients
         action = "unread" if body.is_unread else "read"
         asyncio.create_task(send_messages_updated([message_id], action))
 
         classification = db.get_classification(message_id)
-        return serialize_message(updated_message, classification)
+        response = serialize_message(updated_message, classification)
+        response["provider_synced"] = provider_synced
+        return response
 
     except HTTPException:
         raise

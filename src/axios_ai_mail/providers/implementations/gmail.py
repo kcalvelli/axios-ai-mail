@@ -616,6 +616,64 @@ class GmailProvider(BaseEmailProvider):
             logger.error(error_msg)
             raise RuntimeError(error_msg)
 
+    def mark_as_read(self, message_id: str) -> None:
+        """Mark a Gmail message as read by removing the UNREAD label.
+
+        Args:
+            message_id: Gmail message ID
+
+        Raises:
+            RuntimeError: If the operation fails
+        """
+        if not self.service:
+            self.authenticate()
+
+        try:
+            # Remove UNREAD label to mark as read
+            body = {
+                "removeLabelIds": ["UNREAD"],
+            }
+
+            self.service.users().messages().modify(
+                userId="me", id=message_id, body=body
+            ).execute()
+
+            logger.info(f"Marked Gmail message {message_id} as read")
+
+        except HttpError as e:
+            error_msg = f"Failed to mark message {message_id} as read: {e}"
+            logger.error(error_msg)
+            raise RuntimeError(error_msg)
+
+    def mark_as_unread(self, message_id: str) -> None:
+        """Mark a Gmail message as unread by adding the UNREAD label.
+
+        Args:
+            message_id: Gmail message ID
+
+        Raises:
+            RuntimeError: If the operation fails
+        """
+        if not self.service:
+            self.authenticate()
+
+        try:
+            # Add UNREAD label to mark as unread
+            body = {
+                "addLabelIds": ["UNREAD"],
+            }
+
+            self.service.users().messages().modify(
+                userId="me", id=message_id, body=body
+            ).execute()
+
+            logger.info(f"Marked Gmail message {message_id} as unread")
+
+        except HttpError as e:
+            error_msg = f"Failed to mark message {message_id} as unread: {e}"
+            logger.error(error_msg)
+            raise RuntimeError(error_msg)
+
 
 # Register Gmail provider
 ProviderRegistry.register("gmail", GmailProvider)

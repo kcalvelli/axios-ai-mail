@@ -79,24 +79,24 @@
 ## 6. DEFECT FIX: Read/Unread State Sync
 
 ### 6.1 Provider Interface
-- [ ] 6.1.1 Add `mark_read(message_id)` method to BaseEmailProvider
-- [ ] 6.1.2 Add `mark_unread(message_id)` method to BaseEmailProvider
+- [x] 6.1.1 Add `mark_read(message_id)` method to BaseEmailProvider
+- [x] 6.1.2 Add `mark_unread(message_id)` method to BaseEmailProvider
 
 ### 6.2 Gmail Implementation
-- [ ] 6.2.1 Implement mark_read using `users.messages.modify` (remove UNREAD label)
-- [ ] 6.2.2 Implement mark_unread using `users.messages.modify` (add UNREAD label)
+- [x] 6.2.1 Implement mark_read using `users.messages.modify` (remove UNREAD label)
+- [x] 6.2.2 Implement mark_unread using `users.messages.modify` (add UNREAD label)
 
 ### 6.3 IMAP Implementation
-- [ ] 6.3.1 Implement mark_read using `STORE +FLAGS (\Seen)`
-- [ ] 6.3.2 Implement mark_unread using `STORE -FLAGS (\Seen)`
+- [x] 6.3.1 Implement mark_read using `STORE +FLAGS (\Seen)` (already existed)
+- [x] 6.3.2 Implement mark_unread using `STORE -FLAGS (\Seen)` (already existed)
 
 ### 6.4 API Integration
-- [ ] 6.4.1 Update PATCH `/api/messages/{id}` to call provider on is_unread change
-- [ ] 6.4.2 Handle provider sync errors gracefully (don't fail local update)
+- [x] 6.4.1 Update POST `/api/messages/{id}/read` to call provider on is_unread change
+- [x] 6.4.2 Handle provider sync errors gracefully (don't fail local update)
 - [ ] 6.4.3 Add rate limiting for rapid read/unread toggles
 
 ### 6.5 Sync Behavior
-- [ ] 6.5.1 During sync, respect provider's read state as source of truth
+- [x] 6.5.1 During sync, respect provider's read state as source of truth
 - [ ] 6.5.2 OR: Track "locally modified" flag to preserve local changes
 - [ ] 6.5.3 Decide on conflict resolution strategy (provider wins vs local wins)
 

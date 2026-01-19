@@ -193,6 +193,28 @@ class EmailProvider(Protocol):
         """
         ...
 
+    def mark_as_read(self, message_id: str) -> None:
+        """Mark a message as read.
+
+        Args:
+            message_id: Provider-specific message ID
+
+        Raises:
+            RuntimeError: If the operation fails
+        """
+        ...
+
+    def mark_as_unread(self, message_id: str) -> None:
+        """Mark a message as unread.
+
+        Args:
+            message_id: Provider-specific message ID
+
+        Raises:
+            RuntimeError: If the operation fails
+        """
+        ...
+
 
 class BaseEmailProvider(ABC):
     """Abstract base class for email providers with common functionality."""
@@ -321,6 +343,30 @@ class BaseEmailProvider(ABC):
 
         Raises:
             RuntimeError: If attachment not found or download fails
+        """
+        pass
+
+    @abstractmethod
+    def mark_as_read(self, message_id: str) -> None:
+        """Mark a message as read.
+
+        Args:
+            message_id: Provider-specific message ID
+
+        Raises:
+            RuntimeError: If the operation fails
+        """
+        pass
+
+    @abstractmethod
+    def mark_as_unread(self, message_id: str) -> None:
+        """Mark a message as unread.
+
+        Args:
+            message_id: Provider-specific message ID
+
+        Raises:
+            RuntimeError: If the operation fails
         """
         pass
 
