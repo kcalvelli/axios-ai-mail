@@ -468,21 +468,24 @@ export function MessageDetail({
 
   return (
     <Box sx={{ height: '100%', overflow: 'auto' }} className="message-detail-print">
-      {/* Header Actions - Sticky on mobile with larger touch targets */}
+      {/* Header Actions - No background on desktop, sticky bar on mobile */}
       <Box
         display="flex"
         alignItems="center"
         gap={isMobile ? 0.5 : 1}
-        mb={2}
+        mb={isMobile ? 2 : 1}
         sx={{
-          position: 'sticky',
-          top: 0,
-          bgcolor: isDark ? '#121212' : 'background.default',
-          zIndex: 10,
-          py: isMobile ? 1.5 : 1,
-          px: isMobile ? 1 : 0,
-          mx: isMobile ? -2 : 0, // Extend to edges on mobile
-          borderBottom: isMobile ? `1px solid ${isDark ? '#333' : '#e0e0e0'}` : 'none',
+          // Mobile: sticky with background for visibility
+          ...(isMobile && {
+            position: 'sticky',
+            top: 0,
+            bgcolor: isDark ? '#121212' : 'background.default',
+            zIndex: 10,
+            py: 1.5,
+            px: 1,
+            mx: -2,
+            borderBottom: `1px solid ${isDark ? '#333' : '#e0e0e0'}`,
+          }),
         }}
         className="no-print"
       >
