@@ -61,15 +61,18 @@ export function SwipeableMessageCard({
   }, []);
 
   // Long press to enter selection mode
-  // Uses default thresholds: 800ms hold time, 3px movement to cancel
-  // DISABLED when swiping or already in selection mode
+  // Movement threshold is higher (15px) because:
+  // 1. Swipe library handles swipe detection via isSwiping state
+  // 2. Small finger tremors during tap shouldn't cancel the tap
+  // 3. 15px is still enough to cancel long press if user is actually moving
   const { handlers: longPressHandlers, isPressed, pressProgress } = useLongPress({
     enabled: !selectionMode && !isSwiping,
+    movementThreshold: 15, // More lenient - let swipe library detect swipes
     onLongPress: () => {
       enterSelectionMode(message.id);
     },
     onTap: () => {
-      // Don't trigger tap if we were swiping
+      // Don't trigger tap if we were swiping (swipe library's detection)
       if (isSwiping) return;
 
       // In selection mode, tap toggles selection
