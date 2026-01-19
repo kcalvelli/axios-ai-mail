@@ -127,7 +127,7 @@ export function MessageCard({
       onClick={handleCardClick}
       sx={{
         cursor: 'pointer',
-        mb: compact ? 0.5 : 1,
+        mb: 1,
         backgroundColor: getBackgroundColor(),
         // M3 AMOLED: No borders, use tonal surfaces for containment
         // Unread indicator is the dot, not a border (cleaner look)
