@@ -98,6 +98,9 @@ export function Layout() {
                   boxSizing: 'border-box',
                   transition: `width ${TRANSITION_DURATION}ms ease`,
                   overflowX: 'hidden',
+                  // Rounded right edge
+                  borderTopRightRadius: 16,
+                  borderBottomRightRadius: 16,
                 },
               }}
             >
