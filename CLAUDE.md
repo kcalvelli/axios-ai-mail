@@ -58,53 +58,25 @@ journalctl --user -u axios-ai-mail-web.service -f
 
 # NixOS/Home-Manager Integration
 
-This project uses the **overlay pattern** for Nix packaging, which is more idiomatic and avoids eval cache issues.
+The flake is self-contained - just import the module and enable it. No overlays needed.
 
-## User's NixOS flake.nix configuration:
+## Usage in your flake:
 
 ```nix
 {
-  inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    home-manager.url = "github:nix-community/home-manager";
+  inputs.axios-ai-mail.url = "github:kcalvelli/axios-ai-mail";
 
-    axios-ai-mail = {
-      url = "github:kcalvelli/axios-ai-mail";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-  };
+  # In your home-manager config:
+  home-manager.users.username = { ... }: {
+    imports = [ inputs.axios-ai-mail.homeManagerModules.default ];
 
-  outputs = { self, nixpkgs, home-manager, axios-ai-mail, ... }: {
-    nixosConfigurations.hostname = nixpkgs.lib.nixosSystem {
-      system = "x86_64-linux";
-      modules = [
-        # Apply the axios-ai-mail overlay to nixpkgs
-        {
-          nixpkgs.overlays = [ axios-ai-mail.overlays.default ];
-        }
-
-        home-manager.nixosModules.home-manager
-        {
-          home-manager.users.username = { pkgs, ... }: {
-            imports = [ axios-ai-mail.homeManagerModules.default ];
-
-            programs.axios-ai-mail = {
-              enable = true;
-              # ... rest of config
-            };
-          };
-        }
-      ];
+    programs.axios-ai-mail = {
+      enable = true;
+      # ... rest of config
     };
   };
 }
 ```
-
-## Key Points:
-
-1. **Apply the overlay**: Add `axios-ai-mail.overlays.default` to `nixpkgs.overlays`
-2. **Import the module**: Import `axios-ai-mail.homeManagerModules.default` in home-manager
-3. **Packages via pkgs**: The module uses `pkgs.axios-ai-mail` and `pkgs.axios-ai-mail-web` from the overlay
 
 ## Troubleshooting Cache Issues:
 

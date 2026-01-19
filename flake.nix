@@ -9,18 +9,15 @@
     supportedSystems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
     forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
   in {
-    # Overlay - adds axios-ai-mail packages to pkgs
-    # Usage: Apply this overlay in your NixOS/home-manager config
-    overlays.default = final: prev: {
-      axios-ai-mail = self.packages.${final.system}.default;
-      axios-ai-mail-web = self.packages.${final.system}.web;
-    };
-
-    # Home-Manager Module - uses pkgs.axios-ai-mail from overlay
-    # IMPORTANT: You must apply the overlay to nixpkgs for this to work
+    # Home-Manager Module - self-contained, no overlay needed
+    # Just import and set programs.axios-ai-mail.enable = true
     homeManagerModules.default = { pkgs, ... }: {
       imports = [ ./modules/home-manager ];
-      # Package comes from overlay via pkgs.axios-ai-mail
+      config._module.args = {
+        # Pass pre-built packages from the flake - no user config needed
+        axios-ai-mail-pkg = self.packages.${pkgs.system}.default;
+        axios-ai-mail-web-pkg = self.packages.${pkgs.system}.web;
+      };
     };
 
     # Python package

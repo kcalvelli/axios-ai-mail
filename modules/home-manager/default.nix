@@ -1,13 +1,13 @@
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, axios-ai-mail-pkg, axios-ai-mail-web-pkg, ... }:
 
 with lib;
 
 let
   cfg = config.programs.axios-ai-mail;
 
-  # Web frontend package comes from overlay (pkgs.axios-ai-mail-web)
-  # Apply the axios-ai-mail overlay to your nixpkgs for this to work
-  webFrontend = pkgs.axios-ai-mail-web;
+  # Packages are passed from the flake via _module.args
+  # No user configuration needed - just enable the module
+  webFrontend = axios-ai-mail-web-pkg;
 
   # Submodule for individual email accounts
   accountOption = types.submodule ({ name, config, ... }: {
@@ -218,77 +218,9 @@ let
     };
   };
 
-  # Build ollama Python package since it's not in nixpkgs yet
-  ollama-python = pkgs.python3Packages.buildPythonPackage rec {
-    pname = "ollama";
-    version = "0.4.4";
-    format = "pyproject";
-
-    src = pkgs.fetchPypi {
-      inherit pname version;
-      hash = "sha256-4dsGQnPHObq8Ld6eqEApxKQ0FTVHQbbFCTnd090Pf/s=";
-    };
-
-    nativeBuildInputs = with pkgs.python3Packages; [
-      poetry-core
-      pythonRelaxDepsHook
-    ];
-
-    pythonRelaxDeps = [ "httpx" ];
-
-    propagatedBuildInputs = with pkgs.python3Packages; [
-      httpx
-      pydantic
-    ];
-
-    pythonImportsCheck = [ "ollama" ];
-    doCheck = false;
-  };
-
-  # Package reference
-  axios-ai-mail = pkgs.axios-ai-mail or (
-    # Fallback if not in nixpkgs yet
-    pkgs.python3Packages.buildPythonApplication {
-      pname = "axios-ai-mail";
-      version = "2.0.0";
-      src = ../..;
-      format = "pyproject";
-
-      nativeBuildInputs = with pkgs; [
-        python3Packages.setuptools
-        python3Packages.wheel
-      ];
-
-      propagatedBuildInputs = with pkgs.python3Packages; [
-        # Core dependencies
-        pydantic pydantic-settings sqlalchemy alembic
-        # Email providers
-        google-api-python-client google-auth-httplib2 google-auth-oauthlib
-        msal
-        # HTTP/API
-        httpx requests
-        # AI/LLM
-        ollama-python
-        # CLI
-        click typer rich python-dateutil pyyaml
-        # Web API (Phase 2)
-        fastapi uvicorn websockets python-multipart
-      ];
-
-      # Copy frontend assets from separate derivation
-      preBuild = ''
-        echo "Copying frontend assets from Nix-built derivation..."
-
-        # Create directory for web assets in package
-        mkdir -p src/axios_ai_mail/web_assets
-
-        # Copy from the separately-built frontend derivation
-        cp -r ${webFrontend}/* src/axios_ai_mail/web_assets/
-      '';
-
-      doCheck = false;
-    }
-  );
+  # Package comes from flake - no fallback needed
+  # This ensures proper versioning and avoids eval cache issues
+  axios-ai-mail = axios-ai-mail-pkg;
 
 in {
   options.programs.axios-ai-mail = {
