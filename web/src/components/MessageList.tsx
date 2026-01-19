@@ -365,16 +365,11 @@ export function MessageList() {
 
       <Box sx={{ py: 1, px: 0 }}>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-          {/* Left side: Folder name + message count, then Select All button */}
+          {/* Left side: message count, then Select All button */}
           <Box display="flex" gap={2} alignItems="center">
-            <Box display="flex" alignItems="baseline" gap={1}>
-              <Typography variant="h6" component="h1">
-                {isTrash ? 'Trash' : 'Inbox'}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                ({data.total})
-              </Typography>
-            </Box>
+            <Typography variant="body2" color="text.secondary">
+              {data.total} {data.total === 1 ? 'message' : 'messages'}
+            </Typography>
 
             {/* Select All button (only shown when in selection mode or has selections) */}
             {data.total > 0 && (selectionMode || selectedMessageIds.size > 0) && (
