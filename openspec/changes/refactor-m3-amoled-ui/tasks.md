@@ -37,10 +37,16 @@
 ## 7. Bug Fix: Snippet Sanitization
 - [x] 7.1 Create sanitizeSnippet utility function (strip HTML/CSS tags)
 - [x] 7.2 Apply sanitization in MessageCard component
-- [ ] 7.3 Test with emails containing CSS/HTML (e.g., DukemyHR newsletters)
+- [x] 7.3 Test with emails containing CSS/HTML (e.g., DukemyHR newsletters)
 
 ## 8. Testing & Validation
-- [ ] 8.1 Visual regression check across all views
-- [ ] 8.2 Verify drawer toggle doesn't shift content alignment
-- [ ] 8.3 Test on actual AMOLED display for contrast/readability
-- [ ] 8.4 Verify snippet sanitization works for various HTML email formats
+- [x] 8.1 Visual regression check across all views
+- [x] 8.2 Verify drawer toggle doesn't shift content alignment
+- [x] 8.3 Test on actual AMOLED display for contrast/readability
+- [x] 8.4 Verify snippet sanitization works for various HTML email formats
+
+## 9. Additional Improvements (Added During Implementation)
+- [x] 9.1 Gmail-style collapsible sidebar (expanded/collapsed rail)
+- [x] 9.2 Smooth collapse animation with CSS transitions
+- [x] 9.3 Floating Compose FAB (desktop and mobile)
+- [x] 9.4 Rename app title to "axiOS Mail"
