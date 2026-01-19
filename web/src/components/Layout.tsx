@@ -11,7 +11,7 @@ import { useAppStore } from '../store/appStore';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { Outlet } from 'react-router-dom';
 
-const DRAWER_WIDTH = 160;
+const DRAWER_WIDTH = 200;
 
 export function Layout() {
   const { drawerOpen, toggleDrawer, setDrawerOpen } = useAppStore();
