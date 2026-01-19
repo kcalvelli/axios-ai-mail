@@ -133,10 +133,16 @@ class SyncEngine:
                     existing_message = self.db.get_message(message.id)
                     is_new = existing_message is None
 
-                    # For existing messages, preserve local is_unread state
-                    # (user may have marked as read locally)
-                    # Only use provider's is_unread for new messages
-                    is_unread = message.is_unread if is_new else existing_message.is_unread
+                    # For existing messages, preserve local state
+                    # Philosophy: local consistency first, provider sync is best effort
+                    if is_new:
+                        is_unread = message.is_unread
+                        folder = message.folder
+                    else:
+                        # Preserve local is_unread (user may have marked as read)
+                        is_unread = existing_message.is_unread
+                        # Preserve local folder (user may have moved to trash)
+                        folder = existing_message.folder
 
                     self.db.create_or_update_message(
                         message_id=message.id,
@@ -149,7 +155,7 @@ class SyncEngine:
                         snippet=message.snippet,
                         is_unread=is_unread,
                         provider_labels=list(message.labels),
-                        folder=message.folder,
+                        folder=folder,
                         body_text=message.body_text,
                         body_html=message.body_html,
                         imap_folder=message.imap_folder,
