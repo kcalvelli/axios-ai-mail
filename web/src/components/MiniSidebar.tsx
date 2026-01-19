@@ -22,7 +22,6 @@ import {
   Send,
   Delete,
   Drafts,
-  Edit as EditIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
@@ -119,22 +118,6 @@ export function MiniSidebar({ onNavigate }: MiniSidebarProps) {
         '&::-webkit-scrollbar': { display: 'none' },
       }}
     >
-      {/* Compose button */}
-      <Tooltip title="Compose" placement="right">
-        <ListItemButton
-          onClick={() => handleNavigation('/compose')}
-          sx={{
-            width: 48,
-            height: 48,
-            borderRadius: '50%',
-            justifyContent: 'center',
-            mb: 1,
-          }}
-        >
-          <EditIcon />
-        </ListItemButton>
-      </Tooltip>
-
       {/* Folders */}
       <List disablePadding sx={{ width: '100%' }}>
         {folderItems.map((item) => (

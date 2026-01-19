@@ -46,8 +46,8 @@ export function Layout() {
     navigate('/compose');
   };
 
-  // Hide FAB on compose page (mobile only, desktop has sidebar compose)
-  const showFab = isMobile && location.pathname !== '/compose';
+  // Show FAB on all pages except compose (both mobile and desktop)
+  const showFab = location.pathname !== '/compose';
 
   // Desktop sidebar width based on expanded/collapsed state
   const desktopSidebarWidth = drawerOpen ? DRAWER_WIDTH : RAIL_WIDTH;

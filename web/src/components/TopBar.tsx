@@ -12,21 +12,18 @@ import {
   Box,
   CircularProgress,
   Tooltip,
-  Button,
   useTheme,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
   Sync as SyncIcon,
   Search as SearchIcon,
-  Edit as EditIcon,
   Close as CloseIcon,
   Notifications as NotificationsIcon,
   NotificationsOff as NotificationsOffIcon,
   NotificationsActive as NotificationsActiveIcon,
 } from '@mui/icons-material';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/appStore';
 import { useTriggerSync, useSyncStatus } from '../hooks/useStats';
 import { ThemeToggle } from './ThemeToggle';
@@ -38,7 +35,6 @@ interface TopBarProps {
 }
 
 export function TopBar({ onMenuClick }: TopBarProps) {
-  const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useIsMobile();
   const { searchQuery, setSearchQuery, syncStatus } = useAppStore();
@@ -49,10 +45,6 @@ export function TopBar({ onMenuClick }: TopBarProps) {
 
   const handleSync = () => {
     triggerSync.mutate({});
-  };
-
-  const handleCompose = () => {
-    navigate('/compose');
   };
 
   const handleSearchClose = () => {
@@ -225,29 +217,6 @@ export function TopBar({ onMenuClick }: TopBarProps) {
         {/* Hide other buttons when search is expanded on mobile */}
         {!(isMobile && searchOpen) && (
           <>
-            {/* Compose Button - icon only on mobile */}
-            {isMobile ? (
-              <Tooltip title="Compose">
-                <IconButton
-                  color="inherit"
-                  onClick={handleCompose}
-                  sx={{ minWidth: 44, minHeight: 44 }}
-                >
-                  <EditIcon />
-                </IconButton>
-              </Tooltip>
-            ) : (
-              <Button
-                variant="contained"
-                color="secondary"
-                startIcon={<EditIcon />}
-                onClick={handleCompose}
-                sx={{ mr: 2 }}
-              >
-                Compose
-              </Button>
-            )}
-
             {/* Notification Toggle */}
             <Tooltip title={getNotificationTooltip()}>
               <IconButton
