@@ -129,8 +129,14 @@ class SyncEngine:
             # 2. Store messages in database
             for message in messages:
                 try:
-                    # Check if message is new (doesn't exist in database)
-                    is_new = self.db.get_message(message.id) is None
+                    # Check if message already exists in database
+                    existing_message = self.db.get_message(message.id)
+                    is_new = existing_message is None
+
+                    # For existing messages, preserve local is_unread state
+                    # (user may have marked as read locally)
+                    # Only use provider's is_unread for new messages
+                    is_unread = message.is_unread if is_new else existing_message.is_unread
 
                     self.db.create_or_update_message(
                         message_id=message.id,
@@ -141,7 +147,7 @@ class SyncEngine:
                         to_emails=message.to_emails,
                         date=message.date,
                         snippet=message.snippet,
-                        is_unread=message.is_unread,
+                        is_unread=is_unread,
                         provider_labels=list(message.labels),
                         folder=message.folder,
                         body_text=message.body_text,
