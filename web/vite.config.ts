@@ -10,13 +10,40 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['logo.png', 'icon-192.png', 'icon-512.png', 'icon-monochrome.svg'],
       manifest: {
-        name: 'Axios AI Mail',
+        name: 'axiOS Mail',
         short_name: 'Mail',
         description: 'AI-powered email client with intelligent classification',
         theme_color: '#1976d2',
-        background_color: '#ffffff',
+        background_color: '#000000',
         display: 'standalone',
         start_url: '/',
+        // App shortcuts for quick actions from home screen long-press
+        shortcuts: [
+          {
+            name: 'Compose',
+            short_name: 'Compose',
+            description: 'Write a new email',
+            url: '/compose',
+            icons: [{ src: 'icon-192.png', sizes: '192x192' }],
+          },
+          {
+            name: 'Inbox',
+            short_name: 'Inbox',
+            description: 'View your inbox',
+            url: '/?folder=inbox',
+            icons: [{ src: 'icon-192.png', sizes: '192x192' }],
+          },
+        ],
+        // Share target to receive shared content from other apps
+        share_target: {
+          action: '/compose',
+          method: 'GET',
+          params: {
+            title: 'subject',
+            text: 'body',
+            url: 'url',
+          },
+        },
         icons: [
           // Standard icons
           {

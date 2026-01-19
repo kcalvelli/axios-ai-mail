@@ -64,7 +64,16 @@ export default function Compose() {
   const defaultAccountId = searchParams.get('account_id') || '';
   const quoteFrom = searchParams.get('quote_from') || '';
   const quoteDate = searchParams.get('quote_date') || '';
-  const defaultBody = searchParams.get('body') || ''; // Pre-filled body (e.g., from smart replies)
+  const sharedUrl = searchParams.get('url') || ''; // Shared URL from PWA share target
+
+  // Pre-filled body (e.g., from smart replies or share target)
+  // If a URL is shared, append it to the body
+  const rawBody = searchParams.get('body') || '';
+  const defaultBody = sharedUrl
+    ? rawBody
+      ? `${rawBody}\n\n${sharedUrl}`
+      : sharedUrl
+    : rawBody;
 
   // Account state
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -171,6 +180,16 @@ export default function Compose() {
 
     loadDraft();
   }, [existingDraftId, editor]);
+
+  // Handle shared content from PWA share target (when not replying)
+  useEffect(() => {
+    // Only set content if we have shared content, not replying, and not editing a draft
+    if (!defaultBody || replyTo || existingDraftId || !editor) return;
+
+    // Set the pre-filled body content
+    editor.commands.setContent(`<p>${defaultBody.replace(/\n/g, '</p><p>')}</p>`);
+    editor.commands.focus('end');
+  }, [defaultBody, replyTo, existingDraftId, editor]);
 
   // Load original message for reply quote
   useEffect(() => {

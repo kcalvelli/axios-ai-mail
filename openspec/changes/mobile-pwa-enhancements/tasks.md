@@ -48,20 +48,20 @@
 ## 3. App Shortcuts
 
 ### 3.1 Manifest Configuration
-- [ ] 3.1.1 Add shortcuts array to manifest in vite.config.ts
-- [ ] 3.1.2 Create shortcut icons (Compose, Inbox, Drafts)
+- [x] 3.1.1 Add shortcuts array to manifest in vite.config.ts
+- [ ] 3.1.2 Create shortcut icons (Compose, Inbox, Drafts) - using main icon for now
 - [ ] 3.1.3 Test on Android Chrome
 
 ## 4. Share Target
 
 ### 4.1 Manifest Configuration
-- [ ] 4.1.1 Add share_target to manifest
-- [ ] 4.1.2 Configure params mapping (title→subject, text→body)
+- [x] 4.1.1 Add share_target to manifest
+- [x] 4.1.2 Configure params mapping (title→subject, text→body, url→url)
 
 ### 4.2 Compose Page Handler
-- [ ] 4.2.1 Read URL params on /compose load
-- [ ] 4.2.2 Pre-fill subject/body from shared content
-- [ ] 4.2.3 Handle shared URLs (append to body)
+- [x] 4.2.1 Read URL params on /compose load (already existed)
+- [x] 4.2.2 Pre-fill subject/body from shared content
+- [x] 4.2.3 Handle shared URLs (append to body)
 
 ## 5. Background Sync
 
