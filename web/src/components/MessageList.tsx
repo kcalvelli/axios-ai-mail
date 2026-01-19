@@ -20,6 +20,7 @@ import { useState, useEffect } from 'react';
 import { MessageCard } from './MessageCard';
 import { SwipeableMessageList } from './SwipeableMessageCard';
 import { BulkActionBar } from './BulkActionBar';
+import { ReadingPane } from './ReadingPane';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { useIsMobile, useIsTouchDevice } from '../hooks/useIsMobile';
 import {
@@ -29,6 +30,7 @@ import {
   useBulkRestore,
   useBulkPermanentDelete,
   useClearTrash,
+  useMarkRead,
 } from '../hooks/useMessages';
 import { useAppStore } from '../store/appStore';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -49,6 +51,8 @@ export function MessageList() {
     selectAllMessages,
     selectionMode,
     exitSelectionMode,
+    setSelectedMessageId,
+    layoutMode,
   } = useAppStore();
 
   const bulkDelete = useBulkDelete();
@@ -56,6 +60,7 @@ export function MessageList() {
   const bulkRestore = useBulkRestore();
   const bulkPermanentDelete = useBulkPermanentDelete();
   const clearTrash = useClearTrash();
+  const markReadMutation = useMarkRead();
   const toast = useToast();
 
   const [clearTrashDialogOpen, setClearTrashDialogOpen] = useState(false);
@@ -341,8 +346,45 @@ export function MessageList() {
     return `${Math.floor(diffHours / 24)}d ago`;
   };
 
-  // Render messages
-  return (
+  // Handle message click - in split mode, select for reading pane; otherwise navigate
+  const handleMessageClick = (messageId: string) => {
+    if (layoutMode === 'split') {
+      setSelectedMessageId(messageId);
+    } else {
+      navigate(`/messages/${messageId}`);
+    }
+  };
+
+  // Callbacks for ReadingPane keyboard navigation
+  const handleReply = (messageId: string) => {
+    navigate(`/compose?reply=${messageId}`);
+  };
+
+  const handleDelete = (messageId: string) => {
+    bulkDelete.mutate([messageId], {
+      onSuccess: () => {
+        toast.success('Moved to trash', {
+          label: 'Undo',
+          onClick: () => {
+            bulkRestore.mutate([messageId]);
+          },
+        });
+      },
+    });
+  };
+
+  const handleToggleRead = (messageId: string) => {
+    const message = data?.messages.find((m) => m.id === messageId);
+    if (message) {
+      markReadMutation.mutate({
+        id: messageId,
+        data: { is_unread: !message.is_unread },
+      });
+    }
+  };
+
+  // Message list content (shared between mobile and desktop)
+  const messageListContent = (
     <>
       {/* Offline cached data banner */}
       {isShowingCachedData && (
@@ -403,29 +445,16 @@ export function MessageList() {
         {isMobile && isTouchDevice ? (
           <SwipeableMessageList
             messages={data.messages}
-            onMessageClick={(message) => navigate(`/messages/${message.id}`)}
-            onDelete={(messageId) => {
-              bulkDelete.mutate([messageId], {
-                onSuccess: () => {
-                  toast.success('Moved to trash', {
-                    label: 'Undo',
-                    onClick: () => {
-                      bulkRestore.mutate([messageId]);
-                    },
-                  });
-                },
-              });
-            }}
-            onReply={(message) => {
-              navigate(`/compose?reply=${message.id}`);
-            }}
+            onMessageClick={(message) => handleMessageClick(message.id)}
+            onDelete={(messageId) => handleDelete(messageId)}
+            onReply={(message) => handleReply(message.id)}
           />
         ) : (
           data.messages.map((message) => (
             <MessageCard
               key={message.id}
               message={message}
-              onClick={() => navigate(`/messages/${message.id}`)}
+              onClick={() => handleMessageClick(message.id)}
               compact={isMobile}
               selectionMode={selectionMode}
             />
@@ -453,6 +482,26 @@ export function MessageList() {
           </Stack>
         )}
       </Box>
+    </>
+  );
+
+  // Render with ReadingPane on desktop, plain list on mobile
+  const renderedContent = isMobile ? (
+    messageListContent
+  ) : (
+    <ReadingPane
+      messages={data.messages}
+      onReply={handleReply}
+      onDelete={handleDelete}
+      onToggleRead={handleToggleRead}
+    >
+      {messageListContent}
+    </ReadingPane>
+  );
+
+  return (
+    <>
+      {renderedContent}
 
       {/* Bulk Action Bar */}
       <BulkActionBar

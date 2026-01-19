@@ -18,6 +18,7 @@ import {
 import { Mail, MailOutline, AttachFile } from '@mui/icons-material';
 import { TagChip } from './TagChip';
 import { ConfidenceBadge } from './ConfidenceBadge';
+import { SenderAvatar, extractSenderName } from './SenderAvatar';
 import { useAppStore } from '../store/appStore';
 import { useMarkRead } from '../hooks/useMessages';
 import { sanitizeSnippet } from '../utils/sanitizeSnippet';
@@ -30,15 +31,25 @@ interface MessageCardProps {
   compact?: boolean;
   /** Selection mode - when true, clicking toggles selection instead of opening */
   selectionMode?: boolean;
+  /** Show avatar (default: true on desktop, false in compact) */
+  showAvatar?: boolean;
 }
 
-export function MessageCard({ message, onClick, compact = false, selectionMode = false }: MessageCardProps) {
+export function MessageCard({
+  message,
+  onClick,
+  compact = false,
+  selectionMode = false,
+  showAvatar = !compact,
+}: MessageCardProps) {
   const theme = useMuiTheme();
-  const { toggleTag, toggleMessageSelection, isMessageSelected } = useAppStore();
+  const { toggleTag, toggleMessageSelection, isMessageSelected, selectedMessageId } = useAppStore();
   const markRead = useMarkRead();
   const isDark = theme.palette.mode === 'dark';
 
   const isSelected = isMessageSelected(message.id);
+  const isReadingPaneSelected = selectedMessageId === message.id;
+  const { name: senderName, email: senderEmail } = extractSenderName(message.from_email);
 
   // In selection mode, clicking toggles selection instead of opening
   const handleCardClick = () => {
@@ -52,8 +63,12 @@ export function MessageCard({ message, onClick, compact = false, selectionMode =
   // M3 AMOLED: Tonal surface hierarchy for visual distinction
   const getBackgroundColor = () => {
     if (isSelected) {
-      // Selected state: slightly elevated surface
+      // Bulk selected state: slightly elevated surface
       return isDark ? '#2C2C2C' : '#e3f2fd';
+    }
+    if (isReadingPaneSelected) {
+      // Reading pane selected: highlight
+      return isDark ? '#1E3A5F' : '#e3f2fd';
     }
     if (message.is_unread) {
       // Unread: Surface Container High for emphasis
@@ -119,7 +134,7 @@ export function MessageCard({ message, onClick, compact = false, selectionMode =
         borderLeft: message.is_unread && !isDark
           ? `4px solid ${theme.palette.primary.main}`
           : 'none',
-        border: isSelected ? `2px solid ${theme.palette.primary.main}` : 'none',
+        border: (isSelected || isReadingPaneSelected) ? `2px solid ${theme.palette.primary.main}` : 'none',
         // M3: 12px border-radius (via theme)
         borderRadius: '12px',
         // Ensure full width for swipeable wrapper
@@ -130,15 +145,20 @@ export function MessageCard({ message, onClick, compact = false, selectionMode =
     >
       {/* M3: 16px internal padding */}
       <CardContent sx={{ p: compact ? 1.5 : 2, '&:last-child': { pb: compact ? 1.5 : 2 } }}>
-        <Box display="flex" justifyContent="space-between" alignItems="start">
+        <Box display="flex" alignItems="start" gap={1.5}>
           {/* Checkbox - show in selection mode even on mobile */}
           {showCheckbox && (
             <Checkbox
               checked={isSelected}
               onChange={handleCheckboxChange}
               onClick={(e) => e.stopPropagation()}
-              sx={{ p: 0, mr: 1 }}
+              sx={{ p: 0 }}
             />
+          )}
+
+          {/* Avatar */}
+          {showAvatar && (
+            <SenderAvatar email={senderEmail} name={senderName} size={compact ? 32 : 40} />
           )}
 
           <Box flex={1} minWidth={0}>
@@ -157,7 +177,7 @@ export function MessageCard({ message, onClick, compact = false, selectionMode =
                   mr: 1,
                 }}
               >
-                {message.from_email}
+                {senderName || senderEmail}
               </Typography>
               <Box display="flex" alignItems="center" gap={0.5} flexShrink={0}>
                 {message.has_attachments && (

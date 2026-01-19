@@ -23,6 +23,7 @@ export function useMessages(filters: {
   tags?: string[];
   is_unread?: boolean;
   folder?: string;
+  thread_id?: string;
   search?: string;
   limit?: number;
   offset?: number;
@@ -30,6 +31,15 @@ export function useMessages(filters: {
   return useQuery({
     queryKey: messageKeys.list(filters),
     queryFn: () => messages.list(filters),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+}
+
+export function useThreadMessages(threadId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['thread', threadId],
+    queryFn: () => messages.list({ thread_id: threadId!, limit: 100 }),
+    enabled: !!threadId,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }

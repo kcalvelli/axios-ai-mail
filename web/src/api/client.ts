@@ -45,6 +45,7 @@ export const messages = {
     tags?: string[];
     is_unread?: boolean;
     folder?: string;
+    thread_id?: string;
     search?: string;
     limit?: number;
     offset?: number;

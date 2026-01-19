@@ -10,6 +10,9 @@ const isMobileDevice = () => {
   return window.innerWidth < 900;
 };
 
+// Layout modes for reading pane
+type LayoutMode = 'list-only' | 'split' | 'detail-only';
+
 interface AppState {
   // Filters
   selectedAccount: string | null;
@@ -20,6 +23,11 @@ interface AppState {
   // UI state
   syncStatus: 'idle' | 'syncing' | 'error';
   drawerOpen: boolean;
+
+  // Reading pane state
+  layoutMode: LayoutMode;
+  selectedMessageId: string | null;
+  readingPaneWidth: number; // Percentage for split view (0-100)
 
   // Bulk selection
   selectedMessageIds: Set<string>;
@@ -35,6 +43,14 @@ interface AppState {
   setDrawerOpen: (open: boolean) => void;
   toggleDrawer: () => void;
 
+  // Reading pane actions
+  setLayoutMode: (mode: LayoutMode) => void;
+  toggleLayoutMode: () => void;
+  setSelectedMessageId: (id: string | null) => void;
+  setReadingPaneWidth: (width: number) => void;
+  selectNextMessage: (messageIds: string[]) => void;
+  selectPrevMessage: (messageIds: string[]) => void;
+
   // Bulk selection actions
   toggleMessageSelection: (id: string) => void;
   selectAllMessages: (ids: string[]) => void;
@@ -43,6 +59,24 @@ interface AppState {
   enterSelectionMode: (initialMessageId?: string) => void;
   exitSelectionMode: () => void;
 }
+
+// Get saved reading pane width from localStorage
+const getSavedPaneWidth = (): number => {
+  if (typeof window === 'undefined') return 50;
+  const saved = localStorage.getItem('readingPaneWidth');
+  return saved ? parseInt(saved, 10) : 50;
+};
+
+// Get saved layout mode from localStorage
+const getSavedLayoutMode = (): LayoutMode => {
+  if (typeof window === 'undefined') return 'split';
+  const saved = localStorage.getItem('layoutMode');
+  if (saved === 'list-only' || saved === 'split' || saved === 'detail-only') {
+    return saved;
+  }
+  // Default: split on desktop, list-only on mobile
+  return isMobileDevice() ? 'list-only' : 'split';
+};
 
 export const useAppStore = create<AppState>((set, get) => ({
   // Initial state
@@ -53,6 +87,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   syncStatus: 'idle',
   // Start with drawer closed on mobile, open on desktop
   drawerOpen: !isMobileDevice(),
+  // Reading pane state
+  layoutMode: getSavedLayoutMode(),
+  selectedMessageId: null,
+  readingPaneWidth: getSavedPaneWidth(),
+  // Bulk selection
   selectedMessageIds: new Set<string>(),
   selectionMode: false,
 
@@ -77,6 +116,48 @@ export const useAppStore = create<AppState>((set, get) => ({
   setDrawerOpen: (open) => set({ drawerOpen: open }),
 
   toggleDrawer: () => set((state) => ({ drawerOpen: !state.drawerOpen })),
+
+  // Reading pane actions
+  setLayoutMode: (mode) => {
+    localStorage.setItem('layoutMode', mode);
+    set({ layoutMode: mode });
+  },
+
+  toggleLayoutMode: () => {
+    const current = get().layoutMode;
+    const next = current === 'split' ? 'list-only' : 'split';
+    localStorage.setItem('layoutMode', next);
+    set({ layoutMode: next });
+  },
+
+  setSelectedMessageId: (id) => set({ selectedMessageId: id }),
+
+  setReadingPaneWidth: (width) => {
+    localStorage.setItem('readingPaneWidth', width.toString());
+    set({ readingPaneWidth: width });
+  },
+
+  selectNextMessage: (messageIds) => {
+    const current = get().selectedMessageId;
+    if (!current || messageIds.length === 0) {
+      set({ selectedMessageId: messageIds[0] || null });
+      return;
+    }
+    const currentIndex = messageIds.indexOf(current);
+    const nextIndex = Math.min(currentIndex + 1, messageIds.length - 1);
+    set({ selectedMessageId: messageIds[nextIndex] });
+  },
+
+  selectPrevMessage: (messageIds) => {
+    const current = get().selectedMessageId;
+    if (!current || messageIds.length === 0) {
+      set({ selectedMessageId: messageIds[0] || null });
+      return;
+    }
+    const currentIndex = messageIds.indexOf(current);
+    const prevIndex = Math.max(currentIndex - 1, 0);
+    set({ selectedMessageId: messageIds[prevIndex] });
+  },
 
   // Bulk selection actions
   toggleMessageSelection: (id) =>

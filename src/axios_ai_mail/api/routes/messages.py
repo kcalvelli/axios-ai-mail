@@ -78,6 +78,7 @@ async def list_messages(
     tags: Optional[List[str]] = Query(None, description="Filter by multiple tags (OR logic)"),
     is_unread: Optional[bool] = Query(None, description="Filter by read status"),
     folder: Optional[str] = Query(None, description="Filter by folder (inbox, sent, trash)"),
+    thread_id: Optional[str] = Query(None, description="Filter by thread ID (for conversation view)"),
     search: Optional[str] = Query(None, description="Search in subject, from, snippet"),
     limit: int = Query(50, ge=1, le=200, description="Page size"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
@@ -93,6 +94,7 @@ async def list_messages(
             tags=tags,
             is_unread=is_unread,
             folder=folder,
+            thread_id=thread_id,
             limit=limit + 1,  # Fetch one extra to check if there are more
             offset=offset,
         )
