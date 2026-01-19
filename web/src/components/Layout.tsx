@@ -60,10 +60,10 @@ export function Layout() {
           component="main"
           sx={{
             flexGrow: 1,
-            // No horizontal padding - let child components handle their own
-            pt: { xs: 0.5, sm: 0.5 },
-            pb: { xs: 0.5, sm: 0.5 },
-            px: 0,
+            // Material Design: 16px (2 units) on mobile, 24px (3 units) on desktop
+            pt: { xs: 1, sm: 1.5 },
+            pb: { xs: 1, sm: 1.5 },
+            px: { xs: 2, sm: 3 },
             // On mobile: always full width
             // On desktop: account for sidebar when open
             width: isMobile
