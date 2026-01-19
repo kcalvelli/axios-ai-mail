@@ -277,9 +277,18 @@ class Database:
         Returns:
             Updated message if successful, None if not found
         """
+        import traceback
         with self.session() as session:
             message = session.get(Message, message_id)
             if message:
+                # Log the delete operation with stack trace for debugging
+                logger.warning(
+                    f"Moving message to trash: id={message_id}, "
+                    f"subject='{message.subject[:50] if message.subject else 'N/A'}', "
+                    f"from_folder={message.folder}"
+                )
+                logger.debug(f"move_to_trash call stack:\n{''.join(traceback.format_stack())}")
+
                 # Save current folder so we can restore later
                 message.original_folder = message.folder
                 message.folder = "trash"
