@@ -2,16 +2,23 @@
  * EmailContent component - Enhanced HTML email rendering
  *
  * Features:
- * - Dark mode adaptation for email content
+ * - Dark mode adaptation using CSS filter inversion (industry standard)
  * - Remote image blocking with prompt
  * - Safe link handling (open in new tab)
  * - Typography improvements
  * - Responsive tables
+ *
+ * Dark mode approach:
+ * - Uses filter: invert(1) hue-rotate(180deg) to invert colors while preserving hues
+ * - Images are inverted back to display correctly
+ * - This matches how Gmail, Outlook, and other major clients handle dark mode
+ *
+ * @see https://www.litmus.com/blog/the-ultimate-guide-to-dark-mode-for-email-marketers
  */
 
 import { useState, useEffect, useMemo } from 'react';
 import { Box, Button, Alert, useTheme } from '@mui/material';
-import { Image, ImageNotSupported } from '@mui/icons-material';
+import { Image, ImageNotSupported, LightMode } from '@mui/icons-material';
 
 interface EmailContentProps {
   /** Sanitized HTML content */
@@ -33,25 +40,6 @@ function hasRemoteImages(html: string): boolean {
 }
 
 /**
- * Transform HTML for dark mode
- */
-function adaptForDarkMode(html: string): string {
-  // Replace common light background colors with transparent
-  let adapted = html
-    // Replace white/light backgrounds
-    .replace(/background(-color)?:\s*(#fff(fff)?|white|#f[0-9a-f]{5})/gi, 'background-color: transparent')
-    // Replace black text on backgrounds we've made transparent
-    .replace(/color:\s*(#000(000)?|black)/gi, 'color: inherit')
-    // Handle inline styles with multiple properties
-    .replace(/style="([^"]*?)background(-color)?:\s*(#fff(fff)?|white)([^"]*?)"/gi,
-      (_, before, __, ___, ____, after) => `style="${before}background-color: transparent${after}"`)
-    // Handle rgb(255,255,255) backgrounds
-    .replace(/background(-color)?:\s*rgb\(255\s*,\s*255\s*,\s*255\)/gi, 'background-color: transparent');
-
-  return adapted;
-}
-
-/**
  * Block remote images by replacing src with data attribute
  */
 function blockRemoteImages(html: string): string {
@@ -70,6 +58,7 @@ export function EmailContent({
   const isDark = theme.palette.mode === 'dark';
   const [showRemoteImages, setShowRemoteImages] = useState(allowRemoteImages);
   const [hasRemote, setHasRemote] = useState(false);
+  const [forceOriginal, setForceOriginal] = useState(false);
 
   // Check for remote images
   useEffect(() => {
@@ -80,23 +69,21 @@ export function EmailContent({
   const processedHtml = useMemo(() => {
     let processed = html;
 
-    // Apply dark mode adaptation
-    if (isDark) {
-      processed = adaptForDarkMode(processed);
-    }
-
     // Block remote images if not allowed
     if (!showRemoteImages && hasRemote) {
       processed = blockRemoteImages(processed);
     }
 
     return processed;
-  }, [html, isDark, showRemoteImages, hasRemote]);
+  }, [html, showRemoteImages, hasRemote]);
 
   const handleLoadImages = () => {
     setShowRemoteImages(true);
     onLoadRemoteImages?.();
   };
+
+  // Should we apply dark mode inversion?
+  const applyDarkMode = isDark && !forceOriginal;
 
   return (
     <Box>
@@ -121,136 +108,166 @@ export function EmailContent({
         </Alert>
       )}
 
-      {/* Email content */}
+      {/* Dark mode toggle - show option to view original */}
+      {isDark && (
+        <Box sx={{ mb: 1, display: 'flex', justifyContent: 'flex-end' }}>
+          <Button
+            size="small"
+            startIcon={<LightMode />}
+            onClick={() => setForceOriginal(!forceOriginal)}
+            sx={{
+              textTransform: 'none',
+              fontSize: '0.75rem',
+              color: 'text.secondary',
+            }}
+          >
+            {forceOriginal ? 'Apply dark mode' : 'View original colors'}
+          </Button>
+        </Box>
+      )}
+
+      {/* Email content wrapper - provides light background for inversion */}
       <Box
-        className="email-content"
         sx={{
-          // Typography
-          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-          fontSize: '15px',
-          lineHeight: 1.6,
-          wordBreak: 'break-word',
-          overflowWrap: 'break-word',
-
-          // Images
-          '& img': {
-            maxWidth: '100%',
-            height: 'auto',
-            display: 'block',
-          },
-
-          // Links - open in new tab with security
-          '& a': {
-            color: theme.palette.primary.main,
-            textDecoration: 'none',
-            '&:hover': {
-              textDecoration: 'underline',
-            },
-          },
-
-          // Preformatted text
-          '& pre, & code': {
-            backgroundColor: isDark ? '#2a2a2a' : '#f5f5f5',
-            padding: theme.spacing(0.5, 1),
-            borderRadius: theme.shape.borderRadius,
-            fontFamily: 'monospace',
-            fontSize: '0.9em',
-            overflow: 'auto',
-          },
-          '& pre': {
-            padding: theme.spacing(2),
-            whiteSpace: 'pre-wrap',
-          },
-
-          // Tables
-          '& table': {
-            borderCollapse: 'collapse',
-            width: '100%',
-            maxWidth: '100%',
-            marginBottom: theme.spacing(2),
-            tableLayout: 'fixed',
-          },
-          '& td, & th': {
-            border: `1px solid ${isDark ? '#444' : '#ddd'}`,
-            padding: theme.spacing(1),
-            textAlign: 'left',
-            wordBreak: 'break-word',
-          },
-          '& th': {
-            backgroundColor: isDark ? '#2a2a2a' : '#f5f5f5',
-            fontWeight: 600,
-          },
-
-          // Blockquotes
-          '& blockquote': {
-            margin: theme.spacing(2, 0),
-            padding: theme.spacing(1, 2),
-            borderLeft: `4px solid ${isDark ? '#444' : '#ddd'}`,
-            backgroundColor: isDark ? '#2a2a2a' : '#f9f9f9',
-            color: theme.palette.text.secondary,
-          },
-
-          // Lists
-          '& ul, & ol': {
-            paddingLeft: theme.spacing(3),
-            marginBottom: theme.spacing(2),
-          },
-          '& li': {
-            marginBottom: theme.spacing(0.5),
-          },
-
-          // Headings
-          '& h1, & h2, & h3, & h4, & h5, & h6': {
-            marginTop: theme.spacing(2),
-            marginBottom: theme.spacing(1),
-            fontWeight: 600,
-            lineHeight: 1.3,
-          },
-
-          // Paragraphs
-          '& p': {
-            marginBottom: theme.spacing(1.5),
-          },
-
-          // Horizontal rule
-          '& hr': {
-            border: 'none',
-            borderTop: `1px solid ${isDark ? '#444' : '#ddd'}`,
-            margin: theme.spacing(2, 0),
-          },
-
-          // Dark mode specific overrides
-          ...(isDark && {
-            // Override common white/light backgrounds
-            '& [style*="background"]': {
-              backgroundColor: 'transparent !important',
-            },
-            '& [style*="color: #000"], & [style*="color:#000"], & [style*="color: black"]': {
-              color: 'inherit !important',
-            },
-            // Gmail-specific
-            '& .gmail_quote': {
-              borderLeft: `2px solid ${theme.palette.divider}`,
-              paddingLeft: theme.spacing(1),
-              color: theme.palette.text.secondary,
-            },
+          // When applying dark mode, we need a light background to invert from
+          // This wrapper provides isolation for the filter
+          ...(applyDarkMode && {
+            backgroundColor: '#ffffff',
+            borderRadius: 1,
+            overflow: 'hidden',
           }),
         }}
-        dangerouslySetInnerHTML={{ __html: processedHtml }}
-        // Handle link clicks to open in new tab
-        onClick={(e) => {
-          const target = e.target as HTMLElement;
-          if (target.tagName === 'A') {
-            e.preventDefault();
-            const href = target.getAttribute('href');
-            if (href && !href.startsWith('mailto:')) {
-              window.open(href, '_blank', 'noopener,noreferrer');
-            } else if (href?.startsWith('mailto:')) {
-              window.location.href = href;
+      >
+        {/* Email content with dark mode inversion */}
+        <Box
+          className="email-content"
+          sx={{
+            // Base styles
+            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            fontSize: '15px',
+            lineHeight: 1.6,
+            wordBreak: 'break-word',
+            overflowWrap: 'break-word',
+            padding: applyDarkMode ? 2 : 0,
+
+            // Dark mode: CSS filter inversion (industry standard approach)
+            // This inverts all colors, then hue-rotate restores original hues
+            // Result: white becomes dark, black becomes light, colors stay similar
+            ...(applyDarkMode && {
+              filter: 'invert(1) hue-rotate(180deg)',
+              // Invert images back so they display correctly
+              '& img': {
+                filter: 'invert(1) hue-rotate(180deg)',
+              },
+              // Invert videos back
+              '& video, & iframe': {
+                filter: 'invert(1) hue-rotate(180deg)',
+              },
+            }),
+
+            // Images
+            '& img': {
+              maxWidth: '100%',
+              height: 'auto',
+              display: 'block',
+              // Preserve the invert filter from above if applied
+            },
+
+            // Links
+            '& a': {
+              color: applyDarkMode ? '#1976d2' : theme.palette.primary.main,
+              textDecoration: 'none',
+              '&:hover': {
+                textDecoration: 'underline',
+              },
+            },
+
+            // Preformatted text
+            '& pre, & code': {
+              backgroundColor: '#f5f5f5',
+              padding: theme.spacing(0.5, 1),
+              borderRadius: theme.shape.borderRadius,
+              fontFamily: 'monospace',
+              fontSize: '0.9em',
+              overflow: 'auto',
+            },
+            '& pre': {
+              padding: theme.spacing(2),
+              whiteSpace: 'pre-wrap',
+            },
+
+            // Tables
+            '& table': {
+              borderCollapse: 'collapse',
+              width: '100%',
+              maxWidth: '100%',
+              marginBottom: theme.spacing(2),
+              tableLayout: 'fixed',
+            },
+            '& td, & th': {
+              border: '1px solid #ddd',
+              padding: theme.spacing(1),
+              textAlign: 'left',
+              wordBreak: 'break-word',
+            },
+            '& th': {
+              backgroundColor: '#f5f5f5',
+              fontWeight: 600,
+            },
+
+            // Blockquotes
+            '& blockquote': {
+              margin: theme.spacing(2, 0),
+              padding: theme.spacing(1, 2),
+              borderLeft: '4px solid #ddd',
+              backgroundColor: '#f9f9f9',
+            },
+
+            // Lists
+            '& ul, & ol': {
+              paddingLeft: theme.spacing(3),
+              marginBottom: theme.spacing(2),
+            },
+            '& li': {
+              marginBottom: theme.spacing(0.5),
+            },
+
+            // Headings
+            '& h1, & h2, & h3, & h4, & h5, & h6': {
+              marginTop: theme.spacing(2),
+              marginBottom: theme.spacing(1),
+              fontWeight: 600,
+              lineHeight: 1.3,
+            },
+
+            // Paragraphs
+            '& p': {
+              marginBottom: theme.spacing(1.5),
+            },
+
+            // Horizontal rule
+            '& hr': {
+              border: 'none',
+              borderTop: '1px solid #ddd',
+              margin: theme.spacing(2, 0),
+            },
+          }}
+          dangerouslySetInnerHTML={{ __html: processedHtml }}
+          // Handle link clicks to open in new tab
+          onClick={(e) => {
+            const target = e.target as HTMLElement;
+            if (target.tagName === 'A') {
+              e.preventDefault();
+              const href = target.getAttribute('href');
+              if (href && !href.startsWith('mailto:')) {
+                window.open(href, '_blank', 'noopener,noreferrer');
+              } else if (href?.startsWith('mailto:')) {
+                window.location.href = href;
+              }
             }
-          }
-        }}
-      />
+          }}
+        />
+      </Box>
     </Box>
   );
 }
