@@ -118,8 +118,6 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         py: 1,
         px: 1.5, // 12px padding - Material Design standard
         boxSizing: 'border-box',
-        // DEBUG: see actual sidebar bounds
-        backgroundColor: 'rgba(255,0,0,0.2)',
         // Hide scrollbar while keeping scroll functionality
         scrollbarWidth: 'none', // Firefox
         '&::-webkit-scrollbar': { display: 'none' }, // Chrome/Safari
