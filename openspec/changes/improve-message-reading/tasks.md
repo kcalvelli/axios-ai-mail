@@ -1,5 +1,12 @@
 # Implementation Tasks
 
+## 0. Critical Defects
+
+### 0.1 Clear Trash Button Not Visible on Mobile
+- [x] 0.1.1 Remove `!isMobile` condition from Clear Trash button
+- [x] 0.1.2 Move Clear Trash to left side (after Select All area)
+- [x] 0.1.3 Add `flexWrap="wrap"` to handle narrow screens
+
 ## 1. Reading Pane (Desktop Split View)
 
 ### 1.1 Layout Infrastructure

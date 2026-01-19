@@ -365,8 +365,8 @@ export function MessageList() {
 
       <Box sx={{ py: 1, px: 0 }}>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-          {/* Left side: message count, then Select All button */}
-          <Box display="flex" gap={2} alignItems="center">
+          {/* Left side: message count, Select All, Clear Trash */}
+          <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
             <Typography variant="body2" color="text.secondary">
               {data.total} {data.total === 1 ? 'message' : 'messages'}
             </Typography>
@@ -383,20 +383,20 @@ export function MessageList() {
                 {allSelected ? 'Deselect All' : 'Select All'}
               </Button>
             )}
-          </Box>
 
-          {/* Right side: Clear Trash button only */}
-          {isTrash && !isMobile && data.total > 0 && (
-            <Button
-              size="small"
-              color="error"
-              startIcon={<DeleteSweep />}
-              onClick={handleClearTrash}
-              variant="outlined"
-            >
-              Clear Trash
-            </Button>
-          )}
+            {/* Clear Trash button - in trash folder, after Select All area */}
+            {isTrash && data.total > 0 && (
+              <Button
+                size="small"
+                color="error"
+                startIcon={<DeleteSweep />}
+                onClick={handleClearTrash}
+                variant="outlined"
+              >
+                Clear Trash
+              </Button>
+            )}
+          </Box>
         </Box>
 
         {/* Swipeable cards on mobile touch devices, regular cards on desktop */}
