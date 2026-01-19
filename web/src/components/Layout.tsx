@@ -1,13 +1,15 @@
 /**
  * Layout component - Main application layout with responsive AppBar and Drawer
  *
- * M3 AMOLED layout: Navigation drawer with stable content margins
+ * Desktop: Gmail-style persistent sidebar (expanded/collapsed rail)
+ * Mobile: Temporary overlay drawer
  */
 
 import { Box, Drawer, Toolbar, Fab, useTheme } from '@mui/material';
 import { Edit as EditIcon } from '@mui/icons-material';
 import { TopBar } from './TopBar';
 import { Sidebar } from './Sidebar';
+import { MiniSidebar, RAIL_WIDTH } from './MiniSidebar';
 import { OfflineIndicator } from './OfflineIndicator';
 import { PullToRefresh } from './PullToRefresh';
 import { useAppStore } from '../store/appStore';
@@ -44,8 +46,11 @@ export function Layout() {
     navigate('/compose');
   };
 
-  // Hide FAB on compose page
+  // Hide FAB on compose page (mobile only, desktop has sidebar compose)
   const showFab = isMobile && location.pathname !== '/compose';
+
+  // Desktop sidebar width based on expanded/collapsed state
+  const desktopSidebarWidth = drawerOpen ? DRAWER_WIDTH : RAIL_WIDTH;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
@@ -53,37 +58,73 @@ export function Layout() {
       <OfflineIndicator />
 
       <Box sx={{ display: 'flex', flex: 1 }}>
-        <Drawer
-          variant="temporary"
-          open={drawerOpen}
-          onClose={handleDrawerClose}
-          sx={{
-            '& .MuiDrawer-paper': {
-              width: DRAWER_WIDTH,
-              boxSizing: 'border-box',
-            },
-          }}
-          ModalProps={{
-            keepMounted: true,
-          }}
-        >
-          <Toolbar />
-          <Sidebar onNavigate={handleNavigate} />
-        </Drawer>
+        {/* Mobile: Temporary overlay drawer */}
+        {isMobile ? (
+          <Drawer
+            variant="temporary"
+            open={drawerOpen}
+            onClose={handleDrawerClose}
+            sx={{
+              '& .MuiDrawer-paper': {
+                width: DRAWER_WIDTH,
+                boxSizing: 'border-box',
+              },
+            }}
+            ModalProps={{
+              keepMounted: true,
+            }}
+          >
+            <Toolbar />
+            <Sidebar onNavigate={handleNavigate} />
+          </Drawer>
+        ) : (
+          /* Desktop: Persistent sidebar (expanded or collapsed rail) */
+          <Box
+            component="nav"
+            sx={{
+              width: desktopSidebarWidth,
+              flexShrink: 0,
+              transition: theme.transitions.create('width', {
+                easing: theme.transitions.easing.sharp,
+                duration: theme.transitions.duration.enteringScreen,
+              }),
+            }}
+          >
+            <Drawer
+              variant="permanent"
+              open
+              sx={{
+                '& .MuiDrawer-paper': {
+                  width: desktopSidebarWidth,
+                  boxSizing: 'border-box',
+                  transition: theme.transitions.create('width', {
+                    easing: theme.transitions.easing.sharp,
+                    duration: theme.transitions.duration.enteringScreen,
+                  }),
+                  overflowX: 'hidden',
+                },
+              }}
+            >
+              <Toolbar />
+              {drawerOpen ? (
+                <Sidebar onNavigate={handleNavigate} />
+              ) : (
+                <MiniSidebar onNavigate={handleNavigate} />
+              )}
+            </Drawer>
+          </Box>
+        )}
 
         <Box
           component="main"
           sx={{
             flexGrow: 1,
-            // M3: Consistent 24dp padding - content NEVER shifts with drawer
+            // M3: Consistent 24dp padding
             pt: `${CONTENT_PADDING}px`,
             pb: `${CONTENT_PADDING}px`,
             pl: `${CONTENT_PADDING}px`,
             pr: `${CONTENT_PADDING}px`,
-            // M3 Stable Layout: Content stays fixed, drawer overlays
-            // No margin shift on drawer toggle
-            ml: 0,
-            // Ensure content doesn't overflow
+            // Content naturally fills remaining space
             minWidth: 0,
             overflow: 'hidden',
           }}
