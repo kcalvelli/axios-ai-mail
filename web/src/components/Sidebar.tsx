@@ -16,6 +16,8 @@ import {
   FormControlLabel,
   Switch,
   Badge,
+  Tooltip,
+  Collapse,
 } from '@mui/material';
 import {
   Inbox,
@@ -34,9 +36,10 @@ import axios from 'axios';
 
 interface SidebarProps {
   onNavigate?: () => void;
+  collapsed?: boolean;
 }
 
-export function Sidebar({ onNavigate }: SidebarProps) {
+export function Sidebar({ onNavigate, collapsed = false }: SidebarProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { data: tagsData, isLoading } = useTags();
@@ -109,6 +112,46 @@ export function Sidebar({ onNavigate }: SidebarProps) {
     { text: 'Settings', icon: <Settings />, path: '/settings' },
   ];
 
+  // Transition duration for smooth collapse
+  const transitionDuration = 225;
+
+  const renderIcon = (item: typeof folderItems[0]) => {
+    const icon = item.badge && item.badge > 0 ? (
+      <Badge
+        badgeContent={item.badge > 99 ? '99+' : item.badge}
+        color="primary"
+        max={99}
+      >
+        {item.icon}
+      </Badge>
+    ) : (
+      item.icon
+    );
+
+    return collapsed ? (
+      <Tooltip title={item.text} placement="right">
+        <ListItemIcon
+          sx={{
+            minWidth: collapsed ? 'auto' : 36,
+            justifyContent: collapsed ? 'center' : 'flex-start',
+            transition: `all ${transitionDuration}ms ease`,
+          }}
+        >
+          {icon}
+        </ListItemIcon>
+      </Tooltip>
+    ) : (
+      <ListItemIcon
+        sx={{
+          minWidth: 36,
+          transition: `all ${transitionDuration}ms ease`,
+        }}
+      >
+        {icon}
+      </ListItemIcon>
+    );
+  };
+
   return (
     <Box
       sx={{
@@ -116,11 +159,11 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         height: '100%',
         overflow: 'auto',
         py: 1,
-        px: 1.5, // 12px padding - Material Design standard
+        px: collapsed ? 1 : 1.5,
         boxSizing: 'border-box',
-        // Hide scrollbar while keeping scroll functionality
-        scrollbarWidth: 'none', // Firefox
-        '&::-webkit-scrollbar': { display: 'none' }, // Chrome/Safari
+        transition: `padding ${transitionDuration}ms ease`,
+        scrollbarWidth: 'none',
+        '&::-webkit-scrollbar': { display: 'none' },
       }}
     >
       {/* Folders */}
@@ -134,22 +177,24 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                   : location.pathname === '/' && location.search === (item.folder === 'inbox' ? '' : `?folder=${item.folder}`)
               }
               onClick={() => handleNavigation(item.path)}
-              sx={{ minHeight: 48, px: 1 }} // Touch-friendly height, tighter padding
+              sx={{
+                minHeight: 48,
+                px: 1,
+                justifyContent: collapsed ? 'center' : 'flex-start',
+                transition: `all ${transitionDuration}ms ease`,
+              }}
             >
-              <ListItemIcon sx={{ minWidth: 36 }}>
-                {item.badge > 0 ? (
-                  <Badge
-                    badgeContent={item.badge > 99 ? '99+' : item.badge}
-                    color="primary"
-                    max={99}
-                  >
-                    {item.icon}
-                  </Badge>
-                ) : (
-                  item.icon
-                )}
-              </ListItemIcon>
-              <ListItemText primary={item.text} />
+              {renderIcon(item)}
+              <ListItemText
+                primary={item.text}
+                sx={{
+                  opacity: collapsed ? 0 : 1,
+                  width: collapsed ? 0 : 'auto',
+                  overflow: 'hidden',
+                  whiteSpace: 'nowrap',
+                  transition: `opacity ${transitionDuration}ms ease, width ${transitionDuration}ms ease`,
+                }}
+              />
             </ListItemButton>
           </ListItem>
         ))}
@@ -164,93 +209,118 @@ export function Sidebar({ onNavigate }: SidebarProps) {
             <ListItemButton
               selected={location.pathname === item.path}
               onClick={() => handleNavigation(item.path)}
-              sx={{ minHeight: 48, px: 1 }} // Touch-friendly height, tighter padding
+              sx={{
+                minHeight: 48,
+                px: 1,
+                justifyContent: collapsed ? 'center' : 'flex-start',
+                transition: `all ${transitionDuration}ms ease`,
+              }}
             >
-              <ListItemIcon sx={{ minWidth: 36 }}>{item.icon}</ListItemIcon>
-              <ListItemText primary={item.text} />
+              {collapsed ? (
+                <Tooltip title={item.text} placement="right">
+                  <ListItemIcon sx={{ minWidth: 'auto', justifyContent: 'center' }}>
+                    {item.icon}
+                  </ListItemIcon>
+                </Tooltip>
+              ) : (
+                <ListItemIcon sx={{ minWidth: 36 }}>{item.icon}</ListItemIcon>
+              )}
+              <ListItemText
+                primary={item.text}
+                sx={{
+                  opacity: collapsed ? 0 : 1,
+                  width: collapsed ? 0 : 'auto',
+                  overflow: 'hidden',
+                  whiteSpace: 'nowrap',
+                  transition: `opacity ${transitionDuration}ms ease, width ${transitionDuration}ms ease`,
+                }}
+              />
             </ListItemButton>
           </ListItem>
         ))}
       </List>
 
-      <Divider sx={{ my: 2 }} />
+      {/* Collapsible sections - hidden when collapsed */}
+      <Collapse in={!collapsed} timeout={transitionDuration}>
+        <Divider sx={{ my: 2 }} />
 
-      {/* Filters */}
-      <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-        Filters
-      </Typography>
-
-      <FormControlLabel
-        control={
-          <Switch
-            checked={isUnreadOnly}
-            onChange={(e) => setIsUnreadOnly(e.target.checked)}
-            size="small"
-          />
-        }
-        label="Unread only"
-        sx={{ mb: 2 }}
-      />
-
-      <Divider sx={{ my: 2 }} />
-
-      {/* Tags */}
-      <Box
-        display="flex"
-        justifyContent="space-between"
-        alignItems="center"
-        mb={1}
-      >
-        <Typography variant="subtitle2" color="text.secondary">
-          Tags
+        {/* Filters */}
+        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+          Filters
         </Typography>
-        {selectedTags.length > 0 && (
-          <Typography
-            variant="caption"
-            color="primary"
-            sx={{ cursor: 'pointer' }}
-            onClick={clearTags}
-          >
-            Clear
+
+        <FormControlLabel
+          control={
+            <Switch
+              checked={isUnreadOnly}
+              onChange={(e) => setIsUnreadOnly(e.target.checked)}
+              size="small"
+            />
+          }
+          label="Unread only"
+          sx={{ mb: 2 }}
+        />
+
+        <Divider sx={{ my: 2 }} />
+
+        {/* Tags */}
+        <Box
+          display="flex"
+          justifyContent="space-between"
+          alignItems="center"
+          mb={1}
+        >
+          <Typography variant="subtitle2" color="text.secondary">
+            Tags
+          </Typography>
+          {selectedTags.length > 0 && (
+            <Typography
+              variant="caption"
+              color="primary"
+              sx={{ cursor: 'pointer' }}
+              onClick={clearTags}
+            >
+              Clear
+            </Typography>
+          )}
+        </Box>
+
+        {isLoading ? (
+          <Box display="flex" justifyContent="center" p={2}>
+            <CircularProgress size={24} />
+          </Box>
+        ) : tagsData && tagsData.tags.length > 0 ? (
+          <Box display="flex" flexDirection="column" gap={1}>
+            {tagsData.tags.map((tag) => (
+              <Box
+                key={tag.name}
+                display="flex"
+                alignItems="center"
+                justifyContent="space-between"
+              >
+                <TagChip
+                  tag={tag.name}
+                  onClick={() => toggleTag(tag.name)}
+                  size="small"
+                  selected={selectedTags.includes(tag.name)}
+                  isAccountTag={tag.type === 'account'}
+                />
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ flexShrink: 0 }}
+                >
+                  {tag.count}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+        ) : (
+          <Typography variant="body2" color="text.secondary">
+            No tags yet
           </Typography>
         )}
-      </Box>
-
-      {isLoading ? (
-        <Box display="flex" justifyContent="center" p={2}>
-          <CircularProgress size={24} />
-        </Box>
-      ) : tagsData && tagsData.tags.length > 0 ? (
-        <Box display="flex" flexDirection="column" gap={1}>
-          {tagsData.tags.map((tag) => (
-            <Box
-              key={tag.name}
-              display="flex"
-              alignItems="center"
-              justifyContent="space-between"
-            >
-              <TagChip
-                tag={tag.name}
-                onClick={() => toggleTag(tag.name)}
-                size="small"
-                selected={selectedTags.includes(tag.name)}
-                isAccountTag={tag.type === 'account'}
-              />
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ flexShrink: 0 }}
-              >
-                {tag.count}
-              </Typography>
-            </Box>
-          ))}
-        </Box>
-      ) : (
-        <Typography variant="body2" color="text.secondary">
-          No tags yet
-        </Typography>
-      )}
+      </Collapse>
     </Box>
   );
 }

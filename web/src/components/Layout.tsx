@@ -9,7 +9,6 @@ import { Box, Drawer, Toolbar, Fab, useTheme } from '@mui/material';
 import { Edit as EditIcon } from '@mui/icons-material';
 import { TopBar } from './TopBar';
 import { Sidebar } from './Sidebar';
-import { MiniSidebar, RAIL_WIDTH } from './MiniSidebar';
 import { OfflineIndicator } from './OfflineIndicator';
 import { PullToRefresh } from './PullToRefresh';
 import { useAppStore } from '../store/appStore';
@@ -17,9 +16,12 @@ import { useIsMobile } from '../hooks/useIsMobile';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 
 // M3 Navigation Drawer width (256dp standard)
-const DRAWER_WIDTH = 256;
+const DRAWER_WIDTH_EXPANDED = 256;
+const DRAWER_WIDTH_COLLAPSED = 68;
 // M3 Content padding (24dp)
 const CONTENT_PADDING = 24;
+// Transition duration (match Sidebar)
+const TRANSITION_DURATION = 225;
 
 export function Layout() {
   const { drawerOpen, toggleDrawer, setDrawerOpen } = useAppStore();
@@ -50,7 +52,7 @@ export function Layout() {
   const showFab = location.pathname !== '/compose';
 
   // Desktop sidebar width based on expanded/collapsed state
-  const desktopSidebarWidth = drawerOpen ? DRAWER_WIDTH : RAIL_WIDTH;
+  const desktopSidebarWidth = drawerOpen ? DRAWER_WIDTH_EXPANDED : DRAWER_WIDTH_COLLAPSED;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
@@ -66,7 +68,7 @@ export function Layout() {
             onClose={handleDrawerClose}
             sx={{
               '& .MuiDrawer-paper': {
-                width: DRAWER_WIDTH,
+                width: DRAWER_WIDTH_EXPANDED,
                 boxSizing: 'border-box',
               },
             }}
@@ -78,16 +80,13 @@ export function Layout() {
             <Sidebar onNavigate={handleNavigate} />
           </Drawer>
         ) : (
-          /* Desktop: Persistent sidebar (expanded or collapsed rail) */
+          /* Desktop: Persistent sidebar with smooth collapse transition */
           <Box
             component="nav"
             sx={{
               width: desktopSidebarWidth,
               flexShrink: 0,
-              transition: theme.transitions.create('width', {
-                easing: theme.transitions.easing.sharp,
-                duration: theme.transitions.duration.enteringScreen,
-              }),
+              transition: `width ${TRANSITION_DURATION}ms ease`,
             }}
           >
             <Drawer
@@ -97,20 +96,13 @@ export function Layout() {
                 '& .MuiDrawer-paper': {
                   width: desktopSidebarWidth,
                   boxSizing: 'border-box',
-                  transition: theme.transitions.create('width', {
-                    easing: theme.transitions.easing.sharp,
-                    duration: theme.transitions.duration.enteringScreen,
-                  }),
+                  transition: `width ${TRANSITION_DURATION}ms ease`,
                   overflowX: 'hidden',
                 },
               }}
             >
               <Toolbar />
-              {drawerOpen ? (
-                <Sidebar onNavigate={handleNavigate} />
-              ) : (
-                <MiniSidebar onNavigate={handleNavigate} />
-              )}
+              <Sidebar onNavigate={handleNavigate} collapsed={!drawerOpen} />
             </Drawer>
           </Box>
         )}
