@@ -1,8 +1,10 @@
 /**
  * BulkActionBar component - Floating action bar for bulk operations
  * Fixed at bottom of viewport on all devices for easy thumb access
+ * Uses Portal to render outside scroll containers so position:fixed works correctly
  */
 
+import { createPortal } from 'react-dom';
 import {
   Box,
   Paper,
@@ -51,7 +53,9 @@ export function BulkActionBar({
     return null;
   }
 
-  return (
+  // Use portal to render at body level so position:fixed works correctly
+  // (not affected by scroll containers or transform parents)
+  return createPortal(
     <Box
       sx={{
         position: 'fixed',
@@ -164,6 +168,7 @@ export function BulkActionBar({
           {selectionMode ? 'Exit' : 'Clear'}
         </Button>
       </Paper>
-    </Box>
+    </Box>,
+    document.body
   );
 }
