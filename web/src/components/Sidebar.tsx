@@ -224,21 +224,18 @@ export function Sidebar({ onNavigate }: SidebarProps) {
               key={tag.name}
               display="flex"
               alignItems="center"
-              justifyContent="space-between"
+              gap={1}
             >
-              <Box sx={{ flex: 1, minWidth: 0, mr: 1, display: 'flex' }}>
-                <TagChip
-                  tag={tag.name}
-                  onClick={() => toggleTag(tag.name)}
-                  size="small"
-                  selected={selectedTags.includes(tag.name)}
-                  isAccountTag={tag.type === 'account'}
-                />
-              </Box>
+              <TagChip
+                tag={tag.name}
+                onClick={() => toggleTag(tag.name)}
+                size="small"
+                selected={selectedTags.includes(tag.name)}
+                isAccountTag={tag.type === 'account'}
+              />
               <Typography
                 variant="caption"
                 color="text.secondary"
-                sx={{ minWidth: 20, textAlign: 'right', flexShrink: 0 }}
               >
                 {tag.count}
               </Typography>
