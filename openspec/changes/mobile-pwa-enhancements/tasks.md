@@ -76,19 +76,47 @@
 - [ ] 5.2.3 Clear queue on success
 - [ ] 5.2.4 Notify user of synced changes
 
-## 6. Testing
+## 6. DEFECT FIX: Read/Unread State Sync
 
-- [ ] 6.1 Test long-press vs swipe gesture separation
-- [ ] 6.2 Test selection mode bulk operations
-- [ ] 6.3 Test push notifications (app closed)
-- [ ] 6.4 Test app shortcuts on Android
-- [ ] 6.5 Test share target from other apps
-- [ ] 6.6 Test background sync after offline operations
+### 6.1 Provider Interface
+- [ ] 6.1.1 Add `mark_read(message_id)` method to BaseEmailProvider
+- [ ] 6.1.2 Add `mark_unread(message_id)` method to BaseEmailProvider
+
+### 6.2 Gmail Implementation
+- [ ] 6.2.1 Implement mark_read using `users.messages.modify` (remove UNREAD label)
+- [ ] 6.2.2 Implement mark_unread using `users.messages.modify` (add UNREAD label)
+
+### 6.3 IMAP Implementation
+- [ ] 6.3.1 Implement mark_read using `STORE +FLAGS (\Seen)`
+- [ ] 6.3.2 Implement mark_unread using `STORE -FLAGS (\Seen)`
+
+### 6.4 API Integration
+- [ ] 6.4.1 Update PATCH `/api/messages/{id}` to call provider on is_unread change
+- [ ] 6.4.2 Handle provider sync errors gracefully (don't fail local update)
+- [ ] 6.4.3 Add rate limiting for rapid read/unread toggles
+
+### 6.5 Sync Behavior
+- [ ] 6.5.1 During sync, respect provider's read state as source of truth
+- [ ] 6.5.2 OR: Track "locally modified" flag to preserve local changes
+- [ ] 6.5.3 Decide on conflict resolution strategy (provider wins vs local wins)
+
+## 7. Testing
+
+- [ ] 7.1 Test long-press vs swipe gesture separation
+- [ ] 7.2 Test selection mode bulk operations
+- [ ] 7.3 Test push notifications (app closed)
+- [ ] 7.4 Test app shortcuts on Android
+- [ ] 7.5 Test share target from other apps
+- [ ] 7.6 Test background sync after offline operations
+- [ ] 7.7 Test read/unread sync to Gmail
+- [ ] 7.8 Test read/unread sync to IMAP
+- [ ] 7.9 Verify read state persists across app restarts and syncs
 
 ## Priority Order
 
-1. **Long-Press Multi-Select** (High - core UX improvement)
-2. **App Shortcuts** (Medium - easy win, manifest only)
-3. **Share Target** (Medium - easy win, manifest + compose handler)
-4. **PWA Push Notifications** (Medium - requires backend work)
-5. **Background Sync** (Low - nice-to-have, complex)
+1. **DEFECT: Read/Unread State Sync** (Critical - broken functionality)
+2. **Long-Press Multi-Select** (High - core UX improvement)
+3. **App Shortcuts** (Medium - easy win, manifest only)
+4. **Share Target** (Medium - easy win, manifest + compose handler)
+5. **PWA Push Notifications** (Medium - requires backend work)
+6. **Background Sync** (Low - nice-to-have, complex)

@@ -2,7 +2,7 @@
 
 ## Why
 
-The current mobile experience has room for improvement in touch interactions and PWA capabilities:
+The current mobile experience has room for improvement in touch interactions and PWA capabilities, plus there's a critical defect with read state persistence:
 
 1. **No multi-select on mobile** - Users cannot select multiple messages for bulk operations (archive, delete, mark read). Previous attempt at long-press interfered with swipe gestures.
 
@@ -12,6 +12,8 @@ The current mobile experience has room for improvement in touch interactions and
    - App shortcuts for quick navigation
    - Share target for receiving shared content
    - Background sync for offline operations
+
+4. **DEFECT: Read/unread state not persisted** - When a user marks a message as read in the UI, the state is not synced back to the email provider. On next sync, all messages revert to unread state. This defeats the purpose of the read/unread toggle.
 
 ## What Changes
 
@@ -89,6 +91,19 @@ Queue operations when offline, sync when connection restored:
 - Add Background Sync registration for pending operations
 - Service worker processes queue on `sync` event
 
+### 6. DEFECT FIX: Read/Unread State Sync
+
+**Current behavior:**
+- UI calls PATCH `/api/messages/{id}` with `is_unread` field
+- Database updates locally
+- On next sync, provider's state overwrites local state (messages revert to unread)
+
+**Required fix:**
+- When `is_unread` is changed via API, sync the state back to the email provider
+- Gmail: Use `users.messages.modify` to add/remove `UNREAD` label
+- IMAP: Use `STORE` command to set/clear `\Seen` flag
+- Preserve local state during sync (don't overwrite if locally modified)
+
 ## Impact
 
 - **Affected code:**
@@ -98,6 +113,9 @@ Queue operations when offline, sync when connection restored:
   - `web/vite.config.ts` - Manifest shortcuts/share_target
   - `web/src/service-worker.ts` - Push/sync handlers (new)
   - `src/axios_ai_mail/api/` - Push subscription endpoints (backend)
+  - `src/axios_ai_mail/api/routes/messages.py` - Sync read state to provider (defect fix)
+  - `src/axios_ai_mail/providers/implementations/gmail.py` - Add modify labels method
+  - `src/axios_ai_mail/providers/implementations/imap.py` - Add STORE flags method
 
 - **New dependencies:** None (web-push is backend only)
 
