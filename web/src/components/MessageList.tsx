@@ -471,7 +471,6 @@ export function MessageList() {
             messages={data.messages}
             onMessageClick={(message) => handleMessageClick(message.id)}
             onDelete={(messageId) => handleDelete(messageId)}
-            onReply={(message) => handleReply(message.id)}
           />
         ) : (
           data.messages.map((message) => (
