@@ -14,8 +14,8 @@ export function DashboardPage() {
   const folderDisplay = folder.charAt(0).toUpperCase() + folder.slice(1);
 
   return (
-    <Box sx={{ pl: 1 }}>
-      <Typography variant="h5" gutterBottom sx={{ mb: 1 }}>
+    <Box>
+      <Typography variant="h5" sx={{ mb: 1 }}>
         {folderDisplay}
       </Typography>
       <MessageList />

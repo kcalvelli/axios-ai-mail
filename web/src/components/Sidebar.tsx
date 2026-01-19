@@ -232,7 +232,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                 selected={selectedTags.includes(tag.name)}
                 isAccountTag={tag.type === 'account'}
               />
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" color="text.secondary" sx={{ ml: 1, flexShrink: 0 }}>
                 {tag.count}
               </Typography>
             </Box>
