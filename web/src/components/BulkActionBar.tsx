@@ -48,8 +48,8 @@ export function BulkActionBar({
 
   const selectedCount = selectedMessageIds.size;
 
-  // Don't render if no messages selected
-  if (selectedCount === 0) {
+  // Show bar when in selection mode OR when messages are selected
+  if (!selectionMode && selectedCount === 0) {
     return null;
   }
 
@@ -84,7 +84,9 @@ export function BulkActionBar({
       >
         {/* Selected count */}
         <Typography variant="body2" fontWeight={600}>
-          {selectedCount} {selectedCount === 1 ? 'message' : 'messages'} selected
+          {selectedCount === 0
+            ? 'Select messages'
+            : `${selectedCount} ${selectedCount === 1 ? 'message' : 'messages'} selected`}
         </Typography>
 
         <Divider orientation="vertical" flexItem />
@@ -98,6 +100,7 @@ export function BulkActionBar({
                 size="small"
                 color="primary"
                 onClick={onRestore}
+                disabled={selectedCount === 0}
               >
                 <RestoreFromTrash />
               </IconButton>
@@ -111,6 +114,7 @@ export function BulkActionBar({
                 size="small"
                 color="error"
                 onClick={onPermanentDelete}
+                disabled={selectedCount === 0}
               >
                 <Delete />
               </IconButton>
@@ -125,6 +129,7 @@ export function BulkActionBar({
                 size="small"
                 color="primary"
                 onClick={onMarkRead}
+                disabled={selectedCount === 0}
               >
                 <MarkEmailRead />
               </IconButton>
@@ -136,6 +141,7 @@ export function BulkActionBar({
                 size="small"
                 color="primary"
                 onClick={onMarkUnread}
+                disabled={selectedCount === 0}
               >
                 <MarkEmailUnread />
               </IconButton>
@@ -149,6 +155,7 @@ export function BulkActionBar({
                 size="small"
                 color="error"
                 onClick={onDelete}
+                disabled={selectedCount === 0}
               >
                 <Delete />
               </IconButton>
