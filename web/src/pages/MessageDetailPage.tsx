@@ -21,8 +21,22 @@ import {
   DialogActions,
   Divider,
   Tooltip,
+  useTheme,
 } from '@mui/material';
-import { ArrowBack, Mail, MailOutline, Delete, Reply, Forward, AttachFile, Download, Print } from '@mui/icons-material';
+import {
+  ArrowBack,
+  Mail,
+  MailOutline,
+  Delete,
+  Reply,
+  Forward,
+  AttachFile,
+  Download,
+  Print,
+  Close,
+  Visibility,
+  Image as ImageIcon,
+} from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useIsMobile } from '../hooks/useIsMobile';
@@ -46,10 +60,16 @@ import { useTags } from '../hooks/useStats';
 import { TagChip } from '../components/TagChip';
 import { ConfidenceBadgeAlways } from '../components/ConfidenceBadge';
 import { SmartReplies } from '../components/SmartReplies';
+import { SenderAvatar, extractSenderName } from '../components/SenderAvatar';
+import { QuotedText, processHtmlQuotes } from '../components/QuotedText';
+import { EmailContent } from '../components/EmailContent';
+import { ThreadView } from '../components/ThreadView';
 
 export function MessageDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   const isMobile = useIsMobile();
   const { data: message, isLoading, error } = useMessage(id!);
   const { data: body, isLoading: bodyLoading } = useMessageBody(id!);
@@ -63,6 +83,11 @@ export function MessageDetailPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [attachmentsLoading, setAttachmentsLoading] = useState(false);
+  const [showQuotedHtml, setShowQuotedHtml] = useState(false);
+  // Attachment preview state
+  const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   // Auto-mark as read when message is opened
   useEffect(() => {
@@ -121,6 +146,49 @@ export function MessageDetailPage() {
     } catch (err) {
       console.error('Failed to download attachment:', err);
     }
+  };
+
+  // Check if attachment is previewable (images)
+  const isPreviewable = (contentType: string): boolean => {
+    const previewableTypes = [
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+      'image/svg+xml',
+      'image/bmp',
+    ];
+    return previewableTypes.includes(contentType.toLowerCase());
+  };
+
+  // Handle preview attachment
+  const handlePreviewAttachment = async (attachment: Attachment) => {
+    setPreviewAttachment(attachment);
+    setPreviewLoading(true);
+
+    try {
+      const response = await axios.get(
+        `/api/attachments/${attachment.id}/download?message_id=${id}`,
+        { responseType: 'blob' }
+      );
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: attachment.content_type }));
+      setPreviewUrl(url);
+    } catch (err) {
+      console.error('Failed to load attachment preview:', err);
+      setPreviewAttachment(null);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  // Close preview and cleanup
+  const handleClosePreview = () => {
+    if (previewUrl) {
+      window.URL.revokeObjectURL(previewUrl);
+    }
+    setPreviewAttachment(null);
+    setPreviewUrl(null);
   };
 
   const handleMarkRead = () => {
@@ -324,6 +392,7 @@ export function MessageDetailPage() {
   };
 
   const allTags = tagsData?.tags.map((t) => t.name) || [];
+  const { name: senderName, email: senderEmail } = extractSenderName(message.from_email);
 
   // Sanitize HTML content
   const sanitizedHtml = body?.body_html
@@ -334,6 +403,9 @@ export function MessageDetailPage() {
           'strong',
           'em',
           'u',
+          'b',
+          'i',
+          's',
           'a',
           'ul',
           'ol',
@@ -349,10 +421,22 @@ export function MessageDetailPage() {
           'span',
           'pre',
           'code',
+          'table',
+          'tr',
+          'td',
+          'th',
+          'thead',
+          'tbody',
+          'img',
         ],
-        ALLOWED_ATTR: ['href', 'target', 'rel', 'class', 'style'],
+        ALLOWED_ATTR: ['href', 'target', 'rel', 'class', 'style', 'src', 'alt', 'width', 'height'],
       })
     : null;
+
+  // Process HTML for quote collapsing
+  const { mainHtml, quotedHtml } = sanitizedHtml
+    ? processHtmlQuotes(sanitizedHtml)
+    : { mainHtml: '', quotedHtml: '' };
 
   return (
     <Box>
@@ -418,25 +502,33 @@ export function MessageDetailPage() {
       </Box>
 
       {/* Message Details */}
-      <Paper sx={{ p: 3 }}>
+      <Paper sx={{ p: 3, bgcolor: isDark ? '#1E1E1E' : 'background.paper' }}>
+        {/* Sender with Avatar */}
+        <Box display="flex" alignItems="flex-start" gap={2} mb={2}>
+          <SenderAvatar email={senderEmail} name={senderName} size={48} />
+          <Box flex={1} minWidth={0}>
+            <Typography variant="subtitle1" fontWeight={600}>
+              {senderName || senderEmail}
+            </Typography>
+            {senderName && (
+              <Typography variant="body2" color="text.secondary">
+                {senderEmail}
+              </Typography>
+            )}
+            <Typography variant="caption" color="text.secondary">
+              {formatDate(message.date)}
+            </Typography>
+          </Box>
+        </Box>
+
         {/* Subject */}
         <Typography variant="h6" gutterBottom>
           {message.subject}
         </Typography>
 
-        {/* From */}
-        <Typography variant="body2" color="text.secondary" gutterBottom>
-          <strong>From:</strong> {message.from_email}
-        </Typography>
-
         {/* To */}
         <Typography variant="body2" color="text.secondary" gutterBottom>
           <strong>To:</strong> {message.to_emails.join(', ')}
-        </Typography>
-
-        {/* Date */}
-        <Typography variant="body2" color="text.secondary" gutterBottom>
-          <strong>Date:</strong> {formatDate(message.date)}
         </Typography>
 
         {/* Tags Section */}
@@ -502,14 +594,28 @@ export function MessageDetailPage() {
             ) : (
               <Stack direction="row" spacing={1} flexWrap="wrap" gap={1}>
                 {attachments.map((att) => (
-                  <Chip
-                    key={att.id}
-                    label={`${att.filename} (${formatFileSize(att.size)})`}
-                    icon={<Download />}
-                    onClick={() => handleDownloadAttachment(att)}
-                    variant="outlined"
-                    sx={{ cursor: 'pointer' }}
-                  />
+                  <Box key={att.id} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    {/* Preview button for images */}
+                    {isPreviewable(att.content_type) && (
+                      <Tooltip title="Preview">
+                        <IconButton
+                          size="small"
+                          onClick={() => handlePreviewAttachment(att)}
+                          sx={{ p: 0.5 }}
+                        >
+                          <Visibility fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                    {/* Download chip */}
+                    <Chip
+                      label={`${att.filename} (${formatFileSize(att.size)})`}
+                      icon={isPreviewable(att.content_type) ? <ImageIcon /> : <Download />}
+                      onClick={() => handleDownloadAttachment(att)}
+                      variant="outlined"
+                      sx={{ cursor: 'pointer' }}
+                    />
+                  </Box>
                 ))}
               </Stack>
             )}
@@ -519,43 +625,94 @@ export function MessageDetailPage() {
         <Divider sx={{ my: 3 }} />
 
         {/* Message Body */}
-        <Box mt={3}>
-          <Typography variant="subtitle2" gutterBottom>
-            Message
-          </Typography>
-
+        <Box mt={2}>
           {bodyLoading ? (
             <Box display="flex" justifyContent="center" p={2}>
               <CircularProgress size={24} />
             </Box>
-          ) : sanitizedHtml ? (
-            <Box
-              sx={{
-                '& img': { maxWidth: '100%', height: 'auto' },
-                '& a': { color: 'primary.main' },
-                '& pre': {
-                  backgroundColor: 'grey.100',
-                  p: 2,
-                  borderRadius: 1,
-                  overflow: 'auto',
-                },
-              }}
-              dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
-            />
+          ) : mainHtml ? (
+            <>
+              {/* Main HTML content with enhanced rendering */}
+              <EmailContent html={mainHtml} />
+
+              {/* Quoted HTML toggle */}
+              {quotedHtml && (
+                <Box mt={2}>
+                  <Button
+                    size="small"
+                    onClick={() => setShowQuotedHtml(!showQuotedHtml)}
+                    sx={{ textTransform: 'none', color: 'text.secondary', fontSize: '0.75rem' }}
+                  >
+                    {showQuotedHtml ? '▼ Hide quoted text' : '▶ Show quoted text'}
+                  </Button>
+                  {showQuotedHtml && (
+                    <Box
+                      sx={{
+                        pl: 2,
+                        borderLeft: `3px solid ${isDark ? '#444' : '#ddd'}`,
+                        mt: 1,
+                        color: 'text.secondary',
+                      }}
+                    >
+                      <EmailContent html={quotedHtml} />
+                    </Box>
+                  )}
+                </Box>
+              )}
+            </>
           ) : body?.body_text ? (
-            <Typography
-              variant="body1"
-              component="pre"
-              sx={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}
-            >
-              {body.body_text}
-            </Typography>
+            <QuotedText text={body.body_text} />
           ) : (
             <Typography variant="body1" color="text.secondary">
               {message.snippet}
             </Typography>
           )}
         </Box>
+
+        {/* Image Preview Modal */}
+        <Dialog
+          open={!!previewAttachment}
+          onClose={handleClosePreview}
+          maxWidth="lg"
+          fullWidth
+        >
+          <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Typography variant="subtitle1" noWrap sx={{ flex: 1, mr: 2 }}>
+              {previewAttachment?.filename}
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Tooltip title="Download">
+                <IconButton
+                  size="small"
+                  onClick={() => previewAttachment && handleDownloadAttachment(previewAttachment)}
+                >
+                  <Download />
+                </IconButton>
+              </Tooltip>
+              <IconButton size="small" onClick={handleClosePreview}>
+                <Close />
+              </IconButton>
+            </Box>
+          </DialogTitle>
+          <DialogContent sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 300 }}>
+            {previewLoading ? (
+              <CircularProgress />
+            ) : previewUrl ? (
+              <Box
+                component="img"
+                src={previewUrl}
+                alt={previewAttachment?.filename}
+                sx={{
+                  maxWidth: '100%',
+                  maxHeight: '70vh',
+                  objectFit: 'contain',
+                }}
+              />
+            ) : (
+              <Typography color="text.secondary">Failed to load preview</Typography>
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* Smart Replies - AI-generated quick reply suggestions */}
         <SmartReplies
@@ -585,6 +742,11 @@ export function MessageDetailPage() {
               </>
             )}
           </Box>
+        )}
+
+        {/* Thread/Conversation View */}
+        {message.thread_id && (
+          <ThreadView threadId={message.thread_id} currentMessageId={message.id} />
         )}
       </Paper>
 
