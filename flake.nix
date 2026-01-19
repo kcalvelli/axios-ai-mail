@@ -14,7 +14,8 @@
       imports = [ ./modules/home-manager ];
       config = {
         _module.args = {
-          # Pass the web frontend package from this flake to the home-manager module
+          # Pass the packages from this flake to the home-manager module
+          axios-ai-mail = self.packages.${pkgs.system}.default;
           axios-ai-mail-web = self.packages.${pkgs.system}.web;
         };
       };
