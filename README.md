@@ -4,50 +4,61 @@
 
 axios-ai-mail is a declarative email management system that combines direct provider integration (Gmail, IMAP) with local AI classification to automatically organize your inbox. Messages are tagged, prioritized, and organized—all locally, with zero cloud dependencies for AI processing.
 
+![Desktop Dark Mode - Split Pane View](docs/screenshots/desktop-dark-split-pane.png)
+
 > **Note:** This application is designed for users of [axiOS](https://github.com/kcalvelli/axios), a NixOS configuration framework. The instructions below assume axiOS conventions (agenix for secrets, `~/.config/nixos_config` for configuration). Non-axiOS NixOS users may need to adapt paths and secret management approaches to their setup.
 
-## Product Scope
+## Quick Links
 
-**axios-ai-mail is an inbox organizer, not a spam filter.**
-
-### What This Product Does ✅
-- **Classifies legitimate mail** that reached your inbox
-- **Organizes messages** with AI-powered tags (work, finance, personal, etc.)
-- **Identifies low-priority content** like promotional emails and newsletters ("junk" tag)
-- **Helps you prioritize** what matters in your inbox
-- **Provides a clean web UI** for browsing, searching, and managing messages
-- **Supports bulk operations** for efficient inbox management
-
-### What This Product Doesn't Do ❌
-- **Does not filter spam** - Your email provider (Gmail, Fastmail, etc.) already does this
-- **Does not sync spam folders** - We intentionally exclude provider spam folders from sync
-- **Does not replace SpamAssassin/provider filters** - We trust your provider's spam detection
-
-### Spam vs. Junk: The Distinction
-
-| Category | Handled By | Definition | Example |
-|----------|-----------|------------|---------|
-| **SPAM** | Email Provider | Malicious, fraudulent, blocked content | Phishing, scams, malware |
-| **JUNK** | AI Classifier | Legitimate but low-priority promotional mail | Marketing emails, newsletters, promotions |
-
-**Why this matters:** Provider spam filters catch malicious content before it reaches your inbox. Our AI classifier helps you organize the *legitimate* mail that made it through, distinguishing important messages from promotional clutter.
+- **[Quick Start Guide](docs/QUICKSTART.md)** - Get up and running in 15 minutes
+- **[User Guide](docs/USER_GUIDE.md)** - Learn all features (desktop & mobile)
+- **[Configuration Reference](docs/CONFIGURATION.md)** - All Nix options documented
+- **[Architecture Overview](docs/ARCHITECTURE.md)** - System design deep-dive
+- **[Development Guide](docs/DEVELOPMENT.md)** - Contributing and local development
 
 ## Features
 
-- **🎯 AI-Powered Classification**: Automatically tags messages with categories like `work`, `finance`, `personal`, `dev`, `shopping`
-- **📊 Confidence Scores**: See how confident the AI is in each classification (color-coded indicators)
-- **📁 Folder Support**: Browse Inbox, Sent, and Trash folders
-- **🏷️ Tag-Based Filtering**: Filter messages by AI-assigned tags or account
-- **🔍 Full-Text Search**: Search across all message content
-- **⚡ Bulk Operations**: Select multiple messages to delete, mark as read/unread, or restore from trash
-- **🔄 Multi-Account**: Manage multiple Gmail and IMAP accounts from a single interface
-- **🔒 Privacy-First**: All AI processing happens locally using Ollama
-- **🌐 Modern Web UI**: Clean, responsive interface built with React and Material-UI
-- **🌙 Dark Mode**: System-aware theme with light/dark/auto modes
-- **📱 PWA Support**: Install as a standalone app on your desktop
-- **📶 Offline Indicator**: Visual feedback when you're disconnected
-- **📡 Real-Time Updates**: WebSocket support for live message updates
-- **⚙️ Declarative Config**: Define everything in Nix—accounts, AI settings, providers
+### AI-Powered Classification
+- **Automatic Tagging** - Messages tagged with categories like `work`, `finance`, `personal`, `shopping`
+- **Confidence Scores** - Color-coded indicators show AI classification confidence
+- **Customizable Taxonomy** - Define your own tags and categories in Nix
+- **Local Processing** - All AI runs via Ollama, nothing leaves your machine
+
+### Modern Web Interface
+- **Responsive Design** - Works on desktop and mobile devices
+- **Dark Mode** - System-aware theming with light/dark/auto modes
+- **Split Pane View** - Preview messages without leaving the list (desktop)
+- **Message Threading** - View conversation threads in context
+
+![Desktop Light Mode - Bulk Selection](docs/screenshots/desktop-light-bulk-selection.png)
+
+### Email Management
+- **Multi-Account** - Manage Gmail and IMAP accounts from a single interface
+- **Folder Support** - Browse Inbox, Sent, Drafts, and Trash
+- **Bulk Operations** - Select multiple messages for batch actions
+- **Compose & Reply** - Full email composition with rich text formatting
+- **Attachments** - View and download attachments
+
+### Mobile Experience
+- **Touch-Optimized** - Swipe gestures for common actions
+- **PWA Support** - Install as a standalone app
+- **Offline Indicator** - Visual feedback when disconnected
+
+<p align="center">
+  <img src="docs/screenshots/mobile-light-drawer.png" alt="Mobile Light Mode - Drawer" width="300" />
+  <img src="docs/screenshots/mobile-dark-message-thread.png" alt="Mobile Dark Mode - Thread View" width="300" />
+</p>
+
+### Keyboard Navigation
+Full keyboard shortcut support for power users:
+- `j`/`k` - Navigate messages
+- `Enter` - Open message
+- `r` - Reply
+- `f` - Forward
+- `u` - Toggle read/unread
+- `#` - Delete
+- `o` - Toggle split view
+- `?` - Show all shortcuts
 
 ## Architecture
 
@@ -86,11 +97,9 @@ axios-ai-mail is a declarative email management system that combines direct prov
 ### Prerequisites
 
 1. **NixOS or Home Manager** - This is a Nix-native application
-2. **Ollama** - For local AI classification (or OpenAI API key)
+2. **Ollama** - For local AI classification
 
 ### Add to Your Flake
-
-Add axios-ai-mail to your flake inputs:
 
 ```nix
 {
@@ -112,12 +121,15 @@ Add axios-ai-mail to your flake inputs:
 
 ### Enable in Home Manager
 
-In your `home.nix`:
-
 ```nix
 {
   programs.axios-ai-mail = {
     enable = true;
+
+    ai = {
+      model = "llama3.2";
+      endpoint = "http://localhost:11434";
+    };
   };
 }
 ```
@@ -128,204 +140,7 @@ Then rebuild:
 home-manager switch
 ```
 
-## Configuration
-
-### Gmail Account (OAuth2)
-
-Gmail requires OAuth2 authentication. The setup wizard guides you through creating Google Cloud credentials and encrypting them with agenix.
-
-#### Step 1: Run the Auth Wizard
-
-```bash
-axios-ai-mail auth gmail --account personal
-```
-
-The wizard will:
-1. Prompt for an account name (e.g., `personal`, `work`)
-2. Open Google Cloud Console in your browser
-3. Guide you through creating OAuth credentials
-4. Complete the OAuth flow and save the token
-
-#### Step 2: Create Google Cloud OAuth Credentials
-
-In Google Cloud Console:
-
-1. **Create a new project** (or select existing)
-   - Click "Select a project" → "New Project"
-   - Name: `axios-ai-mail` → Create
-
-2. **Enable Gmail API**
-   - Search for "Gmail API" → Enable
-
-3. **Configure OAuth consent screen**
-   - Go to "OAuth consent screen"
-   - Choose "External" → Create
-   - Fill in App name, email → Save
-   - Add your email as a Test User
-
-4. **Create OAuth credentials**
-   - Go to "Credentials" → "Create Credentials"
-   - Choose "OAuth client ID"
-   - Application type: **Desktop app**
-   - Name: `axios-ai-mail`
-   - Click "Create"
-
-5. **Download the JSON file**
-   - Click the download icon (⬇)
-   - Save to `~/Downloads`
-
-Press Enter in the terminal when done. The wizard auto-detects the file.
-
-#### Step 3: Encrypt with Agenix
-
-After the OAuth flow completes, the wizard saves the token and shows instructions:
-
-**3a. Add secret to secrets.nix:**
-```bash
-# Edit ~/.config/nixos_config/secrets/secrets.nix
-"gmail-personal.age".publicKeys = users ++ systems;
-```
-
-**3b. Encrypt the token:**
-```bash
-cd ~/.config/nixos_config/secrets
-agenix -e gmail-personal.age < ~/.local/share/axios-ai-mail/credentials/personal.json
-```
-
-**3c. Stage for git (required for flakes):**
-```bash
-cd ~/.config/nixos_config
-git add secrets/gmail-personal.age
-```
-
-#### Step 4: Add to Nix Configuration
-
-```nix
-# In your home.nix (axiOS: ~/.config/nixos_config/keith.nix)
-
-age.secrets.gmail-personal.file = ../secrets/gmail-personal.age;
-
-programs.axios-ai-mail = {
-  enable = true;
-
-  accounts.personal = {
-    provider = "gmail";
-    email = "you@gmail.com";
-    oauthTokenFile = config.age.secrets.gmail-personal.path;
-  };
-};
-```
-
-#### Step 5: Rebuild and Test
-
-```bash
-home-manager switch --flake ~/.config/nixos_config
-
-# Test the connection
-axios-ai-mail sync run --account personal --max 10
-
-# Clean up plaintext token
-rm ~/.local/share/axios-ai-mail/credentials/personal.json
-```
-
-### IMAP Account (Password)
-
-```nix
-programs.axios-ai-mail = {
-  enable = true;
-
-  accounts.work = {
-    provider = "imap";
-    email = "you@fastmail.com";
-    passwordFile = "/path/to/password-file";
-
-    imap = {
-      host = "imap.fastmail.com";
-      port = 993;
-      tls = true;
-    };
-  };
-};
-```
-
-**Setting up IMAP password:**
-
-```bash
-# Interactive password setup
-axios-ai-mail auth setup-imap --email you@fastmail.com
-
-# Or manually create password file
-echo "your-password" > ~/.config/axios-ai-mail/password
-chmod 600 ~/.config/axios-ai-mail/password
-```
-
-### AI Configuration
-
-#### Option 1: Ollama (Recommended)
-
-```nix
-ai = {
-  provider = "ollama";
-  model = "llama3.2";  # Best overall balance of speed and quality
-  endpoint = "http://localhost:11434";
-};
-```
-
-Install and start Ollama:
-```bash
-# Install model
-ollama pull llama3.2
-
-# Ollama runs automatically as a service on NixOS
-# Or start manually: ollama serve
-```
-
-**Recommended models by hardware:**
-| VRAM | Model | Speed |
-|------|-------|-------|
-| 4GB+ | `llama3.2` (default) | ~2-3s/msg |
-| 2GB | `qwen2.5:3b` | ~1-2s/msg |
-| 8GB+ | `llama3.1:8b` | ~4-5s/msg (highest quality) |
-
-See [docs/AI_MODELS.md](docs/AI_MODELS.md) for detailed model recommendations and benchmarks.
-
-#### Option 2: OpenAI API
-
-```nix
-ai = {
-  provider = "openai";
-  model = "gpt-4";
-  apiKey = "sk-...";  # Or use apiKeyFile for secrets
-};
-```
-
-### Custom Tags
-
-Define your own classification tags:
-
-```nix
-ai = {
-  provider = "ollama";
-  model = "llama3.2";
-
-  customTags = [
-    { name = "urgent"; description = "Time-sensitive emails requiring immediate action"; }
-    { name = "clients"; description = "Client communications and support requests"; }
-    { name = "reports"; description = "Weekly/monthly reports and analytics"; }
-  ];
-};
-```
-
-Default tags (if not specified):
-- `work` - Work-related emails
-- `personal` - Personal correspondence
-- `finance` - Bills, transactions, statements
-- `shopping` - Receipts, order confirmations
-- `travel` - Flight/hotel bookings
-- `dev` - GitHub, GitLab, CI/CD notifications
-- `social` - Social media notifications
-- `newsletter` - Newsletters and subscriptions
-- `junk` - Promotional emails, marketing
+For complete setup instructions including Gmail OAuth and IMAP configuration, see the **[Quick Start Guide](docs/QUICKSTART.md)**.
 
 ## Usage
 
@@ -343,44 +158,9 @@ Then open http://localhost:8080 in your browser.
 # Sync all accounts
 axios-ai-mail sync run
 
-# Sync specific account
-axios-ai-mail sync run --account personal
-
-# Limit messages fetched
-axios-ai-mail sync run --max 50
+# Sync specific account with limit
+axios-ai-mail sync run --account personal --max 50
 ```
-
-### Account Maintenance
-
-Manage accounts and handle migrations when renaming accounts in your Nix config:
-
-```bash
-# List all accounts with status (active vs orphaned)
-axios-ai-mail accounts list
-
-# Show detailed statistics
-axios-ai-mail accounts stats
-
-# Migrate messages when renaming an account
-# Example: renamed "personal" to "gmail" in Nix config
-axios-ai-mail accounts migrate personal gmail
-
-# Clean up orphaned accounts (no longer in config)
-axios-ai-mail accounts cleanup
-
-# Delete a specific account
-axios-ai-mail accounts delete old-account
-```
-
-**Account Rename Workflow:**
-
-When you rename an account in your Nix config (e.g., `accounts.personal` → `accounts.gmail`):
-
-1. Update Nix config and rebuild
-2. Run sync to create the new account: `axios-ai-mail sync run`
-3. Check status: `axios-ai-mail accounts list` (shows old as "Orphaned", new as "Active")
-4. Migrate messages: `axios-ai-mail accounts migrate personal gmail`
-5. Clean up: `axios-ai-mail accounts cleanup`
 
 ### CLI Help
 
@@ -391,244 +171,76 @@ axios-ai-mail auth --help
 axios-ai-mail accounts --help
 ```
 
-## Web UI Features
+## Screenshots
 
-### Theme & Display
-- **Dark Mode** - Click the theme toggle in the top bar to switch between light/dark/system modes
-- **PWA Install** - Click the install button in Chrome to add as a standalone desktop app
-- **Offline Indicator** - Shows a warning banner when you lose internet connection
-- **Confidence Badges** - Classification confidence shown as colored dots (green=high, orange=medium, red=low)
+### Desktop Interface
 
-### Folder Navigation
-- **Inbox** - All messages in your inbox
-- **Sent** - Messages you've sent
-- **Trash** - Deleted messages (can be restored)
+| Dark Mode (Split Pane) | Light Mode (Bulk Selection) |
+|------------------------|----------------------------|
+| ![Dark Split Pane](docs/screenshots/desktop-dark-split-pane.png) | ![Light Bulk Selection](docs/screenshots/desktop-light-bulk-selection.png) |
 
-### Tag Filtering
-- Click any tag to filter messages
-- Account emails appear as tags for filtering by account
-- Combine with folder navigation (e.g., "work emails in inbox")
+| Compose Window | Statistics Dashboard |
+|----------------|---------------------|
+| ![Compose](docs/screenshots/desktop-dark-compose.png) | ![Statistics](docs/screenshots/desktop-dark-statistics.png) |
 
-### Bulk Operations
-1. Select messages by clicking checkboxes
-2. Use the floating action bar to:
-   - Mark as read/unread
-   - Move to trash (with undo)
-   - Restore from trash (returns to original folder)
-   - Permanently delete (from trash only)
+### Settings & Configuration
 
-### Search
-Use the search bar to find messages by:
-- Subject
-- Sender
-- Recipient
-- Body content
+| Tag Taxonomy | Maintenance |
+|--------------|-------------|
+| ![Tags](docs/screenshots/desktop-dark-settings-tags.png) | ![Maintenance](docs/screenshots/desktop-dark-settings-maintenance.png) |
 
-## How It Works
+## Product Scope
 
-### 1. Message Sync
+**axios-ai-mail is an inbox organizer, not a spam filter.**
 
-When you run `axios-ai-mail sync run`:
+### What This Product Does
+- Classifies legitimate mail that reached your inbox
+- Organizes messages with AI-powered tags
+- Identifies low-priority promotional content ("junk" tag)
+- Helps you prioritize what matters
 
-1. **Fetch** - Connects to your email provider (Gmail API or IMAP)
-2. **Parse** - Extracts message metadata and body content
-3. **Store** - Saves to local SQLite database
-4. **Classify** - AI analyzes subject, sender, and content
-5. **Tag** - Applies relevant tags based on AI classification
-6. **Update** - Syncs tags back to provider (Gmail labels or IMAP keywords)
-
-### 2. AI Classification
-
-The AI classifier:
-
-1. Reads message subject, sender, and snippet
-2. Analyzes content against tag definitions
-3. Assigns 1-3 most relevant tags
-4. Determines priority (high/normal)
-5. Identifies if action is needed
-6. Suggests archival for newsletters/receipts
-
-All processing happens **locally** - no data leaves your machine.
-
-### 3. Provider Integration
-
-#### Gmail
-- Uses Gmail API with OAuth2
-- Syncs from all folders (Inbox, Sent, Trash)
-- Excludes SPAM folder (intentionally)
-- Applies tags as Gmail labels (e.g., `AI/work`, `AI/finance`)
-- Detects folder from Gmail labels (SENT, TRASH, INBOX)
-
-#### IMAP
-- Standard IMAP protocol with TLS
-- Fetches from multiple folders (INBOX, Sent, Trash)
-- Supports KEYWORD extension for tag sync
-- Falls back to read-only if KEYWORD not supported
-- Works with Fastmail, ProtonMail Bridge, self-hosted servers
-
-## Folder Behavior
-
-### Delete (Move to Trash)
-- Messages are **soft deleted** - moved to trash folder
-- Original folder is saved for restoration
-- Toast notification with "Undo" button
-
-### Restore from Trash
-- Messages return to **original folder** (Inbox, Sent, etc.)
-- Not hardcoded to always go to Inbox
-
-### Permanent Delete
-- Only available from Trash folder
-- Requires confirmation
-- **Cannot be undone**
-
-### Clear Trash
-- Permanently deletes all messages in trash
-- Requires confirmation
-
-## Development
-
-### Project Structure
-
-```
-axios-ai-mail/
-├── src/axios_ai_mail/          # Python backend
-│   ├── api/                    # FastAPI routes
-│   ├── db/                     # Database models & queries
-│   ├── providers/              # Gmail & IMAP implementations
-│   ├── ai_classifier.py        # LLM integration
-│   └── sync_engine.py          # Sync orchestration
-├── web/                        # React frontend
-│   ├── src/
-│   │   ├── components/         # UI components
-│   │   ├── hooks/              # React Query hooks
-│   │   ├── api/                # API client
-│   │   └── store/              # Zustand state
-│   └── package.json
-├── modules/home-manager/       # Nix module
-├── alembic/                    # Database migrations
-└── flake.nix
-```
-
-### Running Locally
-
-```bash
-# Backend development
-nix develop
-python -m axios_ai_mail.api.main
-
-# Frontend development
-cd web
-npm install
-npm run dev
-
-# Database migrations
-alembic upgrade head
-```
-
-### Adding a New Provider
-
-1. Create provider in `src/axios_ai_mail/providers/implementations/`
-2. Implement `BaseEmailProvider` interface
-3. Register in `src/axios_ai_mail/providers/__init__.py`
-4. Add config options to NixOS module
-5. Add auth wizard support in `src/axios_ai_mail/cli/auth.py`
-
-## Troubleshooting
-
-### Messages Not Syncing
-
-```bash
-# Check sync logs
-journalctl --user -u axios-ai-mail-sync -f
-
-# Manual sync with debug output
-axios-ai-mail sync run --verbose
-```
-
-### AI Classification Not Working
-
-```bash
-# Test Ollama connection
-curl http://localhost:11434/api/tags
-
-# Pull model if needed
-ollama pull llama3.2
-
-# Check AI service logs
-journalctl --user -u axios-ai-mail-api -f
-```
-
-### Web UI Not Loading
-
-```bash
-# Check API status
-curl http://localhost:8000/api/health
-
-# Restart services
-systemctl --user restart axios-ai-mail-api
-systemctl --user restart axios-ai-mail-web
-```
-
-### Gmail OAuth Expired
-
-```bash
-# Re-authenticate
-axios-ai-mail auth setup-gmail --email you@gmail.com
-
-# Update credential file path in config
-```
-
-## FAQ
-
-**Q: Why use this instead of email client filters?**
-A: Traditional filters use static rules. AI classification adapts to your mail patterns and understands context.
-
-**Q: Does AI see my full email content?**
-A: Only subject, sender, and a snippet (first 200 chars). Full bodies are stored locally but not sent to AI.
-
-**Q: Can I use this with Outlook/Office365?**
-A: Not yet. Currently supports Gmail and IMAP. Outlook/Exchange support planned.
-
-**Q: What happens to my existing Gmail labels?**
-A: They're preserved. AI tags are added as additional labels under `AI/` prefix.
-
-**Q: Can I train the AI on my corrections?**
-A: Feedback system is planned but not yet implemented.
-
-**Q: Does this replace my email client?**
-A: No. It's a classification and organization layer. You can still use any email client alongside it.
+### What This Product Doesn't Do
+- Does not filter spam - your email provider does this
+- Does not sync spam folders - intentionally excluded
+- Does not replace SpamAssassin/provider filters
 
 ## Roadmap
 
+### Completed
+- [x] AI-powered classification with confidence scores
 - [x] Dark mode with system preference detection
-- [x] PWA support (installable as desktop app)
+- [x] PWA support (installable as desktop/mobile app)
 - [x] Offline status indicator
-- [x] AI confidence scores in UI
 - [x] Email composition and sending
 - [x] Attachments view and download
 - [x] Account maintenance CLI
+- [x] Keyboard shortcuts in web UI
+- [x] Mobile-responsive design with touch gestures
+- [x] Message threading
+- [x] Real-time sync via WebSockets
+- [x] Bulk operations with undo
+
+### Planned
 - [ ] Outlook/Office365 provider
 - [ ] User feedback loop for AI improvement
-- [ ] Keyboard shortcuts in web UI
-- [ ] Mobile-responsive improvements
-- [ ] Message threading
 - [ ] Calendar integration
 - [ ] Contact management
+- [ ] Smart replies (AI-generated)
 
 ## Contributing
 
-Contributions welcome! Please:
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+4. Submit a pull request
+
+This project follows a [Code of Ethics](CODE_OF_ETHICS.md) rooted in principles of mutual respect and dignity.
 
 ## License
 
-MIT License - see LICENSE file for details
+MIT License - see LICENSE file for details.
 
 ## Credits
 

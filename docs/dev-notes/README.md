@@ -1,26 +1,22 @@
 # Development Notes
 
-This directory contains historical development session notes, phase completion reports, and implementation artifacts.
+This directory contains implementation guides and setup notes for developers.
 
-## Purpose
+## Contents
 
-These files document the development journey and major milestones achieved during the project:
+- **DEV_SETUP.md** - Development environment setup instructions
+- **IMPLEMENTATION.md** - Implementation details and design decisions
 
-- **Phase Completion Reports** - Summaries of what was accomplished in each development phase
-- **Session Summaries** - Notes from specific implementation sessions
-- **Deployment Notes** - Records of successful deployments and configuration changes
-- **Implementation Artifacts** - Technical notes and decisions made during development
+## Archived Content
 
-## Organization
+Session logs, phase completion documents, and other historical artifacts have been moved to `docs/archive/`.
 
-Files are kept here for historical reference but are not part of the active project documentation.
+## Current Documentation
 
-For current documentation, see:
-- `/README.md` - Product overview and features
-- `/QUICKSTART.md` - Getting started guide
-- `/QUICKSTART_WEB.md` - Web UI specific quickstart
-- `/openspec/` - Formal specifications and change proposals
+For up-to-date documentation, see:
 
-## Note
-
-These files are preserved for historical context but may become outdated as the project evolves.
+- [/docs/QUICKSTART.md](../QUICKSTART.md) - Getting started guide
+- [/docs/USER_GUIDE.md](../USER_GUIDE.md) - Complete user documentation
+- [/docs/CONFIGURATION.md](../CONFIGURATION.md) - Nix configuration reference
+- [/docs/DEVELOPMENT.md](../DEVELOPMENT.md) - Developer setup guide
+- [/docs/ARCHITECTURE.md](../ARCHITECTURE.md) - System architecture overview

@@ -1,57 +1,54 @@
 # Project Context: axios-ai-mail
 
 ## Purpose
-A declarative, Notmuch-based TUI email workflow with local AI classification. The goal is to provide a sovereign, terminal-first email experience that leverages local LLMs for intelligent organization.
+A declarative, web-based email organizer with local AI classification. Provides a privacy-first email management experience that leverages local LLMs for intelligent organization, designed for NixOS and Home Manager users.
 
 ## Tech Stack
-- **Languages**: Python (Agent and Generator), Go (Alternative for Generator)
-- **Sync**: `mbsync` (isync)
-- **Send**: `msmtp`
-- **Search/Indexing**: `notmuch`
-- **UI**: `aerc` or `alot` (TUI)
-- **AI Engine**: `Ollama` (local LLMs like llama3 or mistral)
-- **Authentication**: OAuth2 via `mutt_oauth2.py` (tokens in `pass`/`gpg`)
-- **System Automation**: Systemd units (timers/services)
+- **Backend**: Python with FastAPI, SQLAlchemy, Alembic
+- **Frontend**: React with TypeScript, Material-UI, Vite
+- **Database**: SQLite with full-text search
+- **AI Engine**: Ollama (local LLMs like llama3.2 or mistral)
+- **Email Providers**: Gmail API (OAuth2), IMAP (password-based)
+- **Real-Time**: WebSockets for live updates
 - **Deployment**: Nix Flake with NixOS/Home-Manager modules
-- **Env Management**: Nix (Flakes)
+- **Secret Management**: Integration with agenix/sops-nix
 
 ## Project Conventions
 
 ### Code Style
 - **Python**: PEP 8, formatted with Black/Ruff. Type hints are required.
-- **Config**: Declarative YAML or TOML for user-facing account definitions.
-- **Naming**: `snake_case` for Python scripts, `kebab-case` for systemd units and config files.
+- **TypeScript**: ESLint with React rules. Strict type checking enabled.
+- **Naming**: `snake_case` for Python, `camelCase` for TypeScript.
 
 ### Architecture Patterns
-- **Declarative Configuration**: A central spec generates all tool-specific dotfiles.
-- **Event-Driven AI**: Post-sync triggers for classifier agents.
-- **Notmuch-Centric**: The database is the source of truth for all mail state and tags.
-- **Separation of Concerns**: Sync, Indexing, Sending, and AI Classification are independent modules.
+- **Declarative Configuration**: Nix module generates runtime config.
+- **Provider Abstraction**: Base provider class with Gmail/IMAP implementations.
+- **Event-Driven Sync**: Background sync with WebSocket notifications.
+- **SQLite-Centric**: Database is source of truth for all mail state.
+- **Separation of Concerns**: API, Sync, Classification, and UI are independent.
 
 ### Testing Strategy
 - **Validation**: `openspec validate` for all architectural changes.
-- **Integration**: Testing the generator output against mock schemas.
-- **Dry-runs**: The AI agent should support a `--dry-run` mode to preview tags.
+- **API Tests**: pytest with FastAPI test client.
+- **Frontend Tests**: Vitest for React components.
 
 ### Git Workflow
 - **Spec-First**: Use OpenSpec workflow for all new features and changes.
 - **Commit Messages**: Conventional commits.
 
 ## Domain Context
-- **Nix-Centric Integration**: Designed to be integrated into Home-Manager or NixOS modules directly via a provided Flake. Email accounts are defined as Nix options.
-- **Email Sovereignty**: Local storage (Maildir) and local processing.
-- **TUI Focus**: Optimized for terminal users and keyboard-driven workflows.
-- **NixOS Ecosystem**: Designed to be integrated into home-manager or NixOS modules.
+- **Nix-Centric Integration**: Designed for Home-Manager or NixOS modules. Email accounts defined as Nix options.
+- **Privacy-First**: Local AI processing, no cloud dependencies.
+- **Multi-Provider**: Unified interface for Gmail and generic IMAP.
+- **PWA Support**: Installable as desktop/mobile progressive web app.
 
 ## Important Constraints
 - **Local AI Only**: No cloud LLMs; must run via Ollama or similar local backends.
-- **OAuth2 Security**: No plain-text passwords; use system keychain or GPG.
-- **Idempotency**: Config generation must be idempotent.
+- **OAuth2 Security**: Gmail uses OAuth2; IMAP passwords stored in encrypted files.
+- **Idempotency**: Config generation and sync operations must be idempotent.
+- **Responsive Design**: Web UI must work on both desktop and mobile devices.
 
 ## External Dependencies
-- `mbsync`
-- `msmtp`
-- `notmuch`
-- `ollama`
-- `pass` / `gpg`
-- `mutt_oauth2.py` (Script)
+- `ollama` - Local LLM runtime
+- `agenix` or `sops-nix` - Secret management
+- Google Cloud OAuth credentials (for Gmail)
