@@ -361,7 +361,7 @@ export function MessageList() {
         </Box>
       )}
 
-      <Box p={1}>
+      <Box sx={{ py: 1, px: 0 }}>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
           <Typography variant="body2" color="text.secondary">
             {data.total} {data.total === 1 ? 'message' : 'messages'}
