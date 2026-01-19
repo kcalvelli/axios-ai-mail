@@ -133,13 +133,13 @@ export function EmailContent({
           // - When inversion is ON: white bg inverts to dark
           // - When inversion is OFF (original): white bg shows original email colors properly
           ...(isDark && {
-            backgroundColor: '#ffffff',
-            borderRadius: 1,
+            backgroundColor: applyDarkMode ? '#ffffff' : '#fafafa',
+            borderRadius: 2,
             overflow: 'hidden',
-            // When showing original (no inversion), add subtle border to show it's contained
-            ...(!applyDarkMode && {
-              border: '1px solid rgba(255,255,255,0.1)',
-            }),
+            // Subtle shadow for visual lift (like a card floating above dark background)
+            boxShadow: applyDarkMode
+              ? 'none' // No shadow when inverted (it would invert too)
+              : '0 2px 8px rgba(0,0,0,0.4), 0 0 1px rgba(0,0,0,0.3)',
           }),
         }}
       >
@@ -154,7 +154,8 @@ export function EmailContent({
             wordBreak: 'break-word',
             overflowWrap: 'break-word',
             // Padding when in dark mode (either inverted or original)
-            padding: isDark ? 2 : 0,
+            // More generous padding for better visual containment
+            padding: isDark ? 3 : 0,
 
             // Dark mode: CSS filter inversion (industry standard approach)
             // This inverts all colors, then hue-rotate restores original hues
