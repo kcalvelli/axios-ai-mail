@@ -20,6 +20,7 @@ export interface Message {
   classified_at?: string | null; // ISO datetime string
   has_attachments: boolean;
   confidence?: number | null; // Classification confidence 0.0-1.0
+  folder?: string; // Message folder (inbox, sent, trash)
 }
 
 export interface MessagesListResponse {
