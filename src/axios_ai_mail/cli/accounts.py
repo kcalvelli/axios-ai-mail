@@ -315,10 +315,14 @@ def _check_imap_account(db_account, account_config: dict, verbose: bool) -> None
     import socket
     from ..credentials import Credentials
 
+    # IMAP settings can be in account_config.imap (old format) or account_config.settings (new format)
+    settings = account_config.get("settings", {})
     imap_settings = account_config.get("imap", {})
-    host = imap_settings.get("host", "")
-    port = imap_settings.get("port", 993)
-    use_ssl = imap_settings.get("tls", True)
+
+    # Try settings.imap_* first (Nix-generated), then imap.* (legacy)
+    host = settings.get("imap_host") or imap_settings.get("host", "")
+    port = settings.get("imap_port") or imap_settings.get("port", 993)
+    use_ssl = settings.get("imap_tls") if settings.get("imap_tls") is not None else imap_settings.get("tls", True)
     credential_file = account_config.get("credential_file", "")
 
     console.print(f"\n[bold]IMAP Connection Test[/bold]")
@@ -413,7 +417,7 @@ def _check_imap_account(db_account, account_config: dict, verbose: bool) -> None
         console.print(f"[yellow]⚠ Could not retrieve capabilities: {e}[/yellow]")
 
     # Step 6: Test folder access
-    folder = imap_settings.get("folder", "INBOX")
+    folder = settings.get("imap_folder") or imap_settings.get("folder", "INBOX")
     console.print(f"\n[dim]Step 6: Selecting folder '{folder}'...[/dim]")
     try:
         typ, data = conn.select(folder)
