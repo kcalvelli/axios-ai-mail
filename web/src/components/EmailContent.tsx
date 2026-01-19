@@ -121,20 +121,25 @@ export function EmailContent({
               color: 'text.secondary',
             }}
           >
-            {forceOriginal ? 'Apply dark mode' : 'View original colors'}
+            {forceOriginal ? 'Dark mode off · Turn on' : 'Dark mode on · Show original'}
           </Button>
         </Box>
       )}
 
-      {/* Email content wrapper - provides light background for inversion */}
+      {/* Email content wrapper - provides light background for both modes */}
       <Box
         sx={{
-          // When applying dark mode, we need a light background to invert from
-          // This wrapper provides isolation for the filter
-          ...(applyDarkMode && {
+          // Always provide a light background for email content in dark mode
+          // - When inversion is ON: white bg inverts to dark
+          // - When inversion is OFF (original): white bg shows original email colors properly
+          ...(isDark && {
             backgroundColor: '#ffffff',
             borderRadius: 1,
             overflow: 'hidden',
+            // When showing original (no inversion), add subtle border to show it's contained
+            ...(!applyDarkMode && {
+              border: '1px solid rgba(255,255,255,0.1)',
+            }),
           }),
         }}
       >
@@ -148,7 +153,8 @@ export function EmailContent({
             lineHeight: 1.6,
             wordBreak: 'break-word',
             overflowWrap: 'break-word',
-            padding: applyDarkMode ? 2 : 0,
+            // Padding when in dark mode (either inverted or original)
+            padding: isDark ? 2 : 0,
 
             // Dark mode: CSS filter inversion (industry standard approach)
             // This inverts all colors, then hue-rotate restores original hues

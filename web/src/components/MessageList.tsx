@@ -14,8 +14,11 @@ import {
   DialogActions,
   Pagination,
   Stack,
+  IconButton,
+  Tooltip,
+  useTheme,
 } from '@mui/material';
-import { InboxOutlined, DeleteSweep, CheckBox, WifiOff, Refresh, CloudOff } from '@mui/icons-material';
+import { InboxOutlined, DeleteSweep, CheckBox, WifiOff, Refresh, CloudOff, ViewSidebar, ViewStream } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
 import { MessageCard } from './MessageCard';
 import { SwipeableMessageList } from './SwipeableMessageCard';
@@ -53,7 +56,10 @@ export function MessageList() {
     exitSelectionMode,
     setSelectedMessageId,
     layoutMode,
+    toggleLayoutMode,
   } = useAppStore();
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
 
   const bulkDelete = useBulkDelete();
   const bulkMarkRead = useBulkMarkRead();
@@ -406,7 +412,7 @@ export function MessageList() {
       )}
 
       <Box sx={{ py: 1, px: 0 }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
           {/* Left side: message count, Select All, Clear Trash */}
           <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
             <Typography variant="body2" color="text.secondary">
@@ -439,6 +445,24 @@ export function MessageList() {
               </Button>
             )}
           </Box>
+
+          {/* Right side: Layout toggle (desktop only) */}
+          {!isMobile && (
+            <Tooltip title={layoutMode === 'split' ? 'Switch to list-only view (o)' : 'Switch to split view (o)'}>
+              <IconButton
+                onClick={toggleLayoutMode}
+                size="small"
+                sx={{
+                  backgroundColor: 'transparent',
+                  '&:hover': {
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
+                  },
+                }}
+              >
+                {layoutMode === 'split' ? <ViewStream /> : <ViewSidebar />}
+              </IconButton>
+            </Tooltip>
+          )}
         </Box>
 
         {/* Swipeable cards on mobile touch devices, regular cards on desktop */}

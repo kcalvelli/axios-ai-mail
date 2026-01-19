@@ -87,6 +87,26 @@ const lightTheme = createTheme({
           backgroundColor: '#fafafa',
           color: 'rgba(0, 0, 0, 0.87)',
         },
+        // Global scrollbar styling - thin, subtle scrollbars (light mode)
+        '*::-webkit-scrollbar': {
+          width: 6,
+          height: 6,
+        },
+        '*::-webkit-scrollbar-track': {
+          background: 'transparent',
+        },
+        '*::-webkit-scrollbar-thumb': {
+          background: 'rgba(0,0,0,0.2)',
+          borderRadius: 3,
+        },
+        '*::-webkit-scrollbar-thumb:hover': {
+          background: 'rgba(0,0,0,0.3)',
+        },
+        // Firefox
+        '*': {
+          scrollbarWidth: 'thin',
+          scrollbarColor: 'rgba(0,0,0,0.2) transparent',
+        },
       },
     },
     MuiCard: {
@@ -176,6 +196,26 @@ const darkTheme = createTheme({
         body: {
           backgroundColor: m3AmoledColors.surface,
           color: m3AmoledColors.onSurface,
+        },
+        // Global scrollbar styling - thin, subtle scrollbars (dark mode)
+        '*::-webkit-scrollbar': {
+          width: 6,
+          height: 6,
+        },
+        '*::-webkit-scrollbar-track': {
+          background: 'transparent',
+        },
+        '*::-webkit-scrollbar-thumb': {
+          background: 'rgba(255,255,255,0.2)',
+          borderRadius: 3,
+        },
+        '*::-webkit-scrollbar-thumb:hover': {
+          background: 'rgba(255,255,255,0.3)',
+        },
+        // Firefox
+        '*': {
+          scrollbarWidth: 'thin',
+          scrollbarColor: 'rgba(255,255,255,0.2) transparent',
         },
       },
     },

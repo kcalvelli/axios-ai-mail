@@ -66,6 +66,31 @@ const theme = createTheme({
     borderRadius: 12, // Rounded corners for Material Design 3
   },
   components: {
+    // Global scrollbar styling - thin, subtle scrollbars
+    MuiCssBaseline: {
+      styleOverrides: {
+        // Webkit browsers (Chrome, Safari, Edge)
+        '*::-webkit-scrollbar': {
+          width: 6,
+          height: 6,
+        },
+        '*::-webkit-scrollbar-track': {
+          background: 'transparent',
+        },
+        '*::-webkit-scrollbar-thumb': {
+          background: 'rgba(0,0,0,0.2)',
+          borderRadius: 3,
+        },
+        '*::-webkit-scrollbar-thumb:hover': {
+          background: 'rgba(0,0,0,0.3)',
+        },
+        // Firefox
+        '*': {
+          scrollbarWidth: 'thin',
+          scrollbarColor: 'rgba(0,0,0,0.2) transparent',
+        },
+      },
+    },
     MuiCard: {
       styleOverrides: {
         root: {

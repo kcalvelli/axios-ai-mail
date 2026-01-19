@@ -22,7 +22,7 @@ import {
   Divider,
   Tooltip,
 } from '@mui/material';
-import { ArrowBack, Mail, MailOutline, Delete, Reply, Forward, AttachFile, Download } from '@mui/icons-material';
+import { ArrowBack, Mail, MailOutline, Delete, Reply, Forward, AttachFile, Download, Print } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useIsMobile } from '../hooks/useIsMobile';
@@ -221,6 +221,81 @@ export function MessageDetailPage() {
     }
   };
 
+  const handlePrint = () => {
+    if (!message) return;
+
+    // Create a new window with just the email content for clean printing
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      window.print();
+      return;
+    }
+
+    const printDate = new Date(message.date).toLocaleString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+
+    // Get the email content
+    const emailBody = body?.body_html
+      ? DOMPurify.sanitize(body.body_html, {
+          ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 'a', 'ul', 'ol', 'li',
+            'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'div', 'span', 'pre', 'code'],
+          ALLOWED_ATTR: ['href', 'target', 'rel', 'class', 'style'],
+        })
+      : body?.body_text
+        ? `<pre style="white-space: pre-wrap; font-family: inherit;">${body.body_text}</pre>`
+        : message.snippet;
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>${message.subject}</title>
+        <style>
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-size: 12pt;
+            line-height: 1.5;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #000;
+          }
+          .header { border-bottom: 1px solid #ddd; padding-bottom: 16px; margin-bottom: 16px; }
+          .subject { font-size: 18pt; font-weight: 600; margin-bottom: 12px; }
+          .meta { font-size: 10pt; color: #666; line-height: 1.8; }
+          .meta strong { color: #333; }
+          .content { margin-top: 16px; }
+          .content img { max-width: 100%; height: auto; }
+          .content a { color: #1976d2; }
+          .content pre, .content code { background: #f5f5f5; padding: 8px; border-radius: 4px; }
+          .content blockquote { border-left: 3px solid #ddd; padding-left: 12px; margin-left: 0; color: #666; }
+          @media print { body { padding: 0; } @page { margin: 1cm; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="subject">${message.subject}</div>
+          <div class="meta">
+            <div><strong>From:</strong> ${message.from_email}</div>
+            <div><strong>To:</strong> ${message.to_emails.join(', ')}</div>
+            <div><strong>Date:</strong> ${printDate}</div>
+          </div>
+        </div>
+        <div class="content">${emailBody}</div>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.onload = () => { printWindow.print(); printWindow.close(); };
+    setTimeout(() => { if (!printWindow.closed) { printWindow.print(); printWindow.close(); } }, 500);
+  };
+
   if (isLoading) {
     return (
       <Box display="flex" justifyContent="center" p={4}>
@@ -329,6 +404,14 @@ export function MessageDetailPage() {
             <MailOutline color="action" />
           )}
         </IconButton>
+        {/* Print button - hide on mobile */}
+        {!isMobile && (
+          <Tooltip title="Print">
+            <IconButton onClick={handlePrint} sx={{ mr: 1 }}>
+              <Print />
+            </IconButton>
+          </Tooltip>
+        )}
         <IconButton onClick={handleDeleteClick} color="error">
           <Delete />
         </IconButton>

@@ -19,6 +19,9 @@ import {
   Divider,
   Tooltip,
   useTheme,
+  Dialog,
+  DialogContent,
+  DialogTitle,
 } from '@mui/material';
 import {
   Mail,
@@ -30,6 +33,9 @@ import {
   Download,
   Print,
   ArrowBack,
+  Close,
+  Visibility,
+  Image as ImageIcon,
 } from '@mui/icons-material';
 import DOMPurify from 'dompurify';
 import axios from 'axios';
@@ -95,6 +101,10 @@ export function MessageDetail({
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [attachmentsLoading, setAttachmentsLoading] = useState(false);
   const [showQuotedHtml, setShowQuotedHtml] = useState(false);
+  // Attachment preview state
+  const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   // Auto-mark as read when message is opened
   useEffect(() => {
@@ -150,6 +160,49 @@ export function MessageDetail({
     } catch (err) {
       console.error('Failed to download attachment:', err);
     }
+  };
+
+  // Check if attachment is previewable (images)
+  const isPreviewable = (contentType: string): boolean => {
+    const previewableTypes = [
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+      'image/svg+xml',
+      'image/bmp',
+    ];
+    return previewableTypes.includes(contentType.toLowerCase());
+  };
+
+  // Handle preview attachment
+  const handlePreviewAttachment = async (attachment: Attachment) => {
+    setPreviewAttachment(attachment);
+    setPreviewLoading(true);
+
+    try {
+      const response = await axios.get(
+        `/api/attachments/${attachment.id}/download?message_id=${messageId}`,
+        { responseType: 'blob' }
+      );
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: attachment.content_type }));
+      setPreviewUrl(url);
+    } catch (err) {
+      console.error('Failed to load attachment preview:', err);
+      setPreviewAttachment(null);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  // Close preview and cleanup
+  const handleClosePreview = () => {
+    if (previewUrl) {
+      window.URL.revokeObjectURL(previewUrl);
+    }
+    setPreviewAttachment(null);
+    setPreviewUrl(null);
   };
 
   const handleMarkRead = () => {
@@ -227,7 +280,132 @@ export function MessageDetail({
   };
 
   const handlePrint = () => {
-    window.print();
+    // Create a new window with just the email content for clean printing
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      // Fallback if popup blocked
+      window.print();
+      return;
+    }
+
+    const { name: sName, email: sEmail } = extractSenderName(message?.from_email || '');
+    const printDate = message ? new Date(message.date).toLocaleString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    }) : '';
+
+    // Get the email content HTML
+    const emailBody = body?.body_html
+      ? DOMPurify.sanitize(body.body_html, {
+          ALLOWED_TAGS: [
+            'p', 'br', 'strong', 'em', 'u', 'b', 'i', 's',
+            'a', 'ul', 'ol', 'li',
+            'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+            'blockquote', 'div', 'span', 'pre', 'code',
+            'table', 'tr', 'td', 'th', 'thead', 'tbody',
+            'img',
+          ],
+          ALLOWED_ATTR: ['href', 'target', 'rel', 'class', 'style', 'src', 'alt', 'width', 'height'],
+        })
+      : body?.body_text
+        ? `<pre style="white-space: pre-wrap; font-family: inherit;">${body.body_text}</pre>`
+        : message?.snippet || '';
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>${message?.subject || 'Email'}</title>
+        <style>
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-size: 12pt;
+            line-height: 1.5;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #000;
+          }
+          .header {
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 16px;
+            margin-bottom: 16px;
+          }
+          .subject {
+            font-size: 18pt;
+            font-weight: 600;
+            margin-bottom: 12px;
+          }
+          .meta {
+            font-size: 10pt;
+            color: #666;
+            line-height: 1.8;
+          }
+          .meta strong {
+            color: #333;
+          }
+          .content {
+            margin-top: 16px;
+          }
+          .content img {
+            max-width: 100%;
+            height: auto;
+          }
+          .content a {
+            color: #1976d2;
+          }
+          .content pre, .content code {
+            background: #f5f5f5;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 10pt;
+          }
+          .content blockquote {
+            border-left: 3px solid #ddd;
+            padding-left: 12px;
+            margin-left: 0;
+            color: #666;
+          }
+          @media print {
+            body { padding: 0; }
+            @page { margin: 1cm; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="subject">${message?.subject || ''}</div>
+          <div class="meta">
+            <div><strong>From:</strong> ${sName ? `${sName} <${sEmail}>` : sEmail}</div>
+            <div><strong>To:</strong> ${message?.to_emails.join(', ') || ''}</div>
+            <div><strong>Date:</strong> ${printDate}</div>
+          </div>
+        </div>
+        <div class="content">
+          ${emailBody}
+        </div>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+
+    // Wait for content to load then print
+    printWindow.onload = () => {
+      printWindow.print();
+      printWindow.close();
+    };
+
+    // Fallback if onload doesn't fire
+    setTimeout(() => {
+      if (!printWindow.closed) {
+        printWindow.print();
+        printWindow.close();
+      }
+    }, 500);
   };
 
   const handleBack = () => {
@@ -429,19 +607,78 @@ export function MessageDetail({
             ) : (
               <Stack direction="row" spacing={1} flexWrap="wrap" gap={1}>
                 {attachments.map((att) => (
-                  <Chip
-                    key={att.id}
-                    label={`${att.filename} (${formatFileSize(att.size)})`}
-                    icon={<Download />}
-                    onClick={() => handleDownloadAttachment(att)}
-                    variant="outlined"
-                    sx={{ cursor: 'pointer' }}
-                  />
+                  <Box key={att.id} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    {/* Preview button for images */}
+                    {isPreviewable(att.content_type) && (
+                      <Tooltip title="Preview">
+                        <IconButton
+                          size="small"
+                          onClick={() => handlePreviewAttachment(att)}
+                          sx={{ p: 0.5 }}
+                        >
+                          <Visibility fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                    {/* Download chip */}
+                    <Chip
+                      label={`${att.filename} (${formatFileSize(att.size)})`}
+                      icon={isPreviewable(att.content_type) ? <ImageIcon /> : <Download />}
+                      onClick={() => handleDownloadAttachment(att)}
+                      variant="outlined"
+                      sx={{ cursor: 'pointer' }}
+                    />
+                  </Box>
                 ))}
               </Stack>
             )}
           </Box>
         )}
+
+        {/* Image Preview Modal */}
+        <Dialog
+          open={!!previewAttachment}
+          onClose={handleClosePreview}
+          maxWidth="lg"
+          fullWidth
+        >
+          <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Typography variant="subtitle1" noWrap sx={{ flex: 1, mr: 2 }}>
+              {previewAttachment?.filename}
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Tooltip title="Download">
+                <IconButton
+                  size="small"
+                  onClick={() => previewAttachment && handleDownloadAttachment(previewAttachment)}
+                >
+                  <Download />
+                </IconButton>
+              </Tooltip>
+              <IconButton size="small" onClick={handleClosePreview}>
+                <Close />
+              </IconButton>
+            </Box>
+          </DialogTitle>
+          <DialogContent sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 300 }}>
+            {previewLoading ? (
+              <CircularProgress />
+            ) : previewUrl ? (
+              <Box
+                component="img"
+                src={previewUrl}
+                alt={previewAttachment?.filename}
+                sx={{
+                  maxWidth: '100%',
+                  maxHeight: '70vh',
+                  objectFit: 'contain',
+                }}
+              />
+            ) : (
+              <Typography color="text.secondary">Failed to load preview</Typography>
+            )}
+          </DialogContent>
+        </Dialog>
 
         <Divider sx={{ my: 2 }} />
 

@@ -138,6 +138,12 @@ export function MessageCard({
         width: '100%',
         // M3: Subtle elevation in light mode, none in dark (AMOLED)
         boxShadow: isDark ? 'none' : '0 1px 2px rgba(0,0,0,0.1)',
+        // Override theme hover to maintain selected state background
+        '&:hover': {
+          backgroundColor: (isSelected || isReadingPaneSelected)
+            ? getBackgroundColor() // Keep selection color on hover
+            : isDark ? '#252525' : undefined, // Default hover for non-selected
+        },
       }}
     >
       {/* M3: 16px internal padding */}

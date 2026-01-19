@@ -5,8 +5,7 @@
  */
 
 import { useCallback, useRef, useState, useEffect } from 'react';
-import { Box, IconButton, Tooltip, Typography, useTheme } from '@mui/material';
-import { ViewSidebar, ViewStream } from '@mui/icons-material';
+import { Box, Typography, useTheme } from '@mui/material';
 import { useAppStore } from '../store/appStore';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { MessageDetail } from './MessageDetail';
@@ -42,7 +41,6 @@ export function ReadingPane({
 
   const {
     layoutMode,
-    toggleLayoutMode,
     selectedMessageId,
     setSelectedMessageId,
     readingPaneWidth,
@@ -114,15 +112,7 @@ export function ReadingPane({
   // Desktop: list-only mode
   if (layoutMode === 'list-only') {
     return (
-      <Box sx={{ position: 'relative' }}>
-        {/* Layout toggle */}
-        <Box sx={{ position: 'absolute', top: 0, right: 0, zIndex: 10 }}>
-          <Tooltip title="Switch to split view (o)">
-            <IconButton onClick={toggleLayoutMode} size="small">
-              <ViewSidebar />
-            </IconButton>
-          </Tooltip>
-        </Box>
+      <Box>
         {children}
         <KeyboardShortcutsHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
       </Box>
@@ -168,14 +158,6 @@ export function ReadingPane({
           scrollbarColor: isDark ? 'rgba(255,255,255,0.2) transparent' : 'rgba(0,0,0,0.2) transparent',
         }}
       >
-        {/* Layout toggle */}
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
-          <Tooltip title="Switch to list-only view (o)">
-            <IconButton onClick={toggleLayoutMode} size="small">
-              <ViewStream />
-            </IconButton>
-          </Tooltip>
-        </Box>
         {children}
       </Box>
 
