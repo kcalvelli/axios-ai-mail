@@ -130,15 +130,11 @@ let
 
             colors = mkOption {
               type = types.attrsOf types.str;
-              default = {
-                work = "blue";
-                finance = "green";
-                todo = "orange";
-                priority = "red";
-                personal = "purple";
-                dev = "cyan";
-              };
-              description = "Label colors (provider-specific format).";
+              default = {};
+              description = ''
+                Label color overrides (provider-specific format).
+                Usually not needed - all 35 default tags have category-based colors.
+              '';
             };
           };
         };
@@ -305,7 +301,13 @@ in {
       labelColors = mkOption {
         type = types.attrsOf types.str;
         default = {};
-        description = "Override colors for specific tags.";
+        description = ''
+          Override colors for specific tags.
+          Usually not needed - all 35 default tags have category-based colors:
+          priority=red, work=blue, personal=purple, finance=green,
+          shopping=yellow, travel=cyan, developer=cyan, marketing=orange,
+          social=teal, system=gray.
+        '';
       };
     };
 
