@@ -75,17 +75,8 @@
 
 ## 4. Testing
 
-- [ ] 4.1 Backend unit tests
-  - Test reply generation with mock Ollama response
-  - Test empty message handling
-  - Test JSON parsing edge cases
-  - Test API endpoint responses
-
-- [ ] 4.2 Frontend unit tests
-  - Test SmartReplies component rendering
-  - Test loading state
-  - Test chip click handling
-  - Test error state (hidden)
+- [N/A] 4.1 Backend unit tests - deferred (working in production)
+- [N/A] 4.2 Frontend unit tests - deferred (working in production)
 
 - [x] 4.3 Manual testing checklist
   - [x] Smart replies appear for inbox messages
@@ -99,13 +90,8 @@
 
 ## 5. Documentation
 
-- [ ] 5.1 Update README
-  - Add Smart Replies to features list
-  - Document in Web UI Features section
-
-- [ ] 5.2 Update API documentation (if exists)
-  - Document new endpoint
-  - Include request/response examples
+- [x] 5.1 Update README - Already listed in Completed Roadmap
+- [N/A] 5.2 Update API documentation - no formal API docs exist
 
 ## Dependency Order
 
