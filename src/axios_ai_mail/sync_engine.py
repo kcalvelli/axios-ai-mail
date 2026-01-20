@@ -7,6 +7,7 @@ from typing import List, Optional, Set
 
 from .ai_classifier import AIClassifier, AIConfig
 from .db.database import Database
+from .db.models import PendingOperation
 from .providers.base import BaseEmailProvider, Message
 
 logger = logging.getLogger(__name__)
@@ -42,6 +43,8 @@ class SyncResult:
     errors: List[str]
     duration_seconds: float
     new_messages: List[NewMessageInfo] = None
+    pending_ops_processed: int = 0
+    pending_ops_failed: int = 0
 
     def __post_init__(self):
         if self.new_messages is None:
@@ -54,6 +57,7 @@ class SyncResult:
             f"fetched={self.messages_fetched}, "
             f"classified={self.messages_classified}, "
             f"labels_updated={self.labels_updated}, "
+            f"pending_ops={self.pending_ops_processed}/{self.pending_ops_processed + self.pending_ops_failed}, "
             f"errors={len(self.errors)}, "
             f"duration={self.duration_seconds:.2f}s)"
         )
@@ -86,11 +90,13 @@ class SyncEngine:
     def sync(self, max_messages: int = 100) -> SyncResult:
         """Perform a complete sync operation.
 
-        1. Fetch new messages from provider
-        2. Store messages in database
-        3. Classify unclassified messages
-        4. Push AI labels back to provider
-        5. Update sync timestamp
+        1. Process pending operations queue (user actions waiting to sync)
+        2. Fetch new messages from provider
+        3. Store messages in database
+        4. Classify unclassified messages
+        5. Push AI labels back to provider
+        6. Update sync timestamp
+        7. Clean up old completed operations
 
         Args:
             max_messages: Maximum messages to fetch in this sync
@@ -103,12 +109,20 @@ class SyncEngine:
         messages_fetched = 0
         messages_classified = 0
         labels_updated = 0
+        pending_ops_processed = 0
+        pending_ops_failed = 0
         new_messages: List[NewMessageInfo] = []
 
         logger.info(f"Starting sync for account {self.account_id}")
 
         try:
-            # 1. Fetch messages from provider
+            # 1. Process pending operations queue FIRST (user actions take priority)
+            pending_ops_processed, pending_ops_failed = self._process_pending_operations()
+
+            # 2. Clean up old completed operations
+            self.db.cleanup_completed_operations(older_than_hours=24)
+
+            # 3. Fetch messages from provider
             last_sync = self.db.get_last_sync_time(self.account_id)
             logger.info(f"Last sync: {last_sync}")
 
@@ -124,9 +138,11 @@ class SyncEngine:
                     labels_updated=0,
                     errors=[],
                     duration_seconds=(datetime.now(timezone.utc) - start_time).total_seconds(),
+                    pending_ops_processed=pending_ops_processed,
+                    pending_ops_failed=pending_ops_failed,
                 )
 
-            # 2. Store messages in database
+            # 4. Store messages in database
             for message in messages:
                 try:
                     # Check if message already exists in database
@@ -175,7 +191,7 @@ class SyncEngine:
                     logger.error(error_msg)
                     errors.append(error_msg)
 
-            # 3. Classify unclassified messages
+            # 5. Classify unclassified messages
             to_classify = [msg for msg in messages if not self.db.has_classification(msg.id)]
             logger.info(f"Classifying {len(to_classify)} messages")
 
@@ -196,7 +212,7 @@ class SyncEngine:
 
                     messages_classified += 1
 
-                    # 4. Push labels to provider
+                    # 6. Push labels to provider
                     try:
                         add_labels, remove_labels = self._compute_label_changes(
                             message, classification
@@ -226,7 +242,7 @@ class SyncEngine:
                     logger.error(error_msg)
                     errors.append(error_msg)
 
-            # 5. Update last sync timestamp
+            # 7. Update last sync timestamp
             self.db.update_last_sync(self.account_id, datetime.now(timezone.utc))
 
             duration = (datetime.now(timezone.utc) - start_time).total_seconds()
@@ -238,6 +254,8 @@ class SyncEngine:
                 errors=errors,
                 duration_seconds=duration,
                 new_messages=new_messages,
+                pending_ops_processed=pending_ops_processed,
+                pending_ops_failed=pending_ops_failed,
             )
 
             logger.info(f"Sync completed: {result}")
@@ -258,6 +276,8 @@ class SyncEngine:
                 labels_updated=labels_updated,
                 errors=errors,
                 duration_seconds=duration,
+                pending_ops_processed=pending_ops_processed,
+                pending_ops_failed=pending_ops_failed,
             )
 
     def _compute_label_changes(
@@ -301,6 +321,73 @@ class SyncEngine:
                 labels_to_remove.add("INBOX")
 
         return labels_to_add, labels_to_remove
+
+    def _process_pending_operations(self, max_ops: int = 50) -> tuple[int, int]:
+        """Process pending operations queue.
+
+        Syncs user-initiated actions (mark read, trash, restore) to the provider.
+        This is called at the start of each sync to ensure user actions are
+        reflected on the provider as soon as possible.
+
+        Args:
+            max_ops: Maximum operations to process in one batch
+
+        Returns:
+            Tuple of (processed_count, failed_count)
+        """
+        processed = 0
+        failed = 0
+
+        # Get pending operations for this account
+        pending = self.db.get_pending_operations(
+            account_id=self.account_id,
+            limit=max_ops,
+            status="pending",
+        )
+
+        if not pending:
+            return 0, 0
+
+        logger.info(f"Processing {len(pending)} pending operations for account {self.account_id}")
+
+        for op in pending:
+            try:
+                # Execute operation against provider
+                if op.operation == "mark_read":
+                    self.provider.mark_as_read(op.message_id)
+                elif op.operation == "mark_unread":
+                    self.provider.mark_as_unread(op.message_id)
+                elif op.operation == "trash":
+                    self.provider.move_to_trash(op.message_id)
+                elif op.operation == "restore":
+                    self.provider.restore_from_trash(op.message_id)
+                elif op.operation == "delete":
+                    self.provider.delete_message(op.message_id, permanent=True)
+                else:
+                    logger.warning(f"Unknown operation type: {op.operation}")
+                    continue
+
+                # Mark as completed
+                self.db.complete_pending_operation(op.id)
+                processed += 1
+                logger.debug(f"Completed pending operation: {op.operation} for {op.message_id}")
+
+            except Exception as e:
+                # Record failure (will retry up to max_attempts)
+                self.db.fail_pending_operation(op.id, str(e))
+                failed += 1
+                logger.warning(
+                    f"Failed to process pending operation {op.operation} "
+                    f"for message {op.message_id}: {e}"
+                )
+
+        if processed or failed:
+            logger.info(
+                f"Pending operations: {processed} processed, {failed} failed "
+                f"for account {self.account_id}"
+            )
+
+        return processed, failed
 
     def reclassify_all(self, max_messages: Optional[int] = None) -> SyncResult:
         """Reclassify all messages in the database.

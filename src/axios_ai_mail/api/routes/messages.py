@@ -176,58 +176,52 @@ async def get_unread_count(request: Request):
 
 @router.post("/messages/bulk/read")
 async def bulk_mark_read(request: Request, body: BulkReadRequest):
-    """Mark multiple messages as read or unread."""
+    """Mark multiple messages as read or unread.
+
+    Updates local database immediately and queues provider syncs for background processing.
+    This returns instantly regardless of how many messages are being updated.
+    """
     db = request.app.state.db
 
     try:
         updated_count = 0
         updated_ids = []
-        provider_synced_count = 0
-        provider_failed_count = 0
+        queued_count = 0
         errors = []
+
+        operation = "mark_unread" if body.is_unread else "mark_read"
 
         for message_id in body.message_ids:
             try:
-                # Phase 1: Get message and update database
+                # 1. Get message
                 message = db.get_message(message_id)
                 if not message:
                     errors.append({"message_id": message_id, "error": "Not found"})
                     continue
 
+                # 2. Update local database immediately
                 updated_message = db.update_message_read_status(message_id, body.is_unread)
                 if updated_message:
                     updated_count += 1
                     updated_ids.append(message_id)
 
-                    # Phase 2: Sync to provider (best effort)
-                    try:
-                        account = db.get_account(message.account_id)
-                        if account:
-                            provider = ProviderFactory.create_from_account(account)
-                            provider.authenticate()
-                            if body.is_unread:
-                                provider.mark_as_unread(message_id)
-                            else:
-                                provider.mark_as_read(message_id)
-                            provider_synced_count += 1
-                    except Exception as e:
-                        provider_failed_count += 1
-                        logger.error(f"Provider sync failed for {message_id}: {e}")
+                    # 3. Queue for provider sync (non-blocking)
+                    if db.queue_pending_operation(message.account_id, message_id, operation):
+                        queued_count += 1
                 else:
                     errors.append({"message_id": message_id, "error": "Update failed"})
             except Exception as e:
                 errors.append({"message_id": message_id, "error": str(e)})
                 logger.error(f"Error updating message {message_id}: {e}")
 
-        # Broadcast update to all clients
+        # 4. Broadcast update to all clients
         if updated_ids:
             action = "unread" if body.is_unread else "read"
             asyncio.create_task(send_messages_updated(updated_ids, action))
 
         return {
             "updated": updated_count,
-            "provider_synced": provider_synced_count,
-            "provider_failed": provider_failed_count,
+            "queued_for_sync": queued_count,
             "total": len(body.message_ids),
             "errors": errors,
         }
@@ -239,54 +233,49 @@ async def bulk_mark_read(request: Request, body: BulkReadRequest):
 
 @router.post("/messages/bulk/delete")
 async def bulk_delete(request: Request, body: BulkDeleteRequest):
-    """Delete multiple messages (always moves to trash)."""
+    """Delete multiple messages (moves to trash).
+
+    Updates local database immediately and queues provider syncs for background processing.
+    This returns instantly regardless of how many messages are being deleted.
+    """
     db = request.app.state.db
 
     try:
         moved_to_trash_count = 0
         moved_ids = []
-        provider_synced_count = 0
-        provider_failed_count = 0
+        queued_count = 0
         errors = []
 
         for message_id in body.message_ids:
             try:
-                # Phase 1: Get message and move to trash in database
+                # 1. Get message
                 message = db.get_message(message_id)
                 if not message:
                     errors.append({"message_id": message_id, "error": "Not found"})
                     continue
 
+                # 2. Update local database immediately
                 updated = db.move_to_trash(message_id)
                 if updated:
                     moved_to_trash_count += 1
                     moved_ids.append(message_id)
 
-                    # Phase 2: Sync to provider (best effort)
-                    try:
-                        account = db.get_account(message.account_id)
-                        if account:
-                            provider = ProviderFactory.create_from_account(account)
-                            provider.authenticate()
-                            provider.move_to_trash(message_id)
-                            provider_synced_count += 1
-                    except Exception as e:
-                        provider_failed_count += 1
-                        logger.error(f"Provider sync failed for {message_id}: {e}")
+                    # 3. Queue for provider sync (non-blocking)
+                    if db.queue_pending_operation(message.account_id, message_id, "trash"):
+                        queued_count += 1
                 else:
                     errors.append({"message_id": message_id, "error": "Failed to move to trash"})
             except Exception as e:
                 errors.append({"message_id": message_id, "error": str(e)})
                 logger.error(f"Error deleting message {message_id}: {e}")
 
-        # Broadcast delete to all clients
+        # 4. Broadcast delete to all clients
         if moved_ids:
             asyncio.create_task(send_messages_deleted(moved_ids, permanent=False))
 
         return {
             "moved_to_trash": moved_to_trash_count,
-            "provider_synced": provider_synced_count,
-            "provider_failed": provider_failed_count,
+            "queued_for_sync": queued_count,
             "total": len(body.message_ids),
             "errors": errors,
         }
@@ -298,54 +287,49 @@ async def bulk_delete(request: Request, body: BulkDeleteRequest):
 
 @router.post("/messages/bulk/restore")
 async def bulk_restore(request: Request, body: BulkDeleteRequest):
-    """Restore multiple messages from trash to inbox."""
+    """Restore multiple messages from trash to inbox.
+
+    Updates local database immediately and queues provider syncs for background processing.
+    This returns instantly regardless of how many messages are being restored.
+    """
     db = request.app.state.db
 
     try:
         restored_count = 0
         restored_ids = []
-        provider_synced_count = 0
-        provider_failed_count = 0
+        queued_count = 0
         errors = []
 
         for message_id in body.message_ids:
             try:
-                # Phase 1: Get message and restore from trash in database
+                # 1. Get message
                 message = db.get_message(message_id)
                 if not message:
                     errors.append({"message_id": message_id, "error": "Not found"})
                     continue
 
+                # 2. Update local database immediately
                 updated = db.restore_from_trash(message_id)
                 if updated:
                     restored_count += 1
                     restored_ids.append(message_id)
 
-                    # Phase 2: Sync to provider (best effort)
-                    try:
-                        account = db.get_account(message.account_id)
-                        if account:
-                            provider = ProviderFactory.create_from_account(account)
-                            provider.authenticate()
-                            provider.restore_from_trash(message_id)
-                            provider_synced_count += 1
-                    except Exception as e:
-                        provider_failed_count += 1
-                        logger.error(f"Provider sync failed for {message_id}: {e}")
+                    # 3. Queue for provider sync (non-blocking)
+                    if db.queue_pending_operation(message.account_id, message_id, "restore"):
+                        queued_count += 1
                 else:
                     errors.append({"message_id": message_id, "error": "Not found in trash"})
             except Exception as e:
                 errors.append({"message_id": message_id, "error": str(e)})
                 logger.error(f"Error restoring message {message_id}: {e}")
 
-        # Broadcast restore to all clients
+        # 4. Broadcast restore to all clients
         if restored_ids:
             asyncio.create_task(send_messages_restored(restored_ids))
 
         return {
             "restored": restored_count,
-            "provider_synced": provider_synced_count,
-            "provider_failed": provider_failed_count,
+            "queued_for_sync": queued_count,
             "total": len(body.message_ids),
             "errors": errors,
         }
@@ -600,7 +584,11 @@ async def mark_message_read(
     message_id: str,
     body: MarkReadRequest,
 ):
-    """Mark a message as read or unread."""
+    """Mark a message as read or unread.
+
+    Updates local database immediately and queues provider sync for background processing.
+    This provides instant UI feedback while ensuring provider sync happens reliably.
+    """
     db = request.app.state.db
 
     try:
@@ -608,35 +596,23 @@ async def mark_message_read(
         if not message:
             raise HTTPException(status_code=404, detail="Message not found")
 
-        # Update message read status in database
+        # 1. Update local database immediately
         updated_message = db.update_message_read_status(message_id, body.is_unread)
         if not updated_message:
             raise HTTPException(status_code=404, detail="Message not found")
 
-        # Sync to provider (best effort)
-        provider_synced = False
-        try:
-            account = db.get_account(message.account_id)
-            if account:
-                provider = ProviderFactory.create_from_account(account)
-                provider.authenticate()
-                if body.is_unread:
-                    provider.mark_as_unread(message_id)
-                else:
-                    provider.mark_as_read(message_id)
-                provider_synced = True
-                logger.info(f"Synced read status to provider for message {message_id}")
-        except Exception as e:
-            logger.error(f"Provider sync failed for message {message_id}: {e}", exc_info=True)
-            # Don't fail the request - database operation succeeded
+        # 2. Queue for provider sync (non-blocking)
+        operation = "mark_unread" if body.is_unread else "mark_read"
+        db.queue_pending_operation(message.account_id, message_id, operation)
 
-        # Broadcast update to all clients
+        # 3. Broadcast update to all clients
         action = "unread" if body.is_unread else "read"
         asyncio.create_task(send_messages_updated([message_id], action))
 
         classification = db.get_classification(message_id)
         response = serialize_message(updated_message, classification)
-        response["provider_synced"] = provider_synced
+        response["provider_synced"] = False  # Will sync during next background sync
+        response["queued_for_sync"] = True
         return response
 
     except HTTPException:
@@ -648,7 +624,10 @@ async def mark_message_read(
 
 @router.delete("/messages/{message_id}")
 async def delete_message(request: Request, message_id: str):
-    """Delete a message (always moves to trash)."""
+    """Delete a message (moves to trash).
+
+    Updates local database immediately and queues provider sync for background processing.
+    """
     db = request.app.state.db
 
     try:
@@ -657,33 +636,22 @@ async def delete_message(request: Request, message_id: str):
         if not message:
             raise HTTPException(status_code=404, detail="Message not found")
 
-        # Phase 1: Update database (always succeeds)
+        # 1. Update local database immediately
         updated_message = db.move_to_trash(message_id)
         if not updated_message:
             raise HTTPException(status_code=500, detail="Failed to move message to trash")
 
-        # Phase 2: Sync to provider (best effort)
-        provider_synced = False
-        try:
-            # Get account and create provider
-            account = db.get_account(message.account_id)
-            if account:
-                provider = ProviderFactory.create_from_account(account)
-                provider.authenticate()
-                provider.move_to_trash(message_id)
-                provider_synced = True
-                logger.info(f"Synced delete to provider for message {message_id}")
-        except Exception as e:
-            logger.error(f"Provider sync failed for message {message_id}: {e}", exc_info=True)
-            # Don't fail the request - database operation succeeded
+        # 2. Queue for provider sync (non-blocking)
+        db.queue_pending_operation(message.account_id, message_id, "trash")
 
-        # Broadcast delete to all clients
+        # 3. Broadcast delete to all clients
         asyncio.create_task(send_messages_deleted([message_id], permanent=False))
 
         return {
             "status": "moved_to_trash",
             "message_id": message_id,
-            "provider_synced": provider_synced,
+            "provider_synced": False,
+            "queued_for_sync": True,
         }
 
     except HTTPException:
@@ -695,7 +663,10 @@ async def delete_message(request: Request, message_id: str):
 
 @router.post("/messages/{message_id}/restore")
 async def restore_message(request: Request, message_id: str):
-    """Restore a message from trash to inbox."""
+    """Restore a message from trash to inbox.
+
+    Updates local database immediately and queues provider sync for background processing.
+    """
     db = request.app.state.db
 
     try:
@@ -704,31 +675,21 @@ async def restore_message(request: Request, message_id: str):
         if not message:
             raise HTTPException(status_code=404, detail="Message not found")
 
-        # Phase 1: Restore from trash in database
+        # 1. Restore from trash in local database immediately
         updated_message = db.restore_from_trash(message_id)
         if not updated_message:
             raise HTTPException(status_code=404, detail="Message not found in trash")
 
-        # Phase 2: Sync to provider (best effort)
-        provider_synced = False
-        try:
-            account = db.get_account(message.account_id)
-            if account:
-                provider = ProviderFactory.create_from_account(account)
-                provider.authenticate()
-                provider.restore_from_trash(message_id)
-                provider_synced = True
-                logger.info(f"Synced restore to provider for message {message_id}")
-        except Exception as e:
-            logger.error(f"Provider sync failed for message {message_id}: {e}", exc_info=True)
-            # Don't fail the request - database operation succeeded
+        # 2. Queue for provider sync (non-blocking)
+        db.queue_pending_operation(message.account_id, message_id, "restore")
 
-        # Broadcast restore to all clients
+        # 3. Broadcast restore to all clients
         asyncio.create_task(send_messages_restored([message_id]))
 
         classification = db.get_classification(message_id)
         response = serialize_message(updated_message, classification)
-        response["provider_synced"] = provider_synced
+        response["provider_synced"] = False
+        response["queued_for_sync"] = True
         return response
 
     except HTTPException:

@@ -13,6 +13,44 @@ class Base(DeclarativeBase):
     pass
 
 
+class PendingOperation(Base):
+    """Queue of operations pending sync to email provider.
+
+    Philosophy: Local database is source of truth. Provider sync is best-effort.
+    Operations are queued here and processed during sync to avoid blocking the UI.
+    """
+
+    __tablename__ = "pending_operations"
+
+    id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    account_id: Mapped[str] = mapped_column(
+        String(255), ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False
+    )
+    message_id: Mapped[str] = mapped_column(
+        String(255), ForeignKey("messages.id", ondelete="CASCADE"), nullable=False
+    )
+    operation: Mapped[str] = mapped_column(
+        String(50), nullable=False
+    )  # mark_read, mark_unread, trash, restore, delete
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_attempt: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    last_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="pending"
+    )  # pending, completed, failed
+
+    # Relationships
+    account: Mapped["Account"] = relationship()
+    message: Mapped["Message"] = relationship()
+
+    def __repr__(self) -> str:
+        return (
+            f"<PendingOperation(id={self.id!r}, operation={self.operation!r}, "
+            f"message_id={self.message_id!r}, status={self.status!r})>"
+        )
+
+
 class Account(Base):
     """Email account configuration."""
 

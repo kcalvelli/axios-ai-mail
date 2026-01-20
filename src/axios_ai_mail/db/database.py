@@ -10,7 +10,7 @@ from sqlalchemy import create_engine, event, select, String
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from .models import Account, Attachment, Base, Classification, Draft, Feedback, Message
+from .models import Account, Attachment, Base, Classification, Draft, Feedback, Message, PendingOperation
 
 logger = logging.getLogger(__name__)
 
@@ -943,6 +943,235 @@ class Database:
 
             logger.info(f"Refreshed tag stats: {len(tag_counts)} unique tags")
             return tag_counts
+
+    # Pending operations queue (async provider sync)
+
+    def queue_pending_operation(
+        self,
+        account_id: str,
+        message_id: str,
+        operation: str,
+    ) -> PendingOperation:
+        """Queue an operation for async provider sync.
+
+        Handles deduplication: if an opposite operation exists for the same message,
+        they cancel out and both are removed.
+
+        Args:
+            account_id: Account ID
+            message_id: Message ID
+            operation: Operation type (mark_read, mark_unread, trash, restore, delete)
+
+        Returns:
+            Created pending operation (or None if cancelled out)
+        """
+        import uuid
+
+        # Define operations that cancel each other out
+        cancel_pairs = {
+            "mark_read": "mark_unread",
+            "mark_unread": "mark_read",
+            "trash": "restore",
+            "restore": "trash",
+        }
+
+        with self.session() as session:
+            # Check for cancelling operations
+            opposite_op = cancel_pairs.get(operation)
+            if opposite_op:
+                existing = session.execute(
+                    select(PendingOperation).where(
+                        PendingOperation.message_id == message_id,
+                        PendingOperation.operation == opposite_op,
+                        PendingOperation.status == "pending",
+                    )
+                ).scalar_one_or_none()
+
+                if existing:
+                    # Cancel out - delete the opposite operation
+                    session.delete(existing)
+                    session.commit()
+                    logger.info(
+                        f"Cancelled pending {opposite_op} with {operation} for message {message_id}"
+                    )
+                    return None
+
+            # Also check for duplicate same operation
+            existing_same = session.execute(
+                select(PendingOperation).where(
+                    PendingOperation.message_id == message_id,
+                    PendingOperation.operation == operation,
+                    PendingOperation.status == "pending",
+                )
+            ).scalar_one_or_none()
+
+            if existing_same:
+                # Already queued, no need to add again
+                logger.debug(f"Operation {operation} already queued for message {message_id}")
+                return existing_same
+
+            # Create new pending operation
+            pending_op = PendingOperation(
+                id=str(uuid.uuid4()),
+                account_id=account_id,
+                message_id=message_id,
+                operation=operation,
+            )
+            session.add(pending_op)
+            session.commit()
+            session.refresh(pending_op)
+            logger.info(f"Queued {operation} for message {message_id}")
+            return pending_op
+
+    def get_pending_operations(
+        self,
+        account_id: Optional[str] = None,
+        limit: int = 50,
+        status: str = "pending",
+    ) -> List[PendingOperation]:
+        """Get pending operations for processing.
+
+        Args:
+            account_id: Filter by account ID (optional)
+            limit: Maximum operations to return
+            status: Filter by status (default: pending)
+
+        Returns:
+            List of pending operations ordered by created_at
+        """
+        with self.session() as session:
+            query = select(PendingOperation).where(PendingOperation.status == status)
+
+            if account_id:
+                query = query.where(PendingOperation.account_id == account_id)
+
+            query = query.order_by(PendingOperation.created_at.asc()).limit(limit)
+
+            operations = list(session.execute(query).scalars().all())
+
+            # Expunge from session so they can be used after session closes
+            for op in operations:
+                session.expunge(op)
+
+            return operations
+
+    def complete_pending_operation(self, operation_id: str) -> bool:
+        """Mark a pending operation as completed.
+
+        Args:
+            operation_id: Operation ID to complete
+
+        Returns:
+            True if completed, False if not found
+        """
+        with self.session() as session:
+            operation = session.get(PendingOperation, operation_id)
+            if operation:
+                operation.status = "completed"
+                operation.last_attempt = datetime.utcnow()
+                session.commit()
+                logger.info(f"Completed operation {operation_id}: {operation.operation}")
+                return True
+            return False
+
+    def fail_pending_operation(
+        self,
+        operation_id: str,
+        error_message: str,
+        max_attempts: int = 3,
+    ) -> bool:
+        """Record a failed attempt for a pending operation.
+
+        If max_attempts is exceeded, marks the operation as failed.
+
+        Args:
+            operation_id: Operation ID
+            error_message: Error message from the failure
+            max_attempts: Maximum retry attempts before marking as failed
+
+        Returns:
+            True if updated, False if not found
+        """
+        with self.session() as session:
+            operation = session.get(PendingOperation, operation_id)
+            if operation:
+                operation.attempts += 1
+                operation.last_attempt = datetime.utcnow()
+                operation.last_error = error_message
+
+                if operation.attempts >= max_attempts:
+                    operation.status = "failed"
+                    logger.warning(
+                        f"Operation {operation_id} ({operation.operation}) failed permanently "
+                        f"after {operation.attempts} attempts: {error_message}"
+                    )
+                else:
+                    logger.info(
+                        f"Operation {operation_id} ({operation.operation}) attempt "
+                        f"{operation.attempts}/{max_attempts} failed: {error_message}"
+                    )
+
+                session.commit()
+                return True
+            return False
+
+    def get_failed_operations(self, account_id: Optional[str] = None) -> List[PendingOperation]:
+        """Get failed operations for visibility/manual retry.
+
+        Args:
+            account_id: Filter by account ID (optional)
+
+        Returns:
+            List of failed operations
+        """
+        return self.get_pending_operations(account_id=account_id, limit=100, status="failed")
+
+    def delete_pending_operation(self, operation_id: str) -> bool:
+        """Delete a pending operation (e.g., after permanent delete removes the message).
+
+        Args:
+            operation_id: Operation ID to delete
+
+        Returns:
+            True if deleted, False if not found
+        """
+        with self.session() as session:
+            operation = session.get(PendingOperation, operation_id)
+            if operation:
+                session.delete(operation)
+                session.commit()
+                return True
+            return False
+
+    def cleanup_completed_operations(self, older_than_hours: int = 24) -> int:
+        """Clean up old completed operations.
+
+        Args:
+            older_than_hours: Delete operations completed more than this many hours ago
+
+        Returns:
+            Number of operations deleted
+        """
+        from datetime import timedelta
+
+        with self.session() as session:
+            cutoff = datetime.utcnow() - timedelta(hours=older_than_hours)
+            result = session.execute(
+                select(PendingOperation).where(
+                    PendingOperation.status == "completed",
+                    PendingOperation.last_attempt < cutoff,
+                )
+            )
+            operations = result.scalars().all()
+            count = len(operations)
+
+            for op in operations:
+                session.delete(op)
+
+            session.commit()
+            if count > 0:
+                logger.info(f"Cleaned up {count} completed pending operations")
+            return count
 
     # Utility methods
 
