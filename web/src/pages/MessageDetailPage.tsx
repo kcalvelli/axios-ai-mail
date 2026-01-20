@@ -723,7 +723,7 @@ export function MessageDetailPage() {
           ) : mainHtml ? (
             <>
               {/* Main HTML content with enhanced rendering */}
-              <EmailContent html={mainHtml} />
+              <EmailContent html={mainHtml} inlineAttachments={body?.inline_attachments} />
 
               {/* Quoted HTML toggle */}
               {quotedHtml && (
@@ -744,7 +744,7 @@ export function MessageDetailPage() {
                         color: 'text.secondary',
                       }}
                     >
-                      <EmailContent html={quotedHtml} />
+                      <EmailContent html={quotedHtml} inlineAttachments={body?.inline_attachments} />
                     </Box>
                   )}
                 </Box>

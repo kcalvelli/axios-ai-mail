@@ -55,9 +55,12 @@ export const messages = {
 
   getBody: (id: string) =>
     api
-      .get<{ id: string; body_text: string | null; body_html: string | null }>(
-        `/messages/${id}/body`
-      )
+      .get<{
+        id: string;
+        body_text: string | null;
+        body_html: string | null;
+        inline_attachments?: Array<{ content_id: string; data_url: string }>;
+      }>(`/messages/${id}/body`)
       .then((r) => r.data),
 
   updateTags: (id: string, data: UpdateTagsRequest) =>

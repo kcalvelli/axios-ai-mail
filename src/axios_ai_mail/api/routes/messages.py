@@ -499,7 +499,9 @@ async def update_message_tags(
 
 @router.get("/messages/{message_id}/body")
 async def get_message_body(request: Request, message_id: str):
-    """Get full message body (text and HTML)."""
+    """Get full message body (text and HTML) with inline attachments."""
+    import base64
+
     db = request.app.state.db
     config = request.app.state.config
 
@@ -547,10 +549,42 @@ async def get_message_body(request: Request, message_id: str):
             else:
                 logger.warning("Config not available, cannot fetch body on-demand")
 
+        # Fetch inline attachments if HTML body contains cid: references
+        inline_attachments = []
+        if message.body_html and "cid:" in message.body_html:
+            try:
+                account = db.get_account(message.account_id)
+                if account:
+                    provider = ProviderFactory.create_from_account(account)
+                    provider.authenticate()
+
+                    # Get all attachments
+                    attachments = provider.list_attachments(message_id)
+
+                    # Filter to inline attachments with content_id
+                    for att in attachments:
+                        content_id = att.get("content_id", "")
+                        if content_id and att.get("is_inline", False):
+                            try:
+                                # Fetch attachment data
+                                data = provider.get_attachment(message_id, att["id"])
+                                # Convert to base64 data URL
+                                data_url = f"data:{att['content_type']};base64,{base64.b64encode(data).decode('ascii')}"
+                                inline_attachments.append({
+                                    "content_id": content_id,
+                                    "data_url": data_url,
+                                })
+                                logger.debug(f"Fetched inline attachment: cid:{content_id}")
+                            except Exception as att_error:
+                                logger.warning(f"Failed to fetch inline attachment {att['id']}: {att_error}")
+            except Exception as e:
+                logger.warning(f"Failed to fetch inline attachments for {message_id}: {e}")
+
         return {
             "id": message.id,
             "body_text": message.body_text,
             "body_html": message.body_html,
+            "inline_attachments": inline_attachments,
         }
 
     except HTTPException:

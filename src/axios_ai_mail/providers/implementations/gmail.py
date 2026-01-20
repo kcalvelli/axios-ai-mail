@@ -551,6 +551,11 @@ class GmailProvider(BaseEmailProvider):
                         # Headers is a list of {name, value} dicts, not a dict
                         headers = {h["name"]: h["value"] for h in part.get("headers", [])}
                         content_disposition = headers.get("Content-Disposition", "")
+                        # Get Content-ID for inline images (used for cid: references)
+                        content_id = headers.get("Content-ID", "")
+                        # Strip angle brackets if present: <image001.jpg@...> -> image001.jpg@...
+                        if content_id.startswith("<") and content_id.endswith(">"):
+                            content_id = content_id[1:-1]
 
                         attachments.append({
                             "id": attachment_id,
@@ -558,6 +563,7 @@ class GmailProvider(BaseEmailProvider):
                             "content_type": part.get("mimeType", "application/octet-stream"),
                             "size": str(part["body"].get("size", 0)),
                             "is_inline": content_disposition.startswith("inline"),
+                            "content_id": content_id,
                         })
 
                 # Recurse into multipart parts

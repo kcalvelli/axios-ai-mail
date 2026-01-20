@@ -746,7 +746,7 @@ export function MessageDetail({
                   )}
 
                   {/* Main HTML content with enhanced rendering */}
-                  <EmailContent html={mainHtml} compact={compact} />
+                  <EmailContent html={mainHtml} compact={compact} inlineAttachments={body?.inline_attachments} />
 
                   {/* Quoted HTML toggle */}
                   {quotedHtml && (
@@ -767,7 +767,7 @@ export function MessageDetail({
                             color: 'text.secondary',
                           }}
                         >
-                          <EmailContent html={quotedHtml} compact={compact} />
+                          <EmailContent html={quotedHtml} compact={compact} inlineAttachments={body?.inline_attachments} />
                         </Box>
                       )}
                     </Box>

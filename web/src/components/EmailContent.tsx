@@ -9,6 +9,11 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { Box, Button, Alert, useTheme } from '@mui/material';
 import { Image, ImageNotSupported, LightMode, ZoomOutMap } from '@mui/icons-material';
 
+interface InlineAttachment {
+  content_id: string;
+  data_url: string;
+}
+
 interface EmailContentProps {
   /** Pre-sanitized HTML content */
   html: string;
@@ -18,6 +23,8 @@ interface EmailContentProps {
   onLoadRemoteImages?: () => void;
   /** Compact mode for reading pane - constrains width, linearizes tables */
   compact?: boolean;
+  /** Inline attachments for resolving cid: URLs */
+  inlineAttachments?: InlineAttachment[];
 }
 
 // Known tracking domains to strip completely
@@ -46,15 +53,29 @@ function isTrackingUrl(url: string): boolean {
 }
 
 /**
- * Replace cid: URLs (inline MIME attachments) with placeholder
+ * Replace cid: URLs (inline MIME attachments) with actual image data or placeholder
  * cid: URLs reference Content-ID headers in multipart MIME emails
  * and cannot be loaded directly by the browser
  */
-function replaceCidUrls(html: string): string {
+function replaceCidUrls(html: string, inlineAttachments?: InlineAttachment[]): string {
+  // Build a map of content_id -> data_url for quick lookup
+  const cidMap = new Map<string, string>();
+  if (inlineAttachments) {
+    for (const att of inlineAttachments) {
+      cidMap.set(att.content_id, att.data_url);
+    }
+  }
+
   return html.replace(
-    /<img([^>]*?)src=["'](cid:[^"']+)["']([^>]*)>/gi,
-    (_match, before, _cid, after) => {
-      // Create a placeholder for embedded images
+    /<img([^>]*?)src=["'](cid:([^"']+))["']([^>]*)>/gi,
+    (_match, before, _fullCid, contentId, after) => {
+      // Try to find the inline attachment by content_id
+      const dataUrl = cidMap.get(contentId);
+      if (dataUrl) {
+        // Replace cid: with actual image data URL
+        return `<img${before}src="${dataUrl}"${after}>`;
+      }
+      // Fallback: create a placeholder for unresolved embedded images
       return `<img${before}src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='60'%3E%3Crect fill='%23e0e0e0' width='100' height='60' rx='4'/%3E%3Ctext fill='%23666' x='50' y='35' text-anchor='middle' font-size='10'%3EEmbedded%3C/text%3E%3C/svg%3E" alt="Embedded image"${after}>`;
     }
   );
@@ -120,6 +141,7 @@ export function EmailContent({
   allowRemoteImages = false,
   onLoadRemoteImages,
   compact = false,
+  inlineAttachments,
 }: EmailContentProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
@@ -164,9 +186,9 @@ export function EmailContent({
 
   // Process HTML: strip tracking, optionally block images
   const processedHtml = useMemo(() => {
-    // First replace cid: URLs (inline MIME attachments) with placeholders
+    // First replace cid: URLs (inline MIME attachments) with actual data or placeholders
     // to prevent browser errors from unresolvable cid: scheme
-    let cleaned = replaceCidUrls(html);
+    let cleaned = replaceCidUrls(html, inlineAttachments);
 
     // Then strip tracking pixels
     cleaned = stripTrackingPixels(cleaned);
@@ -177,7 +199,7 @@ export function EmailContent({
     }
 
     return cleaned;
-  }, [html, showRemoteImages]);
+  }, [html, showRemoteImages, inlineAttachments]);
 
   // Check if there are blockable remote images
   const hasRemote = useMemo(() => hasRemoteImages(html), [html]);
