@@ -723,7 +723,8 @@ export function MessageDetailPage() {
           ) : mainHtml ? (
             <>
               {/* Main HTML content with enhanced rendering */}
-              <EmailContent html={mainHtml} inlineAttachments={body?.inline_attachments} />
+              {/* Pass compact={isMobile} to enable scaling for wide emails on mobile */}
+              <EmailContent html={mainHtml} compact={isMobile} inlineAttachments={body?.inline_attachments} />
 
               {/* Quoted HTML toggle */}
               {quotedHtml && (
@@ -744,7 +745,7 @@ export function MessageDetailPage() {
                         color: 'text.secondary',
                       }}
                     >
-                      <EmailContent html={quotedHtml} inlineAttachments={body?.inline_attachments} />
+                      <EmailContent html={quotedHtml} compact={isMobile} inlineAttachments={body?.inline_attachments} />
                     </Box>
                   )}
                 </Box>
