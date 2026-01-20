@@ -128,6 +128,7 @@ RESPOND WITH ONLY A JSON OBJECT (no markdown, no explanation):
                     "prompt": prompt,
                     "format": "json",
                     "stream": False,
+                    "keep_alive": 0,  # Unload model immediately after request to free VRAM
                     "options": {
                         "temperature": self.config.temperature,
                     },
@@ -304,6 +305,7 @@ RESPOND WITH ONLY A JSON OBJECT (no markdown, no explanation):
                     "prompt": prompt,
                     "format": "json",
                     "stream": False,
+                    "keep_alive": 0,  # Unload model immediately after request to free VRAM
                     "options": {
                         "temperature": 0.7,  # Higher temperature for more creative replies
                     },
