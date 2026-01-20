@@ -1,29 +1,16 @@
 /**
- * EmailContent component - Safe HTML email rendering using "Static Jail" pattern
+ * EmailContent component - Safe HTML email rendering
  *
- * Security model:
- * - Sanitizes HTML internally with DOMPurify (caller passes raw HTML)
- * - Uses "Static Jail" pattern: ref + imperative innerHTML, React never touches content
- * - Strips event handlers (onerror, onload) that could cause render loops
- * - Blocks known tracking domains at sanitization level
- *
- * Features:
- * - Dark mode adaptation using CSS filter inversion (industry standard)
- * - Remote image blocking with user prompt to load
- * - Safe link handling (open in new tab)
- * - Typography improvements
- * - Responsive tables
- *
- * @see https://www.litmus.com/blog/the-ultimate-guide-to-dark-mode-for-email-marketers
+ * Security: Uses DOMPurify to sanitize HTML
+ * Performance: Strips tracking pixels to prevent render issues
  */
 
-import { useState, useMemo, useCallback, useRef, useEffect, memo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Box, Button, Alert, useTheme } from '@mui/material';
 import { Image, ImageNotSupported, LightMode } from '@mui/icons-material';
-import DOMPurify from 'dompurify';
 
 interface EmailContentProps {
-  /** Raw HTML content (will be sanitized internally) */
+  /** Pre-sanitized HTML content */
   html: string;
   /** Whether to show remote images by default */
   allowRemoteImages?: boolean;
@@ -31,31 +18,70 @@ interface EmailContentProps {
   onLoadRemoteImages?: () => void;
 }
 
-// Default allowed tags for email content
-const ALLOWED_TAGS = [
-  'p', 'br', 'strong', 'em', 'u', 'b', 'i', 's',
-  'a', 'ul', 'ol', 'li',
-  'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-  'blockquote', 'div', 'span', 'pre', 'code',
-  'table', 'tr', 'td', 'th', 'thead', 'tbody',
-  'img',
+// Known tracking domains to strip completely
+const TRACKING_DOMAINS = [
+  'cc.rs6.net',           // Constant Contact
+  'r20.rs6.net',          // Constant Contact
+  'open.spotify.com/track', // Spotify tracking
+  'mailchimp.com/track',  // Mailchimp
+  't.co/',                // Twitter tracking
+  'click.',               // Generic click tracking
+  'track.',               // Generic tracking
+  'pixel.',               // Pixel tracking
+  'beacon.',              // Beacon tracking
+  '/track',               // Path-based tracking
+  '/pixel',               // Path-based pixel
+  '/open',                // Open tracking
+  'trk.klclick',          // Klaviyo
 ];
-
-// Allowed attributes - notably excludes event handlers
-const ALLOWED_ATTR = [
-  'href', 'target', 'rel', 'class', 'style',
-  'src', 'alt', 'width', 'height',
-];
-
-// Forbidden attributes that could cause issues (event handlers)
-const FORBID_ATTR = ['onerror', 'onload', 'onclick', 'onmouseover'];
 
 /**
- * Check if HTML contains remote images
+ * Check if URL is a tracking pixel
+ */
+function isTrackingUrl(url: string): boolean {
+  const lowerUrl = url.toLowerCase();
+  return TRACKING_DOMAINS.some(domain => lowerUrl.includes(domain));
+}
+
+/**
+ * Strip tracking pixels and tiny images from HTML
+ */
+function stripTrackingPixels(html: string): string {
+  // Remove img tags with tracking URLs
+  let cleaned = html.replace(
+    /<img[^>]*src=["']([^"']+)["'][^>]*>/gi,
+    (match, src) => {
+      if (isTrackingUrl(src)) {
+        return ''; // Remove tracking pixels entirely
+      }
+      // Check for 1x1 pixels by width/height attributes
+      if (/width=["']?1["']?/i.test(match) && /height=["']?1["']?/i.test(match)) {
+        return ''; // Remove 1x1 tracking pixels
+      }
+      return match;
+    }
+  );
+
+  // Remove empty img tags that might have been left
+  cleaned = cleaned.replace(/<img[^>]*src=["']['"][^>]*>/gi, '');
+
+  return cleaned;
+}
+
+/**
+ * Check if HTML contains remote images (excluding tracking pixels)
  */
 function hasRemoteImages(html: string): boolean {
   const pattern = /<img[^>]+src=["']https?:\/\//i;
-  return pattern.test(html);
+  if (!pattern.test(html)) return false;
+
+  // Check if any non-tracking remote images exist
+  const imgMatches = html.match(/<img[^>]+src=["'](https?:\/\/[^"']+)["'][^>]*>/gi) || [];
+  return imgMatches.some(img => {
+    const srcMatch = img.match(/src=["'](https?:\/\/[^"']+)["']/i);
+    if (!srcMatch) return false;
+    return !isTrackingUrl(srcMatch[1]);
+  });
 }
 
 /**
@@ -64,13 +90,15 @@ function hasRemoteImages(html: string): boolean {
 function blockRemoteImages(html: string): string {
   return html.replace(
     /<img([^>]*?)src=["'](https?:\/\/[^"']+)["']/gi,
-    '<img$1data-blocked-src="$2" src="data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'%3E%3Crect fill=\'%23555\' width=\'100\' height=\'100\'/%3E%3Ctext fill=\'%23999\' x=\'50\' y=\'55\' text-anchor=\'middle\' font-size=\'12\'%3EImage%3C/text%3E%3C/svg%3E"'
+    (match, attrs, src) => {
+      // Don't block if already a data URL or if it's been stripped
+      if (src.startsWith('data:')) return match;
+      return `<img${attrs}data-blocked-src="${src}" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect fill='%23555' width='100' height='100'/%3E%3Ctext fill='%23999' x='50' y='55' text-anchor='middle' font-size='12'%3EImage%3C/text%3E%3C/svg%3E"`;
+    }
   );
 }
 
-// Wrapped in memo to prevent re-renders when html content hasn't changed
-// This is critical for WebSocket-heavy environments where parent re-renders are frequent
-export const EmailContent = memo(function EmailContent({
+export function EmailContent({
   html,
   allowRemoteImages = false,
   onLoadRemoteImages,
@@ -79,45 +107,30 @@ export const EmailContent = memo(function EmailContent({
   const isDark = theme.palette.mode === 'dark';
   const [showRemoteImages, setShowRemoteImages] = useState(allowRemoteImages);
   const [forceOriginal, setForceOriginal] = useState(false);
-  const contentRef = useRef<HTMLDivElement>(null);
 
-  // Step 1: Sanitize HTML with DOMPurify (memoized - runs once per html change)
-  const sanitizedHtml = useMemo(() => {
-    return DOMPurify.sanitize(html, {
-      ALLOWED_TAGS,
-      ALLOWED_ATTR,
-      FORBID_ATTR,
-    });
-  }, [html]);
-
-  // Step 2: Check for remote images in sanitized content
-  const hasRemote = useMemo(() => hasRemoteImages(sanitizedHtml), [sanitizedHtml]);
-
-  // Step 3: Process for remote image blocking (memoized)
+  // Process HTML: strip tracking, optionally block images
   const processedHtml = useMemo(() => {
-    if (!showRemoteImages && hasRemote) {
-      return blockRemoteImages(sanitizedHtml);
-    }
-    return sanitizedHtml;
-  }, [sanitizedHtml, showRemoteImages, hasRemote]);
+    // First strip tracking pixels
+    let cleaned = stripTrackingPixels(html);
 
-  // Step 4: "Static Jail" - imperatively set innerHTML ONCE per content change
-  // React never touches the content after this, breaking any potential render loops
-  useEffect(() => {
-    if (contentRef.current) {
-      contentRef.current.innerHTML = processedHtml;
+    // Then optionally block remaining remote images
+    if (!showRemoteImages && hasRemoteImages(cleaned)) {
+      cleaned = blockRemoteImages(cleaned);
     }
-  }, [processedHtml]);
+
+    return cleaned;
+  }, [html, showRemoteImages]);
+
+  // Check if there are blockable remote images
+  const hasRemote = useMemo(() => hasRemoteImages(html), [html]);
 
   const handleLoadImages = useCallback(() => {
     setShowRemoteImages(true);
     onLoadRemoteImages?.();
   }, [onLoadRemoteImages]);
 
-  // Should we apply dark mode inversion?
   const applyDarkMode = isDark && !forceOriginal;
 
-  // Handle link clicks - memoized to prevent recreating on each render
   const handleClick = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     if (target.tagName === 'A') {
@@ -133,7 +146,6 @@ export const EmailContent = memo(function EmailContent({
 
   return (
     <Box>
-      {/* Remote images banner */}
       {hasRemote && !showRemoteImages && (
         <Alert
           severity="info"
@@ -154,84 +166,51 @@ export const EmailContent = memo(function EmailContent({
         </Alert>
       )}
 
-      {/* Dark mode toggle - show option to view original */}
       {isDark && (
         <Box sx={{ mb: 1, display: 'flex', justifyContent: 'flex-end' }}>
           <Button
             size="small"
             startIcon={<LightMode />}
             onClick={() => setForceOriginal(!forceOriginal)}
-            sx={{
-              textTransform: 'none',
-              fontSize: '0.75rem',
-              color: 'text.secondary',
-            }}
+            sx={{ textTransform: 'none', fontSize: '0.75rem', color: 'text.secondary' }}
           >
             {forceOriginal ? 'Dark mode off · Turn on' : 'Dark mode on · Show original'}
           </Button>
         </Box>
       )}
 
-      {/* Email content wrapper - provides light background for both modes */}
       <Box
         sx={{
-          // Always provide a light background for email content in dark mode
           ...(isDark && {
             backgroundColor: applyDarkMode ? '#ffffff' : '#fafafa',
             borderRadius: 2,
             overflow: 'hidden',
-            boxShadow: applyDarkMode
-              ? 'none'
-              : '0 2px 8px rgba(0,0,0,0.4), 0 0 1px rgba(0,0,0,0.3)',
+            boxShadow: applyDarkMode ? 'none' : '0 2px 8px rgba(0,0,0,0.4)',
           }),
         }}
       >
-        {/* Email content with dark mode inversion - uses ref to bypass React reconciliation */}
         <Box
-          ref={contentRef}
           className="email-content"
+          dangerouslySetInnerHTML={{ __html: processedHtml }}
           onClick={handleClick}
           sx={{
-            // Base styles
             fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
             fontSize: '15px',
             lineHeight: 1.6,
             wordBreak: 'break-word',
             overflowWrap: 'break-word',
             padding: isDark ? 3 : 0,
-
-            // Dark mode: CSS filter inversion
             ...(applyDarkMode && {
               filter: 'invert(1) hue-rotate(180deg)',
-              '& img': {
-                filter: 'invert(1) hue-rotate(180deg)',
-              },
-              '& video, & iframe': {
-                filter: 'invert(1) hue-rotate(180deg)',
-              },
+              '& img': { filter: 'invert(1) hue-rotate(180deg)' },
+              '& video, & iframe': { filter: 'invert(1) hue-rotate(180deg)' },
             }),
-
-            // Images - suppress errors silently
-            '& img': {
-              maxWidth: '100%',
-              height: 'auto',
-              display: 'block',
-            },
-            // Hide broken images (blocked by ad blocker)
-            '& img[src^="data:"]': {
-              opacity: 0.5,
-            },
-
-            // Links
+            '& img': { maxWidth: '100%', height: 'auto', display: 'block' },
             '& a': {
               color: applyDarkMode ? '#1976d2' : theme.palette.primary.main,
               textDecoration: 'none',
-              '&:hover': {
-                textDecoration: 'underline',
-              },
+              '&:hover': { textDecoration: 'underline' },
             },
-
-            // Preformatted text
             '& pre, & code': {
               backgroundColor: '#f5f5f5',
               padding: theme.spacing(0.5, 1),
@@ -240,18 +219,12 @@ export const EmailContent = memo(function EmailContent({
               fontSize: '0.9em',
               overflow: 'auto',
             },
-            '& pre': {
-              padding: theme.spacing(2),
-              whiteSpace: 'pre-wrap',
-            },
-
-            // Tables
+            '& pre': { padding: theme.spacing(2), whiteSpace: 'pre-wrap' },
             '& table': {
               borderCollapse: 'collapse',
               width: '100%',
               maxWidth: '100%',
               marginBottom: theme.spacing(2),
-              tableLayout: 'fixed',
             },
             '& td, & th': {
               border: '1px solid #ddd',
@@ -259,50 +232,26 @@ export const EmailContent = memo(function EmailContent({
               textAlign: 'left',
               wordBreak: 'break-word',
             },
-            '& th': {
-              backgroundColor: '#f5f5f5',
-              fontWeight: 600,
-            },
-
-            // Blockquotes
+            '& th': { backgroundColor: '#f5f5f5', fontWeight: 600 },
             '& blockquote': {
               margin: theme.spacing(2, 0),
               padding: theme.spacing(1, 2),
               borderLeft: '4px solid #ddd',
               backgroundColor: '#f9f9f9',
             },
-
-            // Lists
-            '& ul, & ol': {
-              paddingLeft: theme.spacing(3),
-              marginBottom: theme.spacing(2),
-            },
-            '& li': {
-              marginBottom: theme.spacing(0.5),
-            },
-
-            // Headings
+            '& ul, & ol': { paddingLeft: theme.spacing(3), marginBottom: theme.spacing(2) },
+            '& li': { marginBottom: theme.spacing(0.5) },
             '& h1, & h2, & h3, & h4, & h5, & h6': {
               marginTop: theme.spacing(2),
               marginBottom: theme.spacing(1),
               fontWeight: 600,
               lineHeight: 1.3,
             },
-
-            // Paragraphs
-            '& p': {
-              marginBottom: theme.spacing(1.5),
-            },
-
-            // Horizontal rule
-            '& hr': {
-              border: 'none',
-              borderTop: '1px solid #ddd',
-              margin: theme.spacing(2, 0),
-            },
+            '& p': { marginBottom: theme.spacing(1.5) },
+            '& hr': { border: 'none', borderTop: '1px solid #ddd', margin: theme.spacing(2, 0) },
           }}
         />
       </Box>
     </Box>
   );
-});
+}
