@@ -157,16 +157,30 @@ export function MessageDetailPage() {
     onToggleRead: handleKeyboardToggleRead,
   });
 
-  // Sync current message with app store selection
+  // Track whether we're syncing URL→store vs store→URL to prevent loops
+  const isSyncingFromUrl = useRef(false);
+
+  // Sync URL id to app store selection (URL is source of truth when navigating by click)
   useEffect(() => {
     if (id && id !== selectedMessageId) {
+      isSyncingFromUrl.current = true;
       setSelectedMessageId(id);
+      // Reset flag after state update propagates
+      requestAnimationFrame(() => {
+        isSyncingFromUrl.current = false;
+      });
     }
   }, [id, selectedMessageId, setSelectedMessageId]);
 
-  // Navigate to selected message when j/k changes selection
+  // Navigate to selected message when j/k keyboard navigation changes selection
+  // Only navigate if the change was NOT from URL sync (prevents loop)
   useEffect(() => {
-    if (selectedMessageId && selectedMessageId !== id && messageIds.includes(selectedMessageId)) {
+    if (
+      selectedMessageId &&
+      selectedMessageId !== id &&
+      messageIds.includes(selectedMessageId) &&
+      !isSyncingFromUrl.current
+    ) {
       navigate(`/messages/${selectedMessageId}`, { replace: true });
     }
   }, [selectedMessageId, id, messageIds, navigate]);
