@@ -86,7 +86,11 @@ export function MessageDetailPage() {
     folder: message?.folder || 'inbox',
     limit: 200,
   });
-  const messageIds = messagesData?.messages.map((m) => m.id) || [];
+  // Memoize to prevent new array reference on every render (which would trigger useEffect loops)
+  const messageIds = useMemo(
+    () => messagesData?.messages.map((m) => m.id) || [],
+    [messagesData?.messages]
+  );
 
   // Keyboard navigation callbacks
   const handleKeyboardReply = useCallback((_messageId: string) => {

@@ -4,7 +4,7 @@
  * Mobile: Single pane (list or detail)
  */
 
-import { useCallback, useRef, useState, useEffect } from 'react';
+import { useCallback, useRef, useState, useEffect, useMemo } from 'react';
 import { Box, Typography, useTheme } from '@mui/material';
 import { useAppStore } from '../store/appStore';
 import { useIsMobile } from '../hooks/useIsMobile';
@@ -47,7 +47,8 @@ export function ReadingPane({
     setReadingPaneWidth,
   } = useAppStore();
 
-  const messageIds = messages.map((m) => m.id);
+  // Memoize to prevent new array reference on every render
+  const messageIds = useMemo(() => messages.map((m) => m.id), [messages]);
 
   // Keyboard navigation
   const { helpOpen, setHelpOpen } = useKeyboardNavigation({
