@@ -2,6 +2,45 @@
 
 ## ADDED Requirements
 
+### Requirement: Safe HTML Processing (All Views)
+
+The EmailContent component MUST process HTML safely before rendering, handling edge cases that cause browser errors or privacy issues.
+
+#### Scenario: Tracking pixel removal
+- **Given** an HTML email with tracking pixels (1x1 images, known tracking domains)
+- **When** rendered in EmailContent
+- **Then** tracking pixels are stripped from the HTML
+- **And** rendering performance is not impacted by hidden images
+
+#### Scenario: Remote image blocking
+- **Given** an HTML email with remote images (http/https URLs)
+- **When** rendered in EmailContent with default settings
+- **Then** remote images are replaced with placeholders
+- **And** user can click "Load Images" to show them
+- **And** no privacy-leaking requests are made without consent
+
+### Requirement: Inline Image (cid:) Handling
+
+The EmailContent component MUST handle `cid:` URLs gracefully. These URLs reference Content-ID headers in multipart MIME emails for inline/embedded images.
+
+#### Scenario: cid: URL placeholder (current)
+- **Given** an HTML email with inline images using cid: URLs
+- **When** rendered in EmailContent
+- **Then** cid: URLs are replaced with placeholder images
+- **And** no browser console errors occur (ERR_UNKNOWN_URL_SCHEME)
+
+#### Scenario: cid: URL resolution (future enhancement)
+- **Given** an HTML email with inline images using cid: URLs
+- **And** the message body API returns inline attachment data
+- **When** rendered in EmailContent
+- **Then** cid: URLs are resolved to actual image data URLs
+- **And** inline images display correctly
+
+**Implementation Notes:**
+- Current: `replaceCidUrls()` replaces cid: with SVG placeholder
+- Future: API returns `inline_attachments: [{cid: string, data_url: string}]`
+- Future: `replaceCidUrls()` maps cid references to data URLs from API
+
 ### Requirement: Compact Mode HTML Rendering
 
 The EmailContent component MUST support a compact mode that optimizes HTML email rendering for narrow viewports like the reading pane.

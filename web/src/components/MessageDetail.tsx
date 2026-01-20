@@ -485,8 +485,8 @@ export function MessageDetail({
       <Box
         display="flex"
         alignItems="center"
-        gap={isMobile ? 0.5 : 1}
-        mb={isMobile ? 2 : 1}
+        gap={isMobile ? 0.5 : compact ? 0.5 : 1}
+        mb={isMobile ? 2 : compact ? 0.5 : 1}
         sx={{
           // Mobile: sticky with background for visibility
           ...(isMobile && {
@@ -555,14 +555,14 @@ export function MessageDetail({
       {/* Message Content */}
       <Paper sx={{ p: compact ? 2 : 3, bgcolor: isDark ? '#1E1E1E' : 'background.paper' }}>
         {/* Sender with Avatar */}
-        <Box display="flex" alignItems="flex-start" gap={2} mb={2}>
-          <SenderAvatar email={senderEmail} name={senderName} size={48} />
+        <Box display="flex" alignItems="flex-start" gap={compact ? 1.5 : 2} mb={compact ? 1 : 2}>
+          <SenderAvatar email={senderEmail} name={senderName} size={compact ? 36 : 48} />
           <Box flex={1} minWidth={0}>
-            <Typography variant="subtitle1" fontWeight={600}>
+            <Typography variant={compact ? 'body1' : 'subtitle1'} fontWeight={600}>
               {senderName || senderEmail}
             </Typography>
             {senderName && (
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" color="text.secondary" sx={{ fontSize: compact ? '0.8rem' : undefined }}>
                 {senderEmail}
               </Typography>
             )}
@@ -573,17 +573,17 @@ export function MessageDetail({
         </Box>
 
         {/* Subject */}
-        <Typography variant="h6" gutterBottom>
+        <Typography variant={compact ? 'subtitle1' : 'h6'} gutterBottom sx={{ fontWeight: 600 }}>
           {message.subject}
         </Typography>
 
         {/* To */}
-        <Typography variant="body2" color="text.secondary" gutterBottom>
+        <Typography variant="body2" color="text.secondary" gutterBottom sx={{ fontSize: compact ? '0.8rem' : undefined }}>
           <strong>To:</strong> {message.to_emails.join(', ')}
         </Typography>
 
         {/* Tags Section */}
-        <Box mt={2} mb={2}>
+        <Box mt={compact ? 1 : 2} mb={compact ? 1 : 2}>
           {editingTags ? (
             <Box>
               <Autocomplete
@@ -613,8 +613,8 @@ export function MessageDetail({
 
         {/* Attachments */}
         {(attachments.length > 0 || attachmentsLoading) && (
-          <Box mt={2} mb={2}>
-            <Typography variant="subtitle2" gutterBottom>
+          <Box mt={compact ? 1 : 2} mb={compact ? 1 : 2}>
+            <Typography variant="subtitle2" gutterBottom sx={{ fontSize: compact ? '0.8rem' : undefined }}>
               <AttachFile fontSize="small" sx={{ verticalAlign: 'middle', mr: 0.5 }} />
               Attachments ({attachments.length})
             </Typography>
@@ -696,10 +696,10 @@ export function MessageDetail({
           </DialogContent>
         </Dialog>
 
-        <Divider sx={{ my: 2 }} />
+        <Divider sx={{ my: compact ? 1.5 : 2 }} />
 
         {/* Message Body */}
-        <Box mt={2}>
+        <Box mt={compact ? 1 : 2}>
           {bodyLoading ? (
             <Box display="flex" justifyContent="center" p={2}>
               <CircularProgress size={24} />
@@ -796,8 +796,8 @@ export function MessageDetail({
           tags={message.tags}
         />
 
-        {/* Metadata */}
-        {message.classified_at && (
+        {/* Metadata - more compact in reading pane mode */}
+        {message.classified_at && !compact && (
           <Box mt={3} display="flex" alignItems="center" gap={1} className="no-print">
             <Typography variant="caption" color="text.secondary">
               Classified on {new Date(message.classified_at).toLocaleString()}
@@ -811,6 +811,12 @@ export function MessageDetail({
                 </Box>
               </>
             )}
+          </Box>
+        )}
+        {/* Compact mode: just show confidence inline */}
+        {message.classified_at && compact && message.confidence !== undefined && message.confidence !== null && (
+          <Box mt={1.5} display="flex" alignItems="center" gap={0.5} className="no-print">
+            <ConfidenceBadgeAlways confidence={message.confidence} size="small" />
           </Box>
         )}
 

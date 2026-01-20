@@ -1,8 +1,16 @@
-# Change: Improve Compact HTML Rendering
+# Change: Improve Email HTML Rendering
 
 ## Why
 
-In the reading pane (compact/split view), HTML emails often render poorly:
+Email HTML rendering has several challenges that affect all views:
+
+1. **Inline images broken** - `cid:` URLs referencing MIME inline attachments cause browser errors and don't display.
+
+2. **Tracking pixels** - Hidden 1x1 images and tracking beacons can cause performance issues.
+
+3. **Security concerns** - Remote images can leak privacy; need controlled loading.
+
+Additionally, in the reading pane (compact/split view), HTML emails often render poorly:
 
 1. **Wide layouts overflow** - Marketing emails with fixed-width tables (600-800px) don't fit in the narrow reading pane, causing horizontal scrolling or content cutoff.
 
@@ -14,7 +22,36 @@ In the reading pane (compact/split view), HTML emails often render poorly:
 
 ## What Changes
 
-### 1. Viewport-Constrained Container
+### General HTML Rendering (All Views)
+
+#### Inline Image (cid:) Handling
+
+Replace `cid:` URLs with placeholders to prevent browser errors:
+
+```tsx
+function replaceCidUrls(html: string): string {
+  return html.replace(
+    /<img([^>]*?)src=["'](cid:[^"']+)["']([^>]*)>/gi,
+    (_match, before, _cid, after) => {
+      return `<img${before}src="data:image/svg+xml,..." alt="Embedded image"${after}>`;
+    }
+  );
+}
+```
+
+Future enhancement: Resolve `cid:` to actual image data URLs via API.
+
+#### Tracking Pixel Removal
+
+Strip known tracking domains and 1x1 pixel images to improve performance and privacy.
+
+#### Remote Image Blocking
+
+Block remote images by default with option to load, preventing privacy leaks.
+
+### Compact Mode Specific
+
+#### 1. Viewport-Constrained Container
 
 Wrap email HTML in a container that simulates a narrow viewport:
 

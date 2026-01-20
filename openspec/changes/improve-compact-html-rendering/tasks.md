@@ -28,11 +28,11 @@
 - [x] 2.2.1 Calculate scale factor for overflowing content
 - [x] 2.2.2 Apply transform with top-left origin
 - [x] 2.2.3 Adjust container width to match scaled content
-- [ ] 2.2.4 Add smooth transition for scale changes
+- [x] 2.2.4 Add smooth transition for scale changes
 
 ### 2.3 Scale Indicator
 - [x] 2.3.1 Show small indicator when content is scaled
-- [ ] 2.3.2 Add "View full size" button to expand
+- [x] 2.3.2 Add "View full size" button to expand
 
 ## 3. Plain Text Preference
 
@@ -54,9 +54,9 @@
 - [x] 4.1.3 Ensure compact mode activates in ReadingPane split view
 
 ### 4.2 Layout Adjustments
-- [ ] 4.2.1 Reduce header spacing in compact mode
-- [ ] 4.2.2 Inline action buttons in compact mode
-- [ ] 4.2.3 Collapse metadata sections in compact mode
+- [x] 4.2.1 Reduce header spacing in compact mode
+- [x] 4.2.2 Inline action buttons in compact mode
+- [x] 4.2.3 Collapse metadata sections in compact mode
 
 ## 5. Testing
 
@@ -77,17 +77,23 @@
 - EmailContent compact prop with font size, padding, and margin adjustments
 - Table linearization (display: block, width: 100%)
 - Overflow detection and CSS transform scaling
-- Scale indicator showing percentage
+- Scale indicator showing percentage with "View full size" toggle
+- Smooth CSS transitions for scale changes
 - Plain text preference in app store with localStorage persistence
 - Settings page Display tab with preference toggle
 - MessageDetail integration passing compact prop
 - Per-email HTML/text toggle
+- Compact mode layout adjustments:
+  - Reduced header spacing and gaps
+  - Smaller sender avatar (36px vs 48px)
+  - Tighter margins throughout
+  - Collapsed metadata (just confidence badge in compact mode)
 
-**Remaining (optional polish):**
-- Testing with various email types
+**Remaining (optional):**
+- Manual testing with various email types
 - Cross-browser testing
-- Additional layout adjustments (header spacing, collapsed metadata)
-- "View full size" button for scaled content
-- Smooth transition animations
 
-**Estimated remaining effort:** 2-3 hours for polish and testing
+**Future Enhancement:**
+- Inline image (cid:) resolution - currently shows placeholder, future: resolve to actual image data via API
+
+**Status:** Feature complete, ready for testing

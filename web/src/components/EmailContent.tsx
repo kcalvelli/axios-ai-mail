@@ -46,6 +46,21 @@ function isTrackingUrl(url: string): boolean {
 }
 
 /**
+ * Replace cid: URLs (inline MIME attachments) with placeholder
+ * cid: URLs reference Content-ID headers in multipart MIME emails
+ * and cannot be loaded directly by the browser
+ */
+function replaceCidUrls(html: string): string {
+  return html.replace(
+    /<img([^>]*?)src=["'](cid:[^"']+)["']([^>]*)>/gi,
+    (_match, before, _cid, after) => {
+      // Create a placeholder for embedded images
+      return `<img${before}src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='60'%3E%3Crect fill='%23e0e0e0' width='100' height='60' rx='4'/%3E%3Ctext fill='%23666' x='50' y='35' text-anchor='middle' font-size='10'%3EEmbedded%3C/text%3E%3C/svg%3E" alt="Embedded image"${after}>`;
+    }
+  );
+}
+
+/**
  * Strip tracking pixels and tiny images from HTML
  */
 function stripTrackingPixels(html: string): string {
@@ -116,6 +131,7 @@ export function EmailContent({
   const containerRef = useRef<HTMLDivElement>(null);
   const [scaleFactor, setScaleFactor] = useState(1);
   const [isScaled, setIsScaled] = useState(false);
+  const [forceFullSize, setForceFullSize] = useState(false);
 
   // Measure content and apply scaling if needed in compact mode
   useEffect(() => {
@@ -148,8 +164,12 @@ export function EmailContent({
 
   // Process HTML: strip tracking, optionally block images
   const processedHtml = useMemo(() => {
-    // First strip tracking pixels
-    let cleaned = stripTrackingPixels(html);
+    // First replace cid: URLs (inline MIME attachments) with placeholders
+    // to prevent browser errors from unresolvable cid: scheme
+    let cleaned = replaceCidUrls(html);
+
+    // Then strip tracking pixels
+    cleaned = stripTrackingPixels(cleaned);
 
     // Then optionally block remaining remote images
     if (!showRemoteImages && hasRemoteImages(cleaned)) {
@@ -223,14 +243,21 @@ export function EmailContent({
           sx={{
             display: 'flex',
             alignItems: 'center',
-            gap: 0.5,
+            justifyContent: 'space-between',
             mb: 1,
-            color: 'text.secondary',
-            fontSize: '0.75rem',
           }}
         >
-          <ZoomOutMap sx={{ fontSize: 14 }} />
-          <span>Scaled to fit ({Math.round(scaleFactor * 100)}%)</span>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary', fontSize: '0.75rem' }}>
+            <ZoomOutMap sx={{ fontSize: 14 }} />
+            <span>{forceFullSize ? 'Full size' : `Scaled to fit (${Math.round(scaleFactor * 100)}%)`}</span>
+          </Box>
+          <Button
+            size="small"
+            onClick={() => setForceFullSize(!forceFullSize)}
+            sx={{ textTransform: 'none', fontSize: '0.75rem', color: 'text.secondary', minWidth: 'auto', p: 0.5 }}
+          >
+            {forceFullSize ? 'Fit to pane' : 'View full size'}
+          </Button>
         </Box>
       )}
 
@@ -243,10 +270,10 @@ export function EmailContent({
             overflow: 'hidden',
             boxShadow: applyDarkMode ? 'none' : '0 2px 8px rgba(0,0,0,0.4)',
           }),
-          // Compact mode: constrain width to trigger responsive media queries
+          // Compact mode: constrain width, allow scroll when viewing full size
           ...(compact && {
             maxWidth: '100%',
-            overflow: 'hidden',
+            overflow: forceFullSize ? 'auto' : 'hidden',
           }),
         }}
       >
@@ -262,8 +289,10 @@ export function EmailContent({
             wordBreak: 'break-word',
             overflowWrap: 'break-word',
             padding: isDark ? (compact ? 2 : 3) : 0,
-            // Apply scaling transform for overflowing content in compact mode
-            ...(compact && isScaled && {
+            // Smooth transition for scale changes
+            transition: 'transform 0.2s ease-out, width 0.2s ease-out',
+            // Apply scaling transform for overflowing content in compact mode (unless user wants full size)
+            ...(compact && isScaled && !forceFullSize && {
               transform: `scale(${scaleFactor})`,
               transformOrigin: 'top left',
               width: `${100 / scaleFactor}%`,
