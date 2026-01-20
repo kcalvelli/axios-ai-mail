@@ -378,7 +378,29 @@ export function MessageDetailPage() {
     }
   };
 
-  const handlePrint = () => {
+  // Sanitize HTML first, then process for quote collapsing
+  // IMPORTANT: These hooks MUST be called before any early returns to satisfy React's rules of hooks
+  const sanitizedHtml = useMemo(() => {
+    if (!body?.body_html) return '';
+    return DOMPurify.sanitize(body.body_html, {
+      ALLOWED_TAGS: [
+        'p', 'br', 'strong', 'em', 'u', 'b', 'i', 's',
+        'a', 'ul', 'ol', 'li',
+        'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+        'blockquote', 'div', 'span', 'pre', 'code',
+        'table', 'tr', 'td', 'th', 'thead', 'tbody',
+        'img',
+      ],
+      ALLOWED_ATTR: ['href', 'target', 'rel', 'class', 'style', 'src', 'alt', 'width', 'height'],
+    });
+  }, [body?.body_html]);
+
+  const { mainHtml, quotedHtml } = useMemo(() => {
+    if (!sanitizedHtml) return { mainHtml: '', quotedHtml: '' };
+    return processHtmlQuotes(sanitizedHtml);
+  }, [sanitizedHtml]);
+
+  const handlePrint = useCallback(() => {
     if (!message) return;
 
     // Create a new window with just the email content for clean printing
@@ -451,8 +473,9 @@ export function MessageDetailPage() {
     printWindow.document.close();
     printWindow.onload = () => { printWindow.print(); printWindow.close(); };
     setTimeout(() => { if (!printWindow.closed) { printWindow.print(); printWindow.close(); } }, 500);
-  };
+  }, [message, body]);
 
+  // Early returns AFTER all hooks
   if (isLoading) {
     return (
       <Box display="flex" justifyContent="center" p={4}>
@@ -482,28 +505,6 @@ export function MessageDetailPage() {
 
   const allTags = tagsData?.tags.map((t) => t.name) || [];
   const { name: senderName, email: senderEmail } = extractSenderName(message.from_email);
-
-  // Sanitize HTML first, then process for quote collapsing
-  // EmailContent will sanitize again (safe to double-sanitize) but we need clean HTML for processHtmlQuotes
-  const sanitizedHtml = useMemo(() => {
-    if (!body?.body_html) return '';
-    return DOMPurify.sanitize(body.body_html, {
-      ALLOWED_TAGS: [
-        'p', 'br', 'strong', 'em', 'u', 'b', 'i', 's',
-        'a', 'ul', 'ol', 'li',
-        'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-        'blockquote', 'div', 'span', 'pre', 'code',
-        'table', 'tr', 'td', 'th', 'thead', 'tbody',
-        'img',
-      ],
-      ALLOWED_ATTR: ['href', 'target', 'rel', 'class', 'style', 'src', 'alt', 'width', 'height'],
-    });
-  }, [body?.body_html]);
-
-  const { mainHtml, quotedHtml } = useMemo(() => {
-    if (!sanitizedHtml) return { mainHtml: '', quotedHtml: '' };
-    return processHtmlQuotes(sanitizedHtml);
-  }, [sanitizedHtml]);
 
   return (
     <Box>
