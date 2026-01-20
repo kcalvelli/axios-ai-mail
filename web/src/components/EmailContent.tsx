@@ -5,9 +5,9 @@
  * Performance: Strips tracking pixels to prevent render issues
  */
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { Box, Button, Alert, useTheme } from '@mui/material';
-import { Image, ImageNotSupported, LightMode } from '@mui/icons-material';
+import { Image, ImageNotSupported, LightMode, ZoomOutMap } from '@mui/icons-material';
 
 interface EmailContentProps {
   /** Pre-sanitized HTML content */
@@ -16,6 +16,8 @@ interface EmailContentProps {
   allowRemoteImages?: boolean;
   /** Callback when remote images are loaded */
   onLoadRemoteImages?: () => void;
+  /** Compact mode for reading pane - constrains width, linearizes tables */
+  compact?: boolean;
 }
 
 // Known tracking domains to strip completely
@@ -102,11 +104,47 @@ export function EmailContent({
   html,
   allowRemoteImages = false,
   onLoadRemoteImages,
+  compact = false,
 }: EmailContentProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const [showRemoteImages, setShowRemoteImages] = useState(allowRemoteImages);
   const [forceOriginal, setForceOriginal] = useState(false);
+
+  // Overflow detection for compact mode scaling
+  const contentRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [scaleFactor, setScaleFactor] = useState(1);
+  const [isScaled, setIsScaled] = useState(false);
+
+  // Measure content and apply scaling if needed in compact mode
+  useEffect(() => {
+    if (!compact || !contentRef.current || !containerRef.current) {
+      setScaleFactor(1);
+      setIsScaled(false);
+      return;
+    }
+
+    // Wait for content to render
+    const timer = setTimeout(() => {
+      if (!contentRef.current || !containerRef.current) return;
+
+      const contentWidth = contentRef.current.scrollWidth;
+      const containerWidth = containerRef.current.clientWidth;
+
+      // Scale if content overflows by more than 10%
+      if (contentWidth > containerWidth * 1.1) {
+        const scale = Math.max(0.5, containerWidth / contentWidth);
+        setScaleFactor(scale);
+        setIsScaled(true);
+      } else {
+        setScaleFactor(1);
+        setIsScaled(false);
+      }
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [compact, html, showRemoteImages]);
 
   // Process HTML: strip tracking, optionally block images
   const processedHtml = useMemo(() => {
@@ -160,13 +198,13 @@ export function EmailContent({
               Load Images
             </Button>
           }
-          sx={{ mb: 2 }}
+          sx={{ mb: compact ? 1 : 2 }}
         >
           Remote images are hidden for privacy
         </Alert>
       )}
 
-      {isDark && (
+      {isDark && !compact && (
         <Box sx={{ mb: 1, display: 'flex', justifyContent: 'flex-end' }}>
           <Button
             size="small"
@@ -179,7 +217,25 @@ export function EmailContent({
         </Box>
       )}
 
+      {/* Scale indicator for compact mode */}
+      {compact && isScaled && (
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.5,
+            mb: 1,
+            color: 'text.secondary',
+            fontSize: '0.75rem',
+          }}
+        >
+          <ZoomOutMap sx={{ fontSize: 14 }} />
+          <span>Scaled to fit ({Math.round(scaleFactor * 100)}%)</span>
+        </Box>
+      )}
+
       <Box
+        ref={containerRef}
         sx={{
           ...(isDark && {
             backgroundColor: applyDarkMode ? '#ffffff' : '#fafafa',
@@ -187,19 +243,31 @@ export function EmailContent({
             overflow: 'hidden',
             boxShadow: applyDarkMode ? 'none' : '0 2px 8px rgba(0,0,0,0.4)',
           }),
+          // Compact mode: constrain width to trigger responsive media queries
+          ...(compact && {
+            maxWidth: '100%',
+            overflow: 'hidden',
+          }),
         }}
       >
         <Box
+          ref={contentRef}
           className="email-content"
           dangerouslySetInnerHTML={{ __html: processedHtml }}
           onClick={handleClick}
           sx={{
             fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-            fontSize: '15px',
-            lineHeight: 1.6,
+            fontSize: compact ? '14px' : '15px',
+            lineHeight: compact ? 1.5 : 1.6,
             wordBreak: 'break-word',
             overflowWrap: 'break-word',
-            padding: isDark ? 3 : 0,
+            padding: isDark ? (compact ? 2 : 3) : 0,
+            // Apply scaling transform for overflowing content in compact mode
+            ...(compact && isScaled && {
+              transform: `scale(${scaleFactor})`,
+              transformOrigin: 'top left',
+              width: `${100 / scaleFactor}%`,
+            }),
             ...(applyDarkMode && {
               filter: 'invert(1) hue-rotate(180deg)',
               '& img': { filter: 'invert(1) hue-rotate(180deg)' },
@@ -219,36 +287,53 @@ export function EmailContent({
               fontSize: '0.9em',
               overflow: 'auto',
             },
-            '& pre': { padding: theme.spacing(2), whiteSpace: 'pre-wrap' },
+            '& pre': { padding: theme.spacing(compact ? 1 : 2), whiteSpace: 'pre-wrap' },
             '& table': {
               borderCollapse: 'collapse',
-              width: '100%',
-              maxWidth: '100%',
-              marginBottom: theme.spacing(2),
+              marginBottom: theme.spacing(compact ? 1 : 2),
+              // Compact mode: linearize tables for narrow viewports
+              ...(compact ? {
+                display: 'block',
+                width: '100% !important',
+                maxWidth: '100% !important',
+              } : {
+                width: '100%',
+                maxWidth: '100%',
+              }),
             },
             '& td, & th': {
               border: '1px solid #ddd',
-              padding: theme.spacing(1),
+              padding: theme.spacing(compact ? 0.5 : 1),
               textAlign: 'left',
               wordBreak: 'break-word',
+              // Compact mode: stack table cells
+              ...(compact && {
+                display: 'block',
+                width: '100% !important',
+                boxSizing: 'border-box',
+              }),
             },
             '& th': { backgroundColor: '#f5f5f5', fontWeight: 600 },
             '& blockquote': {
-              margin: theme.spacing(2, 0),
-              padding: theme.spacing(1, 2),
+              margin: theme.spacing(compact ? 1 : 2, 0),
+              padding: theme.spacing(1, compact ? 1 : 2),
               borderLeft: '4px solid #ddd',
               backgroundColor: '#f9f9f9',
             },
-            '& ul, & ol': { paddingLeft: theme.spacing(3), marginBottom: theme.spacing(2) },
+            '& ul, & ol': { paddingLeft: theme.spacing(compact ? 2 : 3), marginBottom: theme.spacing(compact ? 1 : 2) },
             '& li': { marginBottom: theme.spacing(0.5) },
             '& h1, & h2, & h3, & h4, & h5, & h6': {
-              marginTop: theme.spacing(2),
-              marginBottom: theme.spacing(1),
+              marginTop: theme.spacing(compact ? 1 : 2),
+              marginBottom: theme.spacing(compact ? 0.5 : 1),
               fontWeight: 600,
               lineHeight: 1.3,
+              // Compact mode: smaller headings
+              ...(compact && {
+                fontSize: '1em',
+              }),
             },
-            '& p': { marginBottom: theme.spacing(1.5) },
-            '& hr': { border: 'none', borderTop: '1px solid #ddd', margin: theme.spacing(2, 0) },
+            '& p': { marginBottom: theme.spacing(compact ? 1 : 1.5) },
+            '& hr': { border: 'none', borderTop: '1px solid #ddd', margin: theme.spacing(compact ? 1 : 2, 0) },
           }}
         />
       </Box>

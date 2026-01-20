@@ -45,7 +45,9 @@ import {
   Stop,
   CheckCircle,
   Error as ErrorIcon,
+  DisplaySettings,
 } from '@mui/icons-material';
+import { useAppStore } from '../store/appStore';
 import axios from 'axios';
 
 interface TabPanelProps {
@@ -77,6 +79,7 @@ export function SettingsPage() {
           onChange={(_, newValue) => setActiveTab(newValue)}
           sx={{ borderBottom: 1, borderColor: 'divider' }}
         >
+          <Tab icon={<DisplaySettings />} label="Display" />
           <Tab icon={<SmartToy />} label="AI Configuration" />
           <Tab icon={<Sync />} label="Sync Settings" />
           <Tab icon={<Label />} label="Tag Taxonomy" />
@@ -84,21 +87,85 @@ export function SettingsPage() {
         </Tabs>
 
         <TabPanel value={activeTab} index={0}>
-          <AIConfigPanel />
+          <DisplaySettingsPanel />
         </TabPanel>
 
         <TabPanel value={activeTab} index={1}>
-          <SyncSettingsPanel />
+          <AIConfigPanel />
         </TabPanel>
 
         <TabPanel value={activeTab} index={2}>
-          <TagTaxonomyPanel />
+          <SyncSettingsPanel />
         </TabPanel>
 
         <TabPanel value={activeTab} index={3}>
+          <TagTaxonomyPanel />
+        </TabPanel>
+
+        <TabPanel value={activeTab} index={4}>
           <MaintenancePanel />
         </TabPanel>
       </Paper>
+    </Box>
+  );
+}
+
+function DisplaySettingsPanel() {
+  const preferPlainTextInCompact = useAppStore((state) => state.preferPlainTextInCompact);
+  const setPreferPlainTextInCompact = useAppStore((state) => state.setPreferPlainTextInCompact);
+
+  return (
+    <Box>
+      <Typography variant="h6" gutterBottom>
+        Reading Pane Settings
+      </Typography>
+
+      <Stack spacing={3}>
+        <Box>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={preferPlainTextInCompact}
+                onChange={(e) => setPreferPlainTextInCompact(e.target.checked)}
+              />
+            }
+            label="Prefer plain text in compact mode"
+          />
+          <Typography variant="body2" color="text.secondary" sx={{ ml: 4 }}>
+            When viewing emails in the reading pane (split view), show plain text instead of HTML
+            when available. This can improve readability for marketing emails and newsletters.
+            You can still switch to HTML view on a per-email basis.
+          </Typography>
+        </Box>
+
+        <Divider />
+
+        <Box>
+          <Typography variant="subtitle2" gutterBottom>
+            Compact Mode Features
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            When viewing emails in the reading pane, the following optimizations are applied:
+          </Typography>
+          <ul style={{ margin: '8px 0', paddingLeft: '20px' }}>
+            <li>
+              <Typography variant="body2" color="text.secondary">
+                Smaller font size and reduced spacing for better content density
+              </Typography>
+            </li>
+            <li>
+              <Typography variant="body2" color="text.secondary">
+                Table linearization to fit wide email layouts in narrow panes
+              </Typography>
+            </li>
+            <li>
+              <Typography variant="body2" color="text.secondary">
+                Automatic scaling for emails that overflow the available width
+              </Typography>
+            </li>
+          </ul>
+        </Box>
+      </Stack>
     </Box>
   );
 }

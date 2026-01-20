@@ -28,6 +28,7 @@ interface AppState {
   layoutMode: LayoutMode;
   selectedMessageId: string | null;
   readingPaneWidth: number; // Percentage for split view (0-100)
+  preferPlainTextInCompact: boolean; // Show plain text instead of HTML in compact mode
 
   // Bulk selection
   selectedMessageIds: Set<string>;
@@ -48,6 +49,7 @@ interface AppState {
   toggleLayoutMode: () => void;
   setSelectedMessageId: (id: string | null) => void;
   setReadingPaneWidth: (width: number) => void;
+  setPreferPlainTextInCompact: (value: boolean) => void;
   selectNextMessage: (messageIds: string[]) => void;
   selectPrevMessage: (messageIds: string[]) => void;
 
@@ -78,6 +80,12 @@ const getSavedLayoutMode = (): LayoutMode => {
   return isMobileDevice() ? 'list-only' : 'split';
 };
 
+// Get saved plain text preference from localStorage
+const getSavedPreferPlainText = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  return localStorage.getItem('preferPlainTextInCompact') === 'true';
+};
+
 export const useAppStore = create<AppState>((set, get) => ({
   // Initial state
   selectedAccount: null,
@@ -91,6 +99,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   layoutMode: getSavedLayoutMode(),
   selectedMessageId: null,
   readingPaneWidth: getSavedPaneWidth(),
+  preferPlainTextInCompact: getSavedPreferPlainText(),
   // Bulk selection
   selectedMessageIds: new Set<string>(),
   selectionMode: false,
@@ -135,6 +144,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   setReadingPaneWidth: (width) => {
     localStorage.setItem('readingPaneWidth', width.toString());
     set({ readingPaneWidth: width });
+  },
+
+  setPreferPlainTextInCompact: (value) => {
+    localStorage.setItem('preferPlainTextInCompact', value.toString());
+    set({ preferPlainTextInCompact: value });
   },
 
   selectNextMessage: (messageIds) => {

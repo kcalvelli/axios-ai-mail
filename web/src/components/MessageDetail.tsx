@@ -55,6 +55,7 @@ import {
 } from '../hooks/useMessages';
 import { useTags } from '../hooks/useStats';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { useAppStore } from '../store/appStore';
 
 interface Attachment {
   id: string;
@@ -95,6 +96,11 @@ export function MessageDetail({
   const { data: tagsData } = useTags();
   const updateTags = useUpdateTags();
   const markRead = useMarkRead();
+
+  // Plain text preference from store
+  const preferPlainTextInCompact = useAppStore((state) => state.preferPlainTextInCompact);
+  // Local toggle to override preference for this email
+  const [forceHtml, setForceHtml] = useState(false);
 
   const [editingTags, setEditingTags] = useState(false);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -698,43 +704,88 @@ export function MessageDetail({
             <Box display="flex" justifyContent="center" p={2}>
               <CircularProgress size={24} />
             </Box>
-          ) : mainHtml ? (
-            <>
-              {/* Main HTML content with enhanced rendering */}
-              <EmailContent html={mainHtml} />
+          ) : (() => {
+            // Determine if we should show plain text
+            const shouldShowPlainText = compact && preferPlainTextInCompact && body?.body_text && !forceHtml;
+            const hasHtmlAndText = mainHtml && body?.body_text;
 
-              {/* Quoted HTML toggle */}
-              {quotedHtml && (
-                <Box mt={2}>
-                  <Button
-                    size="small"
-                    onClick={() => setShowQuotedHtml(!showQuotedHtml)}
-                    sx={{ textTransform: 'none', color: 'text.secondary', fontSize: '0.75rem' }}
-                  >
-                    {showQuotedHtml ? '▼ Hide quoted text' : '▶ Show quoted text'}
-                  </Button>
-                  {showQuotedHtml && (
-                    <Box
-                      sx={{
-                        pl: 2,
-                        borderLeft: `3px solid ${isDark ? '#444' : '#ddd'}`,
-                        mt: 1,
-                        color: 'text.secondary',
-                      }}
-                    >
-                      <EmailContent html={quotedHtml} />
+            if (shouldShowPlainText) {
+              return (
+                <>
+                  {/* Toggle to view HTML */}
+                  {hasHtmlAndText && (
+                    <Box sx={{ mb: 1, display: 'flex', justifyContent: 'flex-end' }}>
+                      <Button
+                        size="small"
+                        onClick={() => setForceHtml(true)}
+                        sx={{ textTransform: 'none', fontSize: '0.75rem', color: 'text.secondary' }}
+                      >
+                        View HTML version
+                      </Button>
                     </Box>
                   )}
-                </Box>
-              )}
-            </>
-          ) : body?.body_text ? (
-            <QuotedText text={body.body_text} />
-          ) : (
-            <Typography variant="body1" color="text.secondary">
-              {message.snippet}
-            </Typography>
-          )}
+                  <QuotedText text={body.body_text!} />
+                </>
+              );
+            }
+
+            if (mainHtml) {
+              return (
+                <>
+                  {/* Toggle to view plain text (if preference is enabled but user forced HTML) */}
+                  {compact && forceHtml && body?.body_text && (
+                    <Box sx={{ mb: 1, display: 'flex', justifyContent: 'flex-end' }}>
+                      <Button
+                        size="small"
+                        onClick={() => setForceHtml(false)}
+                        sx={{ textTransform: 'none', fontSize: '0.75rem', color: 'text.secondary' }}
+                      >
+                        View plain text
+                      </Button>
+                    </Box>
+                  )}
+
+                  {/* Main HTML content with enhanced rendering */}
+                  <EmailContent html={mainHtml} compact={compact} />
+
+                  {/* Quoted HTML toggle */}
+                  {quotedHtml && (
+                    <Box mt={2}>
+                      <Button
+                        size="small"
+                        onClick={() => setShowQuotedHtml(!showQuotedHtml)}
+                        sx={{ textTransform: 'none', color: 'text.secondary', fontSize: '0.75rem' }}
+                      >
+                        {showQuotedHtml ? '▼ Hide quoted text' : '▶ Show quoted text'}
+                      </Button>
+                      {showQuotedHtml && (
+                        <Box
+                          sx={{
+                            pl: 2,
+                            borderLeft: `3px solid ${isDark ? '#444' : '#ddd'}`,
+                            mt: 1,
+                            color: 'text.secondary',
+                          }}
+                        >
+                          <EmailContent html={quotedHtml} compact={compact} />
+                        </Box>
+                      )}
+                    </Box>
+                  )}
+                </>
+              );
+            }
+
+            if (body?.body_text) {
+              return <QuotedText text={body.body_text} />;
+            }
+
+            return (
+              <Typography variant="body1" color="text.secondary">
+                {message.snippet}
+              </Typography>
+            );
+          })()}
         </Box>
 
         {/* Smart Replies */}
