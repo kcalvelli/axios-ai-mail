@@ -1,35 +1,22 @@
 # Implementation Tasks
 
-> **STATUS: Partially Complete - Core features done, remaining items backlogged**
+> **STATUS: Core features done, remaining items split to separate proposals**
 >
-> Completed: Long-press multi-select, App shortcuts, Share target, Read/unread sync defect
+> Completed: Swipe gestures, App shortcuts, Share target, Read/unread sync defect
 >
-> Backlogged: PWA Push Notifications, Background Sync (can return to these later)
+> Split out: PWA Push Notifications, Background Sync (separate proposals created)
 
-## 1. Long-Press Multi-Select
+## 1. Mobile Touch Gestures
 
-### 1.1 Touch Gesture Handler
-- [x] 1.1.1 Create `useLongPress` hook with 500ms threshold
-- [x] 1.1.2 Detect touch movement to distinguish from swipe (>10px cancels)
-- [x] 1.1.3 Add haptic feedback on long-press activation
-- [x] 1.1.4 Visual press indicator (scale effect during hold)
+### 1.1 Swipe Actions (IMPLEMENTED)
+- [x] 1.1.1 Swipe left to delete (move to trash)
+- [x] 1.1.2 Swipe right to toggle read/unread
+- [x] 1.1.3 Visual feedback during swipe
+- [x] 1.1.4 Haptic feedback on action trigger
 
-### 1.2 Selection Mode State
-- [x] 1.2.1 Add selection mode state to appStore
-- [x] 1.2.2 Track selected message IDs (already exists: `selectedMessages`)
-- [x] 1.2.3 Add `enterSelectionMode` / `exitSelectionMode` actions
-
-### 1.3 Selection Mode UI
-- [x] 1.3.1 BulkActionBar already exists (floating action bar)
-- [x] 1.3.2 Show selection count badge (already exists)
-- [x] 1.3.3 Bulk action buttons: Delete, Archive, Mark Read/Unread (already exists)
-- [x] 1.3.4 Exit button (X) updated to exit selection mode
-
-### 1.4 Integrate with MessageList
-- [x] 1.4.1 Wrap SwipeableMessageCard with long-press handler
-- [x] 1.4.2 Disable swipe when in selection mode
-- [x] 1.4.3 Tap toggles selection in selection mode
-- [x] 1.4.4 Visual selection indicator (checkbox/highlight)
+### 1.2 Long-Press Multi-Select (REMOVED)
+- [N/A] Removed in favor of swipe-only UX for simplicity
+- [N/A] Bulk selection available via desktop checkbox UI instead
 
 ## 2. PWA Push Notifications
 
