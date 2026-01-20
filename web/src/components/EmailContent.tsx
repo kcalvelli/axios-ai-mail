@@ -172,7 +172,8 @@ export function EmailContent({
 
       // Scale if content overflows by more than 10%
       if (contentWidth > containerWidth * 1.1) {
-        const scale = Math.max(0.5, containerWidth / contentWidth);
+        // Scale down slightly more (0.95x) to ensure content fits with some margin
+        const scale = Math.max(0.5, (containerWidth / contentWidth) * 0.95);
         setScaleFactor(scale);
         setIsScaled(true);
       } else {
@@ -347,7 +348,8 @@ export function EmailContent({
             ...(compact && isScaled && !forceFullSize && {
               transform: `scale(${scaleFactor})`,
               transformOrigin: 'top left',
-              width: `${100 / scaleFactor}%`,
+              // Add 5% buffer to prevent right-edge clipping from measurement variations
+              width: `${(100 / scaleFactor) * 1.05}%`,
             }),
             ...(applyDarkMode && {
               filter: 'invert(1) hue-rotate(180deg)',
