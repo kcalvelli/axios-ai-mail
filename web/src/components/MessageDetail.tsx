@@ -3,7 +3,7 @@
  * Used in both the full-page MessageDetailPage and the ReadingPane split view
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -446,25 +446,27 @@ export function MessageDetail({
   const allTags = tagsData?.tags.map((t) => t.name) || [];
   const { name: senderName, email: senderEmail } = extractSenderName(message.from_email);
 
-  // Sanitize HTML content
-  const sanitizedHtml = body?.body_html
-    ? DOMPurify.sanitize(body.body_html, {
-        ALLOWED_TAGS: [
-          'p', 'br', 'strong', 'em', 'u', 'b', 'i', 's',
-          'a', 'ul', 'ol', 'li',
-          'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-          'blockquote', 'div', 'span', 'pre', 'code',
-          'table', 'tr', 'td', 'th', 'thead', 'tbody',
-          'img',
-        ],
-        ALLOWED_ATTR: ['href', 'target', 'rel', 'class', 'style', 'src', 'alt', 'width', 'height'],
-      })
-    : null;
+  // Sanitize HTML content - memoized to prevent unnecessary re-processing
+  const sanitizedHtml = useMemo(() => {
+    if (!body?.body_html) return null;
+    return DOMPurify.sanitize(body.body_html, {
+      ALLOWED_TAGS: [
+        'p', 'br', 'strong', 'em', 'u', 'b', 'i', 's',
+        'a', 'ul', 'ol', 'li',
+        'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+        'blockquote', 'div', 'span', 'pre', 'code',
+        'table', 'tr', 'td', 'th', 'thead', 'tbody',
+        'img',
+      ],
+      ALLOWED_ATTR: ['href', 'target', 'rel', 'class', 'style', 'src', 'alt', 'width', 'height'],
+    });
+  }, [body?.body_html]);
 
-  // Process HTML for quote collapsing
-  const { mainHtml, quotedHtml } = sanitizedHtml
-    ? processHtmlQuotes(sanitizedHtml)
-    : { mainHtml: '', quotedHtml: '' };
+  // Process HTML for quote collapsing - memoized
+  const { mainHtml, quotedHtml } = useMemo(() => {
+    if (!sanitizedHtml) return { mainHtml: '', quotedHtml: '' };
+    return processHtmlQuotes(sanitizedHtml);
+  }, [sanitizedHtml]);
 
   return (
     <Box sx={{ height: '100%', overflow: 'auto' }} className="message-detail-print">

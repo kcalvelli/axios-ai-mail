@@ -18,7 +18,7 @@
  * @see https://www.litmus.com/blog/the-ultimate-guide-to-dark-mode-for-email-marketers
  */
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { Box, Button, Alert, useTheme } from '@mui/material';
 import { Image, ImageNotSupported, LightMode } from '@mui/icons-material';
 
@@ -60,6 +60,7 @@ export function EmailContent({
   const isDark = theme.palette.mode === 'dark';
   const [showRemoteImages, setShowRemoteImages] = useState(allowRemoteImages);
   const [forceOriginal, setForceOriginal] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   // Check for remote images - memoized to avoid recalculation
   const hasRemote = useMemo(() => hasRemoteImages(html), [html]);
@@ -71,6 +72,14 @@ export function EmailContent({
     }
     return html;
   }, [html, showRemoteImages, hasRemote]);
+
+  // Imperatively set innerHTML to bypass React reconciliation entirely
+  // This prevents render loops caused by deeply nested HTML or blocked images
+  useEffect(() => {
+    if (contentRef.current) {
+      contentRef.current.innerHTML = processedHtml;
+    }
+  }, [processedHtml]);
 
   const handleLoadImages = useCallback(() => {
     setShowRemoteImages(true);
@@ -149,9 +158,11 @@ export function EmailContent({
           }),
         }}
       >
-        {/* Email content with dark mode inversion */}
+        {/* Email content with dark mode inversion - uses ref to bypass React reconciliation */}
         <Box
+          ref={contentRef}
           className="email-content"
+          onClick={handleClick}
           sx={{
             // Base styles
             fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -262,8 +273,6 @@ export function EmailContent({
               margin: theme.spacing(2, 0),
             },
           }}
-          dangerouslySetInnerHTML={{ __html: processedHtml }}
-          onClick={handleClick}
         />
       </Box>
     </Box>
