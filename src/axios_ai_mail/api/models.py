@@ -83,6 +83,20 @@ class TagsListResponse(BaseModel):
     total_classified: int
 
 
+class AvailableTagResponse(BaseModel):
+    """Available tag from taxonomy."""
+
+    name: str
+    description: str
+    category: str
+
+
+class AvailableTagsResponse(BaseModel):
+    """List of all available tags from taxonomy."""
+
+    tags: List[AvailableTagResponse]
+
+
 class StatsResponse(BaseModel):
     """Overall system statistics."""
 

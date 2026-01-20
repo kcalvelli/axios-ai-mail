@@ -9,6 +9,7 @@ import type {
   Account,
   AccountStats,
   TagsListResponse,
+  AvailableTagsResponse,
   Stats,
   SyncStatus,
   UpdateTagsRequest,
@@ -119,6 +120,7 @@ export const accounts = {
 // Tag endpoints
 export const tags = {
   list: () => api.get<TagsListResponse>('/tags').then((r) => r.data),
+  available: () => api.get<AvailableTagsResponse>('/tags/available').then((r) => r.data),
 };
 
 // Stats endpoint

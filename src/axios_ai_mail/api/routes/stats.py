@@ -5,7 +5,8 @@ from typing import List
 
 from fastapi import APIRouter, HTTPException, Request
 
-from ..models import TagsListResponse, TagResponse, StatsResponse
+from ..models import TagsListResponse, TagResponse, StatsResponse, AvailableTagsResponse, AvailableTagResponse
+from ...config.tags import DEFAULT_TAGS
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -76,6 +77,51 @@ async def list_tags(request: Request):
 
     except Exception as e:
         logger.error(f"Error listing tags: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/tags/available", response_model=AvailableTagsResponse)
+async def list_available_tags(request: Request):
+    """List all available tags from the taxonomy.
+
+    Returns all defined tags that can be used for classification,
+    not just tags currently assigned to messages.
+    """
+    try:
+        # Get tags from config if available (includes custom tags)
+        config = getattr(request.app.state, 'config', None)
+        custom_tags = []
+
+        if config and hasattr(config, 'ai') and config.ai:
+            custom_tags = config.ai.get('tags', [])
+
+        # Build response from default tags + custom tags
+        tags = []
+        seen_names = set()
+
+        # Add default tags
+        for tag in DEFAULT_TAGS:
+            tags.append(AvailableTagResponse(
+                name=tag["name"],
+                description=tag["description"],
+                category=tag["category"],
+            ))
+            seen_names.add(tag["name"])
+
+        # Add custom tags that aren't in defaults
+        for tag in custom_tags:
+            if tag.get("name") and tag["name"] not in seen_names:
+                tags.append(AvailableTagResponse(
+                    name=tag["name"],
+                    description=tag.get("description", f"Custom tag: {tag['name']}"),
+                    category=tag.get("category", "custom"),
+                ))
+                seen_names.add(tag["name"])
+
+        return AvailableTagsResponse(tags=tags)
+
+    except Exception as e:
+        logger.error(f"Error listing available tags: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 

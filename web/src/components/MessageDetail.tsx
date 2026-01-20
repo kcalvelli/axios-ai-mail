@@ -53,7 +53,7 @@ import {
   useMarkRead,
   useMessageBody,
 } from '../hooks/useMessages';
-import { useTags } from '../hooks/useStats';
+import { useAvailableTags } from '../hooks/useStats';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { useAppStore } from '../store/appStore';
 
@@ -93,7 +93,7 @@ export function MessageDetail({
 
   const { data: message, isLoading, error } = useMessage(messageId);
   const { data: body, isLoading: bodyLoading } = useMessageBody(messageId);
-  const { data: tagsData } = useTags();
+  const { data: availableTagsData } = useAvailableTags();
   const updateTags = useUpdateTags();
   const markRead = useMarkRead();
 
@@ -476,7 +476,8 @@ export function MessageDetail({
     });
   };
 
-  const allTags = tagsData?.tags.map((t) => t.name) || [];
+  // Get all available tags from taxonomy (not just tags in use)
+  const allTags = availableTagsData?.tags.map((t) => t.name) || [];
   const { name: senderName, email: senderEmail } = extractSenderName(message.from_email);
 
   return (
@@ -588,11 +589,24 @@ export function MessageDetail({
             <Box>
               <Autocomplete
                 multiple
+                freeSolo
                 options={allTags}
                 value={selectedTags}
-                onChange={(_, newValue) => setSelectedTags(newValue)}
+                onChange={(_, newValue) => {
+                  // Handle both selected options and free-form text
+                  const tags = newValue.map(v => typeof v === 'string' ? v.toLowerCase().trim() : v);
+                  // Filter out empty strings and duplicates
+                  const uniqueTags = [...new Set(tags.filter(t => t.length > 0))];
+                  setSelectedTags(uniqueTags);
+                }}
                 renderInput={(params) => (
-                  <TextField {...params} variant="outlined" placeholder="Select tags..." size="small" />
+                  <TextField
+                    {...params}
+                    variant="outlined"
+                    placeholder="Select or type tags..."
+                    size="small"
+                    helperText="Select from list or type custom tags"
+                  />
                 )}
                 sx={{ mb: 1 }}
               />

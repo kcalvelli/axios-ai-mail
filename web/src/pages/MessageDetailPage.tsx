@@ -59,7 +59,7 @@ import {
 } from '../hooks/useMessages';
 import { useKeyboardNavigation } from '../hooks/useKeyboardNavigation';
 import { useAppStore } from '../store/appStore';
-import { useTags } from '../hooks/useStats';
+import { useAvailableTags } from '../hooks/useStats';
 import { TagChip } from '../components/TagChip';
 import { ConfidenceBadgeAlways } from '../components/ConfidenceBadge';
 import { SmartReplies } from '../components/SmartReplies';
@@ -76,7 +76,7 @@ export function MessageDetailPage() {
   const isMobile = useIsMobile();
   const { data: message, isLoading, error } = useMessage(id!);
   const { data: body, isLoading: bodyLoading } = useMessageBody(id!);
-  const { data: tagsData } = useTags();
+  const { data: availableTagsData } = useAvailableTags();
   const updateTags = useUpdateTags();
   const markRead = useMarkRead();
   const deleteMessage = useDeleteMessage();
@@ -525,7 +525,8 @@ export function MessageDetailPage() {
     });
   };
 
-  const allTags = tagsData?.tags.map((t) => t.name) || [];
+  // Get all available tags from taxonomy (not just tags in use)
+  const allTags = availableTagsData?.tags.map((t) => t.name) || [];
   const { name: senderName, email: senderEmail } = extractSenderName(message.from_email);
 
   return (
@@ -631,14 +632,22 @@ export function MessageDetailPage() {
             <Box>
               <Autocomplete
                 multiple
+                freeSolo
                 options={allTags}
                 value={selectedTags}
-                onChange={(_, newValue) => setSelectedTags(newValue)}
+                onChange={(_, newValue) => {
+                  // Handle both selected options and free-form text
+                  const tags = newValue.map(v => typeof v === 'string' ? v.toLowerCase().trim() : v);
+                  // Filter out empty strings and duplicates
+                  const uniqueTags = [...new Set(tags.filter(t => t.length > 0))];
+                  setSelectedTags(uniqueTags);
+                }}
                 renderInput={(params) => (
                   <TextField
                     {...params}
                     variant="outlined"
-                    placeholder="Select tags..."
+                    placeholder="Select or type tags..."
+                    helperText="Select from list or type custom tags"
                   />
                 )}
                 sx={{ mb: 2 }}

@@ -8,6 +8,7 @@ import type { TriggerSyncRequest } from '../api/types';
 
 export const statsKeys = {
   tags: ['tags'] as const,
+  tagsAvailable: ['tags', 'available'] as const,
   stats: ['stats'] as const,
   syncStatus: ['sync', 'status'] as const,
 };
@@ -17,6 +18,14 @@ export function useTags() {
     queryKey: statsKeys.tags,
     queryFn: () => tags.list(),
     staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+}
+
+export function useAvailableTags() {
+  return useQuery({
+    queryKey: statsKeys.tagsAvailable,
+    queryFn: () => tags.available(),
+    staleTime: 30 * 60 * 1000, // 30 minutes (taxonomy doesn't change often)
   });
 }
 

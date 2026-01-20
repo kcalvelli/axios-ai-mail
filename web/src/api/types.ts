@@ -59,6 +59,16 @@ export interface TagsListResponse {
   total_classified: number;
 }
 
+export interface AvailableTag {
+  name: string;
+  description: string;
+  category: string;
+}
+
+export interface AvailableTagsResponse {
+  tags: AvailableTag[];
+}
+
 export interface Stats {
   total_messages: number;
   classified_messages: number;
