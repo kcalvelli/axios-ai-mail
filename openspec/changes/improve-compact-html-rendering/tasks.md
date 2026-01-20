@@ -7,10 +7,10 @@
 - [x] 1.1.2 Apply compact-specific font size (14px vs 15px)
 - [x] 1.1.3 Apply compact-specific padding/margins
 
-### 1.2 Table Linearization
-- [x] 1.2.1 Add CSS to convert tables to block display in compact mode
-- [x] 1.2.2 Force table cells to full width in compact mode
-- [ ] 1.2.3 Test with common marketing email templates
+### 1.2 Table Handling
+- [x] 1.2.1 ~~Add CSS to convert tables to block display~~ REMOVED - breaks layout tables
+- [x] 1.2.2 ~~Force table cells to full width~~ REMOVED - breaks complex emails
+- [x] 1.2.3 Rely on CSS transform scaling for wide tables instead
 
 ### 1.3 Container Width Constraint
 - [x] 1.3.1 Add maxWidth constraint when compact=true

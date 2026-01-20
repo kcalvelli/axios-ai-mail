@@ -342,29 +342,16 @@ export function EmailContent({
             '& table': {
               borderCollapse: 'collapse',
               marginBottom: theme.spacing(compact ? 1 : 2),
-              // Compact mode: linearize tables for narrow viewports
-              ...(compact ? {
-                display: 'block',
-                width: '100% !important',
-                maxWidth: '100% !important',
-              } : {
-                width: '100%',
-                maxWidth: '100%',
-              }),
+              // Don't force table width - let scaling handle overflow instead
+              // This preserves layout tables used in marketing emails
             },
             '& td, & th': {
-              border: '1px solid #ddd',
+              // Don't add borders - marketing emails use borderless tables for layout
               padding: theme.spacing(compact ? 0.5 : 1),
               textAlign: 'left',
-              wordBreak: 'break-word',
-              // Compact mode: stack table cells
-              ...(compact && {
-                display: 'block',
-                width: '100% !important',
-                boxSizing: 'border-box',
-              }),
+              // Don't force word-break - can cause character-level wrapping in narrow cells
             },
-            '& th': { backgroundColor: '#f5f5f5', fontWeight: 600 },
+            '& th': { fontWeight: 600 },
             '& blockquote': {
               margin: theme.spacing(compact ? 1 : 2, 0),
               padding: theme.spacing(1, compact ? 1 : 2),
