@@ -1,19 +1,14 @@
 /**
- * EmailContent component - Enhanced HTML email rendering using iframe sandbox
+ * EmailContent component - Enhanced HTML email rendering
  *
  * Features:
- * - Iframe-based rendering for isolation from React reconciliation
- * - Prevents infinite render loops from blocked tracking pixels
  * - Dark mode adaptation using CSS filter inversion (industry standard)
  * - Remote image blocking with prompt
  * - Safe link handling (open in new tab)
  * - Typography improvements
  * - Responsive tables
  *
- * Why iframe?
- * - Marketing emails have deeply nested tables that can overwhelm React's reconciler
- * - Blocked tracking pixels can trigger render loops with dangerouslySetInnerHTML
- * - Iframe isolates the HTML and sandboxes any scripts
+ * Security: HTML MUST be sanitized with DOMPurify before passing to this component.
  *
  * Dark mode approach:
  * - Uses filter: invert(1) hue-rotate(180deg) to invert colors while preserving hues
@@ -23,12 +18,12 @@
  * @see https://www.litmus.com/blog/the-ultimate-guide-to-dark-mode-for-email-marketers
  */
 
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Box, Button, Alert, useTheme } from '@mui/material';
 import { Image, ImageNotSupported, LightMode } from '@mui/icons-material';
 
 interface EmailContentProps {
-  /** Sanitized HTML content */
+  /** Sanitized HTML content (MUST be sanitized with DOMPurify first!) */
   html: string;
   /** Whether to show remote images by default */
   allowRemoteImages?: boolean;
@@ -36,14 +31,14 @@ interface EmailContentProps {
   onLoadRemoteImages?: () => void;
 }
 
-// Remote image patterns to detect
-const REMOTE_SRC_PATTERN = /<img[^>]+src=["']https?:\/\//gi;
-
 /**
  * Check if HTML contains remote images
+ * Note: Don't use global flag 'g' with .test() - it's stateful and causes issues!
  */
 function hasRemoteImages(html: string): boolean {
-  return REMOTE_SRC_PATTERN.test(html);
+  // Use a fresh regex without 'g' flag to avoid stateful lastIndex issues
+  const pattern = /<img[^>]+src=["']https?:\/\//i;
+  return pattern.test(html);
 }
 
 /**
@@ -64,184 +59,40 @@ export function EmailContent({
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const [showRemoteImages, setShowRemoteImages] = useState(allowRemoteImages);
-  const [hasRemote, setHasRemote] = useState(false);
   const [forceOriginal, setForceOriginal] = useState(false);
-  const [iframeHeight, setIframeHeight] = useState(200);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  // Check for remote images
-  useEffect(() => {
-    setHasRemote(hasRemoteImages(html));
-  }, [html]);
+  // Check for remote images - memoized to avoid recalculation
+  const hasRemote = useMemo(() => hasRemoteImages(html), [html]);
 
-  // Process HTML
+  // Process HTML - memoized with stable dependencies
   const processedHtml = useMemo(() => {
-    let processed = html;
-
-    // Block remote images if not allowed
     if (!showRemoteImages && hasRemote) {
-      processed = blockRemoteImages(processed);
+      return blockRemoteImages(html);
     }
-
-    return processed;
+    return html;
   }, [html, showRemoteImages, hasRemote]);
 
-  const handleLoadImages = () => {
+  const handleLoadImages = useCallback(() => {
     setShowRemoteImages(true);
     onLoadRemoteImages?.();
-  };
+  }, [onLoadRemoteImages]);
 
   // Should we apply dark mode inversion?
   const applyDarkMode = isDark && !forceOriginal;
 
-  // Build the iframe srcdoc with embedded styles
-  const iframeSrcDoc = useMemo(() => {
-    const darkModeStyles = applyDarkMode ? `
-      html {
-        filter: invert(1) hue-rotate(180deg);
-        background: #ffffff;
+  // Handle link clicks - memoized to prevent recreating on each render
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'A') {
+      e.preventDefault();
+      const href = target.getAttribute('href');
+      if (href && !href.startsWith('mailto:')) {
+        window.open(href, '_blank', 'noopener,noreferrer');
+      } else if (href?.startsWith('mailto:')) {
+        window.location.href = href;
       }
-      img, video {
-        filter: invert(1) hue-rotate(180deg);
-      }
-    ` : '';
-
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <base target="_blank">
-        <style>
-          * {
-            box-sizing: border-box;
-          }
-          html, body {
-            margin: 0;
-            padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            font-size: 15px;
-            line-height: 1.6;
-            word-break: break-word;
-            overflow-wrap: break-word;
-            background: ${applyDarkMode ? '#ffffff' : (isDark ? '#fafafa' : 'transparent')};
-          }
-          body {
-            padding: ${isDark ? '16px' : '0'};
-          }
-          img {
-            max-width: 100%;
-            height: auto;
-            display: block;
-          }
-          /* Suppress image load errors visually */
-          img[src^="data:"] {
-            opacity: 0.5;
-          }
-          a {
-            color: #1976d2;
-            text-decoration: none;
-          }
-          a:hover {
-            text-decoration: underline;
-          }
-          pre, code {
-            background-color: #f5f5f5;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-family: monospace;
-            font-size: 0.9em;
-            overflow: auto;
-          }
-          pre {
-            padding: 16px;
-            white-space: pre-wrap;
-          }
-          table {
-            border-collapse: collapse;
-            width: 100%;
-            max-width: 100%;
-            margin-bottom: 16px;
-          }
-          td, th {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
-            word-break: break-word;
-          }
-          th {
-            background-color: #f5f5f5;
-            font-weight: 600;
-          }
-          blockquote {
-            margin: 16px 0;
-            padding: 8px 16px;
-            border-left: 4px solid #ddd;
-            background-color: #f9f9f9;
-          }
-          ul, ol {
-            padding-left: 24px;
-            margin-bottom: 16px;
-          }
-          li {
-            margin-bottom: 4px;
-          }
-          h1, h2, h3, h4, h5, h6 {
-            margin-top: 16px;
-            margin-bottom: 8px;
-            font-weight: 600;
-            line-height: 1.3;
-          }
-          p {
-            margin-bottom: 12px;
-          }
-          hr {
-            border: none;
-            border-top: 1px solid #ddd;
-            margin: 16px 0;
-          }
-          ${darkModeStyles}
-        </style>
-      </head>
-      <body>
-        ${processedHtml}
-        <script>
-          // Report height to parent for auto-sizing
-          function reportHeight() {
-            const height = document.documentElement.scrollHeight;
-            window.parent.postMessage({ type: 'email-iframe-height', height: height }, '*');
-          }
-          // Report on load and after images load
-          window.addEventListener('load', reportHeight);
-          window.addEventListener('resize', reportHeight);
-          // Also report after a short delay for any delayed content
-          setTimeout(reportHeight, 100);
-          setTimeout(reportHeight, 500);
-          // Handle images loading (or failing)
-          document.querySelectorAll('img').forEach(img => {
-            img.addEventListener('load', reportHeight);
-            img.addEventListener('error', reportHeight);
-          });
-          // Initial report
-          reportHeight();
-        </script>
-      </body>
-      </html>
-    `;
-  }, [processedHtml, applyDarkMode, isDark]);
-
-  // Listen for height messages from iframe
-  const handleMessage = useCallback((event: MessageEvent) => {
-    if (event.data?.type === 'email-iframe-height' && typeof event.data.height === 'number') {
-      setIframeHeight(Math.max(100, event.data.height + 20)); // Add padding
     }
   }, []);
-
-  useEffect(() => {
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [handleMessage]);
 
   return (
     <Box>
@@ -284,11 +135,12 @@ export function EmailContent({
         </Box>
       )}
 
-      {/* Email content in sandboxed iframe */}
+      {/* Email content wrapper - provides light background for both modes */}
       <Box
         sx={{
-          // Container styling for dark mode
+          // Always provide a light background for email content in dark mode
           ...(isDark && {
+            backgroundColor: applyDarkMode ? '#ffffff' : '#fafafa',
             borderRadius: 2,
             overflow: 'hidden',
             boxShadow: applyDarkMode
@@ -297,18 +149,121 @@ export function EmailContent({
           }),
         }}
       >
-        <iframe
-          ref={iframeRef}
-          srcDoc={iframeSrcDoc}
-          sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
-          style={{
-            width: '100%',
-            height: iframeHeight,
-            border: 'none',
-            display: 'block',
-            backgroundColor: isDark ? (applyDarkMode ? '#ffffff' : '#fafafa') : 'transparent',
+        {/* Email content with dark mode inversion */}
+        <Box
+          className="email-content"
+          sx={{
+            // Base styles
+            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            fontSize: '15px',
+            lineHeight: 1.6,
+            wordBreak: 'break-word',
+            overflowWrap: 'break-word',
+            padding: isDark ? 3 : 0,
+
+            // Dark mode: CSS filter inversion
+            ...(applyDarkMode && {
+              filter: 'invert(1) hue-rotate(180deg)',
+              '& img': {
+                filter: 'invert(1) hue-rotate(180deg)',
+              },
+              '& video, & iframe': {
+                filter: 'invert(1) hue-rotate(180deg)',
+              },
+            }),
+
+            // Images - suppress errors silently
+            '& img': {
+              maxWidth: '100%',
+              height: 'auto',
+              display: 'block',
+            },
+            // Hide broken images (blocked by ad blocker)
+            '& img[src^="data:"]': {
+              opacity: 0.5,
+            },
+
+            // Links
+            '& a': {
+              color: applyDarkMode ? '#1976d2' : theme.palette.primary.main,
+              textDecoration: 'none',
+              '&:hover': {
+                textDecoration: 'underline',
+              },
+            },
+
+            // Preformatted text
+            '& pre, & code': {
+              backgroundColor: '#f5f5f5',
+              padding: theme.spacing(0.5, 1),
+              borderRadius: theme.shape.borderRadius,
+              fontFamily: 'monospace',
+              fontSize: '0.9em',
+              overflow: 'auto',
+            },
+            '& pre': {
+              padding: theme.spacing(2),
+              whiteSpace: 'pre-wrap',
+            },
+
+            // Tables
+            '& table': {
+              borderCollapse: 'collapse',
+              width: '100%',
+              maxWidth: '100%',
+              marginBottom: theme.spacing(2),
+              tableLayout: 'fixed',
+            },
+            '& td, & th': {
+              border: '1px solid #ddd',
+              padding: theme.spacing(1),
+              textAlign: 'left',
+              wordBreak: 'break-word',
+            },
+            '& th': {
+              backgroundColor: '#f5f5f5',
+              fontWeight: 600,
+            },
+
+            // Blockquotes
+            '& blockquote': {
+              margin: theme.spacing(2, 0),
+              padding: theme.spacing(1, 2),
+              borderLeft: '4px solid #ddd',
+              backgroundColor: '#f9f9f9',
+            },
+
+            // Lists
+            '& ul, & ol': {
+              paddingLeft: theme.spacing(3),
+              marginBottom: theme.spacing(2),
+            },
+            '& li': {
+              marginBottom: theme.spacing(0.5),
+            },
+
+            // Headings
+            '& h1, & h2, & h3, & h4, & h5, & h6': {
+              marginTop: theme.spacing(2),
+              marginBottom: theme.spacing(1),
+              fontWeight: 600,
+              lineHeight: 1.3,
+            },
+
+            // Paragraphs
+            '& p': {
+              marginBottom: theme.spacing(1.5),
+            },
+
+            // Horizontal rule
+            '& hr': {
+              border: 'none',
+              borderTop: '1px solid #ddd',
+              margin: theme.spacing(2, 0),
+            },
           }}
-          title="Email content"
+          dangerouslySetInnerHTML={{ __html: processedHtml }}
+          onClick={handleClick}
         />
       </Box>
     </Box>

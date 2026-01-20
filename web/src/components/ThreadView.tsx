@@ -16,7 +16,6 @@ import {
 import { ExpandMore, ExpandLess, Email } from '@mui/icons-material';
 import { SenderAvatar, extractSenderName } from './SenderAvatar';
 import { QuotedText, processHtmlQuotes } from './QuotedText';
-import { EmailContent } from './EmailContent';
 import DOMPurify from 'dompurify';
 import { useThreadMessages, useMessageBody } from '../hooks/useMessages';
 import type { Message } from '../api/types';
@@ -151,9 +150,14 @@ function ThreadMessage({ message, isCurrentMessage, defaultExpanded }: ThreadMes
               <CircularProgress size={24} />
             </Box>
           ) : mainHtml ? (
-            <Box sx={{ fontSize: '0.9rem' }}>
-              <EmailContent html={mainHtml} />
-            </Box>
+            <Box
+              sx={{
+                '& img': { maxWidth: '100%', height: 'auto' },
+                '& a': { color: 'primary.main' },
+                fontSize: '0.9rem',
+              }}
+              dangerouslySetInnerHTML={{ __html: mainHtml }}
+            />
           ) : body?.body_text ? (
             <QuotedText text={body.body_text} defaultCollapsed={false} />
           ) : (
