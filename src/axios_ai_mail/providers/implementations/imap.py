@@ -130,7 +130,7 @@ class IMAPProvider(BaseEmailProvider):
                 return None, None
 
             # Fetch message
-            typ, msg_data = self.connection.fetch(uid, "(RFC822)")
+            typ, msg_data = self.connection.uid("FETCH", uid, "(RFC822)")
 
             if typ != "OK" or not msg_data or not msg_data[0]:
                 logger.warning(f"Failed to fetch body for message {uid} in {folder}")
@@ -455,10 +455,10 @@ class IMAPProvider(BaseEmailProvider):
         else:
             search_criteria = "ALL"
 
-        # Search for message UIDs
-        typ, msg_ids_data = self.connection.search(None, search_criteria)
+        # Search for message UIDs (use UID SEARCH to get stable UIDs, not sequence numbers)
+        typ, msg_ids_data = self.connection.uid("SEARCH", None, search_criteria)
         if typ != "OK":
-            logger.error("IMAP SEARCH failed")
+            logger.error("IMAP UID SEARCH failed")
             return []
 
         msg_ids = msg_ids_data[0].split()
@@ -472,8 +472,8 @@ class IMAPProvider(BaseEmailProvider):
         messages = []
         for msg_id in msg_ids:
             try:
-                # Fetch message (RFC822 = full message, FLAGS = keywords/flags)
-                typ, msg_data = self.connection.fetch(msg_id, "(RFC822 FLAGS)")
+                # Fetch message using UID (RFC822 = full message, FLAGS = keywords/flags)
+                typ, msg_data = self.connection.uid("FETCH", msg_id, "(RFC822 FLAGS)")
 
                 if typ != "OK" or not msg_data or not msg_data[0]:
                     logger.warning(f"Failed to fetch message {msg_id}")
@@ -515,10 +515,10 @@ class IMAPProvider(BaseEmailProvider):
             if not self._select_folder(folder):
                 raise RuntimeError(f"Failed to select folder {folder}")
 
-            typ, data = self.connection.store(uid, "+FLAGS", "\\Seen")
+            typ, data = self.connection.uid("STORE", uid, "+FLAGS", "\\Seen")
             if typ != "OK":
-                raise RuntimeError(f"IMAP STORE failed: {data}")
-            logger.debug(f"Marked message {uid} in {folder} as read")
+                raise RuntimeError(f"IMAP UID STORE failed: {data}")
+            logger.debug(f"Marked message UID {uid} in {folder} as read")
 
         except Exception as e:
             logger.error(f"Failed to mark message {uid} in {folder} as read: {e}")
@@ -542,10 +542,10 @@ class IMAPProvider(BaseEmailProvider):
             if not self._select_folder(folder):
                 raise RuntimeError(f"Failed to select folder {folder}")
 
-            typ, data = self.connection.store(uid, "-FLAGS", "\\Seen")
+            typ, data = self.connection.uid("STORE", uid, "-FLAGS", "\\Seen")
             if typ != "OK":
-                raise RuntimeError(f"IMAP STORE failed: {data}")
-            logger.debug(f"Marked message {uid} in {folder} as unread")
+                raise RuntimeError(f"IMAP UID STORE failed: {data}")
+            logger.debug(f"Marked message UID {uid} in {folder} as unread")
 
         except Exception as e:
             logger.error(f"Failed to mark message {uid} in {folder} as unread: {e}")
@@ -572,13 +572,13 @@ class IMAPProvider(BaseEmailProvider):
 
             if permanent:
                 # Permanent delete: mark as deleted and expunge
-                typ, data = self.connection.store(uid, "+FLAGS", "\\Deleted")
+                typ, data = self.connection.uid("STORE", uid, "+FLAGS", "\\Deleted")
                 if typ != "OK":
-                    raise RuntimeError(f"IMAP STORE failed: {data}")
+                    raise RuntimeError(f"IMAP UID STORE failed: {data}")
 
                 # Expunge to permanently remove deleted messages
                 self.connection.expunge()
-                logger.info(f"Permanently deleted message {uid} from {folder}")
+                logger.info(f"Permanently deleted message UID {uid} from {folder}")
 
             else:
                 # Move to Trash folder using discovered folder mapping
@@ -591,19 +591,19 @@ class IMAPProvider(BaseEmailProvider):
                     self.delete_message(message_id, permanent=True)
                     return
 
-                # Copy message to Trash folder
-                typ, data = self.connection.copy(uid, trash_folder)
+                # Copy message to Trash folder using UID
+                typ, data = self.connection.uid("COPY", uid, trash_folder)
                 if typ != "OK":
-                    raise RuntimeError(f"IMAP COPY to {trash_folder} failed: {data}")
+                    raise RuntimeError(f"IMAP UID COPY to {trash_folder} failed: {data}")
 
                 # Mark original as deleted
-                typ, data = self.connection.store(uid, "+FLAGS", "\\Deleted")
+                typ, data = self.connection.uid("STORE", uid, "+FLAGS", "\\Deleted")
                 if typ != "OK":
-                    raise RuntimeError(f"IMAP STORE failed: {data}")
+                    raise RuntimeError(f"IMAP UID STORE failed: {data}")
 
                 # Expunge to remove from current folder
                 self.connection.expunge()
-                logger.info(f"Moved message {uid} from {folder} to {trash_folder}")
+                logger.info(f"Moved message UID {uid} from {folder} to {trash_folder}")
 
         except Exception as e:
             logger.error(f"Failed to delete message {uid} from {folder}: {e}")
@@ -655,19 +655,19 @@ class IMAPProvider(BaseEmailProvider):
             if not self._select_folder(trash_folder):
                 raise RuntimeError(f"Failed to select folder {trash_folder}")
 
-            # Copy message to original folder
-            typ, data = self.connection.copy(uid, original_folder)
+            # Copy message to original folder using UID
+            typ, data = self.connection.uid("COPY", uid, original_folder)
             if typ != "OK":
-                raise RuntimeError(f"IMAP COPY to {original_folder} failed: {data}")
+                raise RuntimeError(f"IMAP UID COPY to {original_folder} failed: {data}")
 
             # Mark message in Trash as deleted
-            typ, data = self.connection.store(uid, "+FLAGS", "\\Deleted")
+            typ, data = self.connection.uid("STORE", uid, "+FLAGS", "\\Deleted")
             if typ != "OK":
-                raise RuntimeError(f"IMAP STORE failed: {data}")
+                raise RuntimeError(f"IMAP UID STORE failed: {data}")
 
             # Expunge to remove from Trash
             self.connection.expunge()
-            logger.info(f"Restored message {uid} from {trash_folder} to {original_folder}")
+            logger.info(f"Restored message UID {uid} from {trash_folder} to {original_folder}")
 
         except Exception as e:
             logger.error(f"Failed to restore message {uid} from trash: {e}")
@@ -701,21 +701,21 @@ class IMAPProvider(BaseEmailProvider):
             if not self._select_folder(folder):
                 raise RuntimeError(f"Failed to select folder {folder}")
 
-            # Add keywords
+            # Add keywords using UID
             if add_labels:
                 keywords = " ".join(
                     f"{self.config.keyword_prefix}{label}" for label in add_labels
                 )
-                self.connection.store(uid, "+FLAGS", f"({keywords})")
-                logger.debug(f"Added keywords to message {uid} in {folder}: {keywords}")
+                self.connection.uid("STORE", uid, "+FLAGS", f"({keywords})")
+                logger.debug(f"Added keywords to message UID {uid} in {folder}: {keywords}")
 
-            # Remove keywords
+            # Remove keywords using UID
             if remove_labels:
                 keywords = " ".join(
                     f"{self.config.keyword_prefix}{label}" for label in remove_labels
                 )
-                self.connection.store(uid, "-FLAGS", f"({keywords})")
-                logger.debug(f"Removed keywords from message {uid} in {folder}: {keywords}")
+                self.connection.uid("STORE", uid, "-FLAGS", f"({keywords})")
+                logger.debug(f"Removed keywords from message UID {uid} in {folder}: {keywords}")
 
         except Exception as e:
             logger.error(f"Failed to update labels for message {uid} in {folder}: {e}")
@@ -1101,7 +1101,7 @@ class IMAPProvider(BaseEmailProvider):
             if not self._select_folder(folder):
                 raise RuntimeError(f"Failed to select folder {folder}")
 
-            typ, data = self.connection.fetch(uid, "(RFC822)")
+            typ, data = self.connection.uid("FETCH", uid, "(RFC822)")
 
             if typ != "OK" or not data or not data[0]:
                 raise RuntimeError(f"Message {message_id} not found")
@@ -1190,7 +1190,7 @@ class IMAPProvider(BaseEmailProvider):
             if not self._select_folder(folder):
                 raise RuntimeError(f"Failed to select folder {folder}")
 
-            typ, data = self.connection.fetch(uid, "(RFC822)")
+            typ, data = self.connection.uid("FETCH", uid, "(RFC822)")
 
             if typ != "OK" or not data or not data[0]:
                 raise RuntimeError(f"Message {message_id} not found")

@@ -3,7 +3,7 @@
  * Used in both the full-page MessageDetailPage and the ReadingPane split view
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -106,15 +106,19 @@ export function MessageDetail({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
 
-  // Auto-mark as read when message is opened
+  // Track which messages we've already marked as read to prevent loops
+  const markedAsReadRef = useRef<Set<string>>(new Set());
+
+  // Auto-mark as read when message is opened (with guard against repeated calls)
   useEffect(() => {
-    if (message && message.is_unread) {
+    if (message && message.is_unread && !markedAsReadRef.current.has(message.id)) {
+      markedAsReadRef.current.add(message.id);
       markRead.mutate({
         id: message.id,
         data: { is_unread: false },
       });
     }
-  }, [message?.id]);
+  }, [message?.id, message?.is_unread]);
 
   // Fetch attachments when message loads
   useEffect(() => {

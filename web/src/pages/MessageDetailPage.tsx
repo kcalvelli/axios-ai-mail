@@ -38,7 +38,7 @@ import {
   Image as ImageIcon,
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useIsMobile } from '../hooks/useIsMobile';
 import axios from 'axios';
 import DOMPurify from 'dompurify';
@@ -182,15 +182,19 @@ export function MessageDetailPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
 
-  // Auto-mark as read when message is opened
+  // Track which messages we've already marked as read to prevent loops
+  const markedAsReadRef = useRef<Set<string>>(new Set());
+
+  // Auto-mark as read when message is opened (with guard against repeated calls)
   useEffect(() => {
-    if (message && message.is_unread) {
+    if (message && message.is_unread && !markedAsReadRef.current.has(message.id)) {
+      markedAsReadRef.current.add(message.id);
       markRead.mutate({
         id: message.id,
         data: { is_unread: false },
       });
     }
-  }, [message?.id]); // Only run when message ID changes
+  }, [message?.id, message?.is_unread]);
 
   // Fetch attachments when message loads (only if message has attachments)
   useEffect(() => {
