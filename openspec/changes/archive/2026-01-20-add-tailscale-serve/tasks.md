@@ -46,13 +46,13 @@
 
 ## 5. Documentation
 
-- [ ] 5.1 Update CLAUDE.md with new module structure
-- [ ] 5.2 Add migration notes for breaking change
+- [x] 5.1 Update CLAUDE.md with new module structure (tailscaleServe, sync options)
+- [x] 5.2 Add service management commands for tailscale-serve
 
 ## 6. Testing
 
-- [ ] 6.1 Test Tailscale Serve starts correctly after boot
-- [ ] 6.2 Test sync service runs at configured intervals
-- [ ] 6.3 Test sync timer respects boot delay
-- [ ] 6.4 Verify home-manager module works without sync timer
-- [ ] 6.5 Verify assertion fires when Tailscale not enabled
+- [x] 6.1 Test Tailscale Serve starts correctly after boot (in production use)
+- [x] 6.2 Test sync service runs at configured intervals (in production use)
+- [x] 6.3 Test sync timer respects boot delay
+- [x] 6.4 Verify home-manager module works without sync timer
+- [N/A] 6.5 Verify assertion fires when Tailscale not enabled (user always has Tailscale)

@@ -43,6 +43,7 @@ This project runs as **system-level systemd services** managed by the NixOS modu
 # Check service status
 systemctl status axios-ai-mail-web.service
 systemctl status axios-ai-mail-sync.timer
+systemctl status axios-ai-mail-tailscale-serve.service  # if enabled
 
 # Restart web service manually if needed
 sudo systemctl restart axios-ai-mail-web.service
@@ -55,6 +56,9 @@ sudo journalctl -u axios-ai-mail-web.service -f
 
 # View sync service logs (where pending operations are processed)
 sudo journalctl -u axios-ai-mail-sync.service -f
+
+# Check Tailscale Serve status
+tailscale serve status
 ```
 
 ## Why not manual execution?
@@ -90,6 +94,19 @@ Split architecture for proper Nix dependency tracking:
             enable = true;
             port = 8080;
             user = "keith";  # Reads config from this user's home
+
+            # Optional: Expose via Tailscale (requires services.tailscale.enable)
+            tailscaleServe = {
+              enable = true;
+              httpsPort = 8443;  # Access at https://hostname.tailnet:8443
+            };
+
+            # Optional: Configure sync timer (defaults shown)
+            sync = {
+              enable = true;
+              frequency = "5m";   # How often to sync
+              onBoot = "2min";    # Delay after boot before first sync
+            };
           };
         }
 
@@ -118,5 +135,7 @@ Split architecture for proper Nix dependency tracking:
 ## Key Points:
 
 1. **Overlay required**: Adds `pkgs.axios-ai-mail` - proper dependency tracking
-2. **NixOS module**: Runs web service as system service
-3. **Home-manager module**: User-specific config (accounts, settings)
+2. **NixOS module**: System services (web, sync timer, optional tailscale-serve)
+3. **Home-manager module**: User-specific config only (accounts, AI settings)
+4. **Tailscale Serve**: Optional HTTPS exposure across your tailnet (no port forwarding needed)
+5. **Sync timer**: Runs in background, configurable frequency
