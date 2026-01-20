@@ -256,6 +256,52 @@ OnUnitActiveSec=5min
 Persistent=true
 ```
 
+### Async Provider Sync (Pending Operations Queue)
+
+User actions (mark read, delete, restore) update the local database immediately for instant UI feedback. Provider synchronization happens asynchronously in the background via a pending operations queue.
+
+```
+User Action → Local DB Update (instant) → Queue Operation → Return Response
+                                                ↓
+                              Next Sync Cycle → Process Queue → Provider API
+```
+
+**PendingOperation Model:**
+
+```python
+class PendingOperation(Base):
+    id: str                 # Unique operation ID
+    account_id: str         # Account FK
+    message_id: str         # Message FK
+    operation: str          # mark_read, mark_unread, trash, restore, delete
+    status: str             # pending, completed, failed
+    attempts: int           # Retry count
+    last_error: str | None  # Error message if failed
+    created_at: datetime    # For ordering
+```
+
+**Queue Operations:**
+
+| Operation | Local DB Update | Provider Action |
+|-----------|----------------|-----------------|
+| `mark_read` | `is_unread = False` | Remove UNREAD label / Set \\Seen flag |
+| `mark_unread` | `is_unread = True` | Add UNREAD label / Clear \\Seen flag |
+| `trash` | `is_trashed = True` | Move to Trash folder |
+| `restore` | `is_trashed = False` | Move to Inbox |
+| `delete` | Delete from DB | Permanent delete |
+
+**Smart Deduplication:**
+
+Opposite operations cancel each other out:
+- `mark_read` + `mark_unread` on same message → both removed
+- `trash` + `restore` on same message → both removed
+
+This prevents unnecessary API calls when users toggle state rapidly.
+
+**Processing Order:**
+
+Pending operations are processed at the **start** of each sync cycle, before fetching new messages. This ensures user actions take priority and reduces state conflicts.
+
 ---
 
 ## AI Classification Pipeline
