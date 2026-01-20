@@ -21,7 +21,7 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 
 **IMPORTANT: Do NOT manually start the application with `./result/bin/axios-ai-mail` or `nix build` commands!**
 
-This project runs as a **systemd user service** managed by NixOS/home-manager. The correct workflow is:
+This project runs as **system-level systemd services** managed by the NixOS module. The correct workflow is:
 
 ## After making changes:
 
@@ -40,14 +40,21 @@ This project runs as a **systemd user service** managed by NixOS/home-manager. T
 ## Service management:
 
 ```bash
-# Check status
-systemctl --user status axios-ai-mail-web.service
+# Check service status
+systemctl status axios-ai-mail-web.service
+systemctl status axios-ai-mail-sync.timer
 
-# Restart manually if needed
-systemctl --user restart axios-ai-mail-web.service
+# Restart web service manually if needed
+sudo systemctl restart axios-ai-mail-web.service
 
-# View logs
-journalctl --user -u axios-ai-mail-web.service -f
+# Trigger a sync manually (instead of waiting for timer)
+sudo systemctl start axios-ai-mail-sync.service
+
+# View web service logs
+sudo journalctl -u axios-ai-mail-web.service -f
+
+# View sync service logs (where pending operations are processed)
+sudo journalctl -u axios-ai-mail-sync.service -f
 ```
 
 ## Why not manual execution?
@@ -59,8 +66,8 @@ journalctl --user -u axios-ai-mail-web.service -f
 # NixOS/Home-Manager Integration
 
 Split architecture for proper Nix dependency tracking:
-- **NixOS module**: Applies overlay, runs web service (system-level)
-- **Home-manager module**: User accounts, AI config, sync timer
+- **NixOS module**: System services (web, sync timer, tailscale-serve)
+- **Home-manager module**: User config only (accounts, AI settings, generates config.yaml)
 
 ## Usage in your NixOS flake:
 
