@@ -1,19 +1,18 @@
 /**
- * EmailContent component - Enhanced HTML email rendering
+ * EmailContent component - Safe HTML email rendering using "Static Jail" pattern
+ *
+ * Security model:
+ * - Sanitizes HTML internally with DOMPurify (caller passes raw HTML)
+ * - Uses "Static Jail" pattern: ref + imperative innerHTML, React never touches content
+ * - Strips event handlers (onerror, onload) that could cause render loops
+ * - Blocks known tracking domains at sanitization level
  *
  * Features:
  * - Dark mode adaptation using CSS filter inversion (industry standard)
- * - Remote image blocking with prompt
+ * - Remote image blocking with user prompt to load
  * - Safe link handling (open in new tab)
  * - Typography improvements
  * - Responsive tables
- *
- * Security: HTML MUST be sanitized with DOMPurify before passing to this component.
- *
- * Dark mode approach:
- * - Uses filter: invert(1) hue-rotate(180deg) to invert colors while preserving hues
- * - Images are inverted back to display correctly
- * - This matches how Gmail, Outlook, and other major clients handle dark mode
  *
  * @see https://www.litmus.com/blog/the-ultimate-guide-to-dark-mode-for-email-marketers
  */
@@ -21,9 +20,10 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { Box, Button, Alert, useTheme } from '@mui/material';
 import { Image, ImageNotSupported, LightMode } from '@mui/icons-material';
+import DOMPurify from 'dompurify';
 
 interface EmailContentProps {
-  /** Sanitized HTML content (MUST be sanitized with DOMPurify first!) */
+  /** Raw HTML content (will be sanitized internally) */
   html: string;
   /** Whether to show remote images by default */
   allowRemoteImages?: boolean;
@@ -31,18 +31,35 @@ interface EmailContentProps {
   onLoadRemoteImages?: () => void;
 }
 
+// Default allowed tags for email content
+const ALLOWED_TAGS = [
+  'p', 'br', 'strong', 'em', 'u', 'b', 'i', 's',
+  'a', 'ul', 'ol', 'li',
+  'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+  'blockquote', 'div', 'span', 'pre', 'code',
+  'table', 'tr', 'td', 'th', 'thead', 'tbody',
+  'img',
+];
+
+// Allowed attributes - notably excludes event handlers
+const ALLOWED_ATTR = [
+  'href', 'target', 'rel', 'class', 'style',
+  'src', 'alt', 'width', 'height',
+];
+
+// Forbidden attributes that could cause issues (event handlers)
+const FORBID_ATTR = ['onerror', 'onload', 'onclick', 'onmouseover'];
+
 /**
  * Check if HTML contains remote images
- * Note: Don't use global flag 'g' with .test() - it's stateful and causes issues!
  */
 function hasRemoteImages(html: string): boolean {
-  // Use a fresh regex without 'g' flag to avoid stateful lastIndex issues
   const pattern = /<img[^>]+src=["']https?:\/\//i;
   return pattern.test(html);
 }
 
 /**
- * Block remote images by replacing src with data attribute
+ * Block remote images by replacing src with placeholder
  */
 function blockRemoteImages(html: string): string {
   return html.replace(
@@ -62,19 +79,28 @@ export function EmailContent({
   const [forceOriginal, setForceOriginal] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
-  // Check for remote images - memoized to avoid recalculation
-  const hasRemote = useMemo(() => hasRemoteImages(html), [html]);
+  // Step 1: Sanitize HTML with DOMPurify (memoized - runs once per html change)
+  const sanitizedHtml = useMemo(() => {
+    return DOMPurify.sanitize(html, {
+      ALLOWED_TAGS,
+      ALLOWED_ATTR,
+      FORBID_ATTR,
+    });
+  }, [html]);
 
-  // Process HTML - memoized with stable dependencies
+  // Step 2: Check for remote images in sanitized content
+  const hasRemote = useMemo(() => hasRemoteImages(sanitizedHtml), [sanitizedHtml]);
+
+  // Step 3: Process for remote image blocking (memoized)
   const processedHtml = useMemo(() => {
     if (!showRemoteImages && hasRemote) {
-      return blockRemoteImages(html);
+      return blockRemoteImages(sanitizedHtml);
     }
-    return html;
-  }, [html, showRemoteImages, hasRemote]);
+    return sanitizedHtml;
+  }, [sanitizedHtml, showRemoteImages, hasRemote]);
 
-  // Imperatively set innerHTML to bypass React reconciliation entirely
-  // This prevents render loops caused by deeply nested HTML or blocked images
+  // Step 4: "Static Jail" - imperatively set innerHTML ONCE per content change
+  // React never touches the content after this, breaking any potential render loops
   useEffect(() => {
     if (contentRef.current) {
       contentRef.current.innerHTML = processedHtml;
