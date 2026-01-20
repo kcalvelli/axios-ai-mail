@@ -246,6 +246,7 @@ export function EmailContent({
         </Alert>
       )}
 
+      {/* Dark mode toggle - full version for non-compact, icon for compact */}
       {isDark && !compact && (
         <Box sx={{ mb: 1, display: 'flex', justifyContent: 'flex-end' }}>
           <Button
@@ -259,8 +260,8 @@ export function EmailContent({
         </Box>
       )}
 
-      {/* Scale indicator for compact mode */}
-      {compact && isScaled && (
+      {/* Compact mode control bar: scale indicator + dark mode toggle */}
+      {compact && (isScaled || isDark) && (
         <Box
           sx={{
             display: 'flex',
@@ -269,17 +270,46 @@ export function EmailContent({
             mb: 1,
           }}
         >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary', fontSize: '0.75rem' }}>
-            <ZoomOutMap sx={{ fontSize: 14 }} />
-            <span>{forceFullSize ? 'Full size' : `Scaled to fit (${Math.round(scaleFactor * 100)}%)`}</span>
+          {/* Left: Scale indicator (if scaled) */}
+          {isScaled ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary', fontSize: '0.75rem' }}>
+              <ZoomOutMap sx={{ fontSize: 14 }} />
+              <span>{forceFullSize ? 'Full size' : `${Math.round(scaleFactor * 100)}%`}</span>
+            </Box>
+          ) : (
+            <Box /> // Spacer
+          )}
+
+          {/* Right: Controls */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            {/* Scale toggle */}
+            {isScaled && (
+              <Button
+                size="small"
+                onClick={() => setForceFullSize(!forceFullSize)}
+                sx={{ textTransform: 'none', fontSize: '0.75rem', color: 'text.secondary', minWidth: 'auto', p: 0.5 }}
+              >
+                {forceFullSize ? 'Fit' : 'Full'}
+              </Button>
+            )}
+            {/* Dark mode toggle (icon only in compact) */}
+            {isDark && (
+              <Button
+                size="small"
+                onClick={() => setForceOriginal(!forceOriginal)}
+                sx={{
+                  textTransform: 'none',
+                  fontSize: '0.75rem',
+                  color: forceOriginal ? 'warning.main' : 'text.secondary',
+                  minWidth: 'auto',
+                  p: 0.5
+                }}
+                title={forceOriginal ? 'Original colors · Click for dark mode' : 'Dark mode · Click for original'}
+              >
+                <LightMode sx={{ fontSize: 16 }} />
+              </Button>
+            )}
           </Box>
-          <Button
-            size="small"
-            onClick={() => setForceFullSize(!forceFullSize)}
-            sx={{ textTransform: 'none', fontSize: '0.75rem', color: 'text.secondary', minWidth: 'auto', p: 0.5 }}
-          >
-            {forceFullSize ? 'Fit to pane' : 'View full size'}
-          </Button>
         </Box>
       )}
 
