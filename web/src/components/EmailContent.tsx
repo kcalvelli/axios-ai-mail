@@ -17,7 +17,7 @@
  * @see https://www.litmus.com/blog/the-ultimate-guide-to-dark-mode-for-email-marketers
  */
 
-import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect, memo } from 'react';
 import { Box, Button, Alert, useTheme } from '@mui/material';
 import { Image, ImageNotSupported, LightMode } from '@mui/icons-material';
 import DOMPurify from 'dompurify';
@@ -68,7 +68,9 @@ function blockRemoteImages(html: string): string {
   );
 }
 
-export function EmailContent({
+// Wrapped in memo to prevent re-renders when html content hasn't changed
+// This is critical for WebSocket-heavy environments where parent re-renders are frequent
+export const EmailContent = memo(function EmailContent({
   html,
   allowRemoteImages = false,
   onLoadRemoteImages,
@@ -303,4 +305,4 @@ export function EmailContent({
       </Box>
     </Box>
   );
-}
+});

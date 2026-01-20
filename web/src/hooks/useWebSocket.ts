@@ -12,7 +12,6 @@ import type { WebSocketMessage } from '../api/types';
 
 export function useWebSocket() {
   const [isConnected, setIsConnected] = useState(false);
-  const [lastMessage, setLastMessage] = useState<WebSocketMessage | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const queryClient = useQueryClient();
   const { setSyncStatus } = useAppStore();
@@ -45,7 +44,6 @@ export function useWebSocket() {
       try {
         const message: WebSocketMessage = JSON.parse(event.data);
         console.log('WebSocket message:', message);
-        setLastMessage(message);
 
         // Handle different message types
         switch (message.type) {
@@ -145,7 +143,6 @@ export function useWebSocket() {
 
   return {
     isConnected,
-    lastMessage,
     sendMessage,
   };
 }
