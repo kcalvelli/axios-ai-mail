@@ -437,18 +437,14 @@ async def update_message_tags(
         classification = db.get_classification(message_id)
 
         if classification:
-            # Update existing classification
-            db.store_classification(
+            # Update existing classification with DFSL feedback recording
+            db.update_message_tags(
                 message_id=message_id,
                 tags=body.tags,
-                priority=classification.priority,
-                todo=classification.todo,
-                can_archive=classification.can_archive,
-                model=classification.model,
-                confidence=classification.confidence,
+                user_edited=True,  # Record DFSL feedback if tags changed
             )
         else:
-            # Create new classification (manual)
+            # Create new classification (manual tagging)
             db.store_classification(
                 message_id=message_id,
                 tags=body.tags,
@@ -457,14 +453,6 @@ async def update_message_tags(
                 can_archive=False,
                 model="manual",
                 confidence=1.0,
-            )
-
-        # Store feedback (original vs corrected tags)
-        if classification and set(classification.tags) != set(body.tags):
-            db.store_feedback(
-                message_id=message_id,
-                original_tags=classification.tags,
-                corrected_tags=body.tags,
             )
 
         # Broadcast update to all clients

@@ -131,23 +131,36 @@ class Classification(Base):
 
 
 class Feedback(Base):
-    """User feedback for classification corrections."""
+    """User feedback for classification corrections (DFSL - Dynamic Few-Shot Learning).
+
+    Stores user tag corrections to use as few-shot examples in future classifications.
+    When the AI classifier processes new emails, it retrieves relevant corrections
+    based on sender domain and recency to improve accuracy.
+    """
 
     __tablename__ = "feedback"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    message_id: Mapped[str] = mapped_column(
-        String(255), ForeignKey("messages.id", ondelete="CASCADE"), nullable=False
+    account_id: Mapped[str] = mapped_column(
+        String(255), ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False, index=True
     )
+    message_id: Mapped[Optional[str]] = mapped_column(
+        String(255), ForeignKey("messages.id", ondelete="SET NULL"), nullable=True
+    )
+    sender_domain: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    subject_pattern: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     original_tags: Mapped[List[str]] = mapped_column(JSON, nullable=False)
     corrected_tags: Mapped[List[str]] = mapped_column(JSON, nullable=False)
-    corrected_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    context_snippet: Mapped[Optional[str]] = mapped_column(String(300), nullable=True)
+    corrected_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    used_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     # Relationships
-    message: Mapped["Message"] = relationship(back_populates="feedback_entries")
+    account: Mapped["Account"] = relationship()
+    message: Mapped[Optional["Message"]] = relationship(back_populates="feedback_entries")
 
     def __repr__(self) -> str:
-        return f"<Feedback(id={self.id}, message_id={self.message_id!r})>"
+        return f"<Feedback(id={self.id}, sender_domain={self.sender_domain!r}, corrected_tags={self.corrected_tags!r})>"
 
 
 class Draft(Base):

@@ -196,3 +196,47 @@ class SmartReplyResponse(BaseModel):
 
     replies: List[SmartReply]
     generated_at: datetime
+
+
+# DFSL Feedback Models
+
+
+class FeedbackEntryResponse(BaseModel):
+    """Single feedback entry for DFSL."""
+
+    id: int
+    account_id: str
+    message_id: Optional[str] = None
+    sender_domain: str
+    subject_pattern: Optional[str] = None
+    original_tags: List[str]
+    corrected_tags: List[str]
+    context_snippet: Optional[str] = None
+    corrected_at: datetime
+    used_count: int
+
+    class Config:
+        from_attributes = True
+
+
+class FeedbackListResponse(BaseModel):
+    """List of feedback entries."""
+
+    entries: List[FeedbackEntryResponse]
+    total: int
+
+
+class FeedbackStatsResponse(BaseModel):
+    """DFSL feedback statistics."""
+
+    total_corrections: int
+    total_usage: int
+    top_domains: List[Dict[str, int]]
+
+
+class FeedbackDeleteResponse(BaseModel):
+    """Response for feedback deletion."""
+
+    success: bool
+    deleted_count: int
+    message: str

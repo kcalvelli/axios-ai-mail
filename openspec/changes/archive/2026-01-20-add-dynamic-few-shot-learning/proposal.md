@@ -1,9 +1,5 @@
 # Proposal: Dynamic Few-Shot Learning for AI Classifier (DFSL-001)
 
-## What
-
-Introduce a learning feedback loop for the AI classifier that uses user tag corrections as few-shot examples in subsequent classification requests, enabling real-time adaptation to user preferences without model fine-tuning.
-
 ## Why
 
 The current classifier uses a static system prompt. While effective for general categories, it cannot adapt to nuanced user preferences (e.g., whether GitHub notifications should be tagged as "work" or "dev"). Retraining the model locally is computationally expensive, but injecting 3-5 "Gold Standard" examples into the prompt context efficiently aligns the LLM with user intent in real-time.
@@ -14,26 +10,22 @@ The current classifier uses a static system prompt. While effective for general 
 - Learning takes effect immediately after user correction
 - Minimal computational overhead (just prompt augmentation)
 
-## How
+## What Changes
 
-### 1. Capture Corrections
+Introduce a learning feedback loop for the AI classifier that uses user tag corrections as few-shot examples in subsequent classification requests, enabling real-time adaptation to user preferences without model fine-tuning.
 
-When a user manually changes tags on a message via the UI, record the correction event with context about the email (sender, subject pattern, snippet).
-
-### 2. Retrieve Relevant Examples
-
-During classification, query recent corrections to find relevant few-shot examples based on:
-- Recency (most recent corrections first)
-- Similarity (same sender domain, similar subject patterns)
-
-### 3. Augment Prompts
-
-Inject up to 5 relevant correction examples into the classification prompt as a "User Preference History" block, demonstrating how the user prefers similar emails to be tagged.
+**Components Added:**
+- DFSL feedback fields in existing Feedback database model (sender_domain, subject_pattern, context_snippet, used_count)
+- Backend logic to capture tag corrections with context (domain, subject pattern, snippet)
+- Retrieval of relevant examples during classification (prioritizing domain matches)
+- Prompt augmentation with few-shot examples in User Preference History block
+- API endpoints to view/manage learned corrections (/api/feedback, /api/feedback/stats)
+- Automatic cleanup of old/excessive feedback entries during sync
 
 ## Scope
 
 **In Scope:**
-- New `classification_feedback` database table
+- Enhanced `Feedback` database model with DFSL fields
 - Backend logic to capture tag corrections
 - Retrieval of relevant examples during classification
 - Prompt augmentation with few-shot examples

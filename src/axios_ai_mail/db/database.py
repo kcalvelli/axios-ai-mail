@@ -2,7 +2,7 @@
 
 import logging
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, Generator, List, Optional
 
@@ -866,6 +866,44 @@ class Database:
             )
             return list(session.execute(query).scalars().all())
 
+    @staticmethod
+    def _extract_domain(email: str) -> str:
+        """Extract domain from email address for similarity matching.
+
+        Args:
+            email: Email address (e.g., "user@github.com")
+
+        Returns:
+            Domain part (e.g., "github.com")
+        """
+        if "@" in email:
+            return email.split("@")[-1].lower()
+        return email.lower()
+
+    @staticmethod
+    def _normalize_subject(subject: str) -> str:
+        """Normalize subject for pattern matching.
+
+        Removes ticket numbers, dates, and other variable parts.
+
+        Args:
+            subject: Email subject line
+
+        Returns:
+            Normalized subject pattern
+        """
+        import re
+        # Remove common prefixes
+        normalized = re.sub(r'^(Re:|Fwd:|FW:|RE:)\s*', '', subject, flags=re.IGNORECASE)
+        # Remove numbers that look like ticket IDs
+        normalized = re.sub(r'#\d+', '#XXX', normalized)
+        normalized = re.sub(r'\[\d+\]', '[XXX]', normalized)
+        # Remove dates
+        normalized = re.sub(r'\d{1,2}/\d{1,2}/\d{2,4}', 'DATE', normalized)
+        normalized = re.sub(r'\d{4}-\d{2}-\d{2}', 'DATE', normalized)
+        # Truncate to reasonable length
+        return normalized[:200].strip()
+
     def update_message_tags(
         self,
         message_id: str,
@@ -879,7 +917,7 @@ class Database:
             message_id: Message ID
             tags: New list of tags
             confidence: Optional confidence score
-            user_edited: Whether this is a user edit (stores feedback if True)
+            user_edited: Whether this is a user edit (stores DFSL feedback if True)
 
         Returns:
             Updated classification or None if message not found
@@ -894,19 +932,177 @@ class Database:
                     classification.confidence = confidence
                 classification.classified_at = datetime.utcnow()
 
-                # Store feedback if this is a user edit with changed tags
-                if user_edited and old_tags != tags:
-                    feedback = Feedback(
-                        message_id=message_id,
-                        original_tags=old_tags,
-                        corrected_tags=tags,
-                    )
-                    session.add(feedback)
+                # Store DFSL feedback if this is a user edit with changed tags
+                if user_edited and set(old_tags) != set(tags):
+                    # Get message for context
+                    message = session.get(Message, message_id)
+                    if message:
+                        feedback = Feedback(
+                            account_id=message.account_id,
+                            message_id=message_id,
+                            sender_domain=self._extract_domain(message.from_email),
+                            subject_pattern=self._normalize_subject(message.subject),
+                            original_tags=old_tags,
+                            corrected_tags=tags,
+                            context_snippet=message.snippet[:300] if message.snippet else None,
+                        )
+                        session.add(feedback)
+                        logger.debug(f"DFSL: Recorded feedback for {message.from_email}: {old_tags} -> {tags}")
 
                 session.commit()
                 session.refresh(classification)
                 return classification
             return None
+
+    def get_relevant_feedback(
+        self,
+        account_id: str,
+        sender_domain: str,
+        limit: int = 5,
+    ) -> List[Feedback]:
+        """Get relevant DFSL feedback examples for few-shot learning.
+
+        Prioritizes domain matches, then fills with recent corrections.
+
+        Args:
+            account_id: Account ID for user-specific learning
+            sender_domain: Domain of the email being classified
+            limit: Maximum examples to return
+
+        Returns:
+            List of relevant Feedback entries
+        """
+        with self.session() as session:
+            # First: get domain-matched examples (up to 3)
+            domain_limit = min(3, limit)
+            domain_matches = list(
+                session.query(Feedback)
+                .filter(
+                    Feedback.account_id == account_id,
+                    Feedback.sender_domain == sender_domain.lower()
+                )
+                .order_by(Feedback.corrected_at.desc())
+                .limit(domain_limit)
+                .all()
+            )
+
+            # Get IDs to exclude
+            seen_ids = {f.id for f in domain_matches}
+
+            # Fill remaining slots with recent corrections from other domains
+            remaining = limit - len(domain_matches)
+            other_matches = []
+            if remaining > 0:
+                other_matches = list(
+                    session.query(Feedback)
+                    .filter(
+                        Feedback.account_id == account_id,
+                        Feedback.id.notin_(seen_ids) if seen_ids else True
+                    )
+                    .order_by(Feedback.corrected_at.desc())
+                    .limit(remaining)
+                    .all()
+                )
+
+            # Increment used_count for retrieved examples
+            all_feedback = domain_matches + other_matches
+            for fb in all_feedback:
+                fb.used_count += 1
+            session.commit()
+
+            # Detach from session before returning
+            for fb in all_feedback:
+                session.expunge(fb)
+
+            return all_feedback
+
+    def get_feedback_stats(self, account_id: str) -> Dict:
+        """Get DFSL feedback statistics for an account.
+
+        Args:
+            account_id: Account ID
+
+        Returns:
+            Statistics dict with total, top_domains, etc.
+        """
+        from sqlalchemy import func
+
+        with self.session() as session:
+            total = session.query(Feedback).filter(
+                Feedback.account_id == account_id
+            ).count()
+
+            # Top corrected domains
+            domain_counts = (
+                session.query(Feedback.sender_domain, func.count(Feedback.id))
+                .filter(Feedback.account_id == account_id)
+                .group_by(Feedback.sender_domain)
+                .order_by(func.count(Feedback.id).desc())
+                .limit(10)
+                .all()
+            )
+
+            # Total usage
+            total_used = session.query(func.sum(Feedback.used_count)).filter(
+                Feedback.account_id == account_id
+            ).scalar() or 0
+
+            return {
+                "total_corrections": total,
+                "total_usage": total_used,
+                "top_domains": [{"domain": d, "count": c} for d, c in domain_counts],
+            }
+
+    def cleanup_feedback(self, max_age_days: int = 90, max_per_account: int = 100) -> int:
+        """Clean up old or excessive feedback entries.
+
+        Args:
+            max_age_days: Remove entries older than this
+            max_per_account: Maximum entries to keep per account
+
+        Returns:
+            Number of entries removed
+        """
+        from sqlalchemy import func
+
+        removed = 0
+        cutoff = datetime.utcnow() - timedelta(days=max_age_days)
+
+        with self.session() as session:
+            # Remove old entries
+            old_count = session.query(Feedback).filter(
+                Feedback.corrected_at < cutoff
+            ).delete()
+            removed += old_count
+
+            # Enforce per-account limits
+            account_ids = session.query(Feedback.account_id).distinct().all()
+            for (account_id,) in account_ids:
+                count = session.query(Feedback).filter(
+                    Feedback.account_id == account_id
+                ).count()
+
+                if count > max_per_account:
+                    # Delete oldest entries beyond limit
+                    to_delete = count - max_per_account
+                    oldest_ids = (
+                        session.query(Feedback.id)
+                        .filter(Feedback.account_id == account_id)
+                        .order_by(Feedback.corrected_at.asc())
+                        .limit(to_delete)
+                        .all()
+                    )
+                    if oldest_ids:
+                        session.query(Feedback).filter(
+                            Feedback.id.in_([id for (id,) in oldest_ids])
+                        ).delete(synchronize_session=False)
+                        removed += len(oldest_ids)
+
+            session.commit()
+
+        if removed > 0:
+            logger.info(f"DFSL cleanup: removed {removed} feedback entries")
+        return removed
 
     def has_user_feedback(self, message_id: str) -> bool:
         """Check if a message has user feedback (indicating user-edited tags).

@@ -173,8 +173,14 @@ async def run_reclassify(
                     # Convert database message to provider message for classifier
                     provider_msg = db_message_to_provider_message(message)
 
-                    # Reclassify the message (classifier.classify is synchronous, run in thread)
-                    result = await asyncio.to_thread(classifier.classify, provider_msg)
+                    # Reclassify the message with DFSL support
+                    # (classifier.classify is synchronous, run in thread)
+                    result = await asyncio.to_thread(
+                        classifier.classify,
+                        provider_msg,
+                        db=db,
+                        account_id=message.account_id,
+                    )
 
                     if result:
                         # Update classification in database
@@ -362,6 +368,46 @@ async def refresh_stats(request: Request):
     except Exception as e:
         logger.error(f"Failed to refresh stats: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to refresh stats: {str(e)}")
+
+
+class FeedbackCleanupResponse(BaseModel):
+    """Response model for feedback cleanup."""
+
+    success: bool
+    removed_count: int
+    message: str
+
+
+@router.post("/cleanup-feedback", response_model=FeedbackCleanupResponse)
+async def cleanup_feedback(
+    request: Request,
+    max_age_days: int = 90,
+    max_per_account: int = 100,
+):
+    """Manually trigger DFSL feedback cleanup.
+
+    Removes old feedback entries to prevent unbounded growth.
+
+    Args:
+        request: FastAPI request
+        max_age_days: Remove entries older than this many days
+        max_per_account: Maximum entries to keep per account
+
+    Returns:
+        Cleanup status
+    """
+    db = request.app.state.db
+
+    try:
+        removed = db.cleanup_feedback(max_age_days=max_age_days, max_per_account=max_per_account)
+        return FeedbackCleanupResponse(
+            success=True,
+            removed_count=removed,
+            message=f"Removed {removed} old feedback entries",
+        )
+    except Exception as e:
+        logger.error(f"Failed to cleanup feedback: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to cleanup feedback: {str(e)}")
 
 
 @router.get("/tag-config", response_model=TagConfigResponse)

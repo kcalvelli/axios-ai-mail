@@ -119,8 +119,9 @@ class SyncEngine:
             # 1. Process pending operations queue FIRST (user actions take priority)
             pending_ops_processed, pending_ops_failed = self._process_pending_operations()
 
-            # 2. Clean up old completed operations
+            # 2. Clean up old completed operations and stale feedback
             self.db.cleanup_completed_operations(older_than_hours=24)
+            self.db.cleanup_feedback(max_age_days=90, max_per_account=100)
 
             # 3. Fetch messages from provider
             last_sync = self.db.get_last_sync_time(self.account_id)
@@ -197,7 +198,9 @@ class SyncEngine:
 
             for message in to_classify:
                 try:
-                    classification = self.ai_classifier.classify(message)
+                    classification = self.ai_classifier.classify(
+                        message, db=self.db, account_id=self.account_id
+                    )
 
                     # Store classification in database
                     self.db.store_classification(
@@ -428,8 +431,10 @@ class SyncEngine:
                         folder=db_message.folder,
                     )
 
-                    # Classify
-                    classification = self.ai_classifier.classify(message)
+                    # Classify (with DFSL support)
+                    classification = self.ai_classifier.classify(
+                        message, db=self.db, account_id=self.account_id
+                    )
 
                     # Store classification
                     self.db.store_classification(

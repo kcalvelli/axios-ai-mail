@@ -116,8 +116,6 @@ The system SHALL automatically clean up old or excessive feedback entries to pre
 **When** a new feedback entry is created
 **Then** the oldest entries are removed to stay at or below 100 entries
 
-## MODIFIED Requirements
-
 ### Requirement: Classification uses dynamic context
 
 The AI classifier SHALL use available context including user feedback examples to improve classification accuracy.

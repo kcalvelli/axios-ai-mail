@@ -3,11 +3,15 @@
 import json
 import logging
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 import requests
 
 from .providers.base import Classification, Message
+
+if TYPE_CHECKING:
+    from .db.database import Database
+    from .db.models import Feedback
 
 logger = logging.getLogger(__name__)
 
@@ -48,11 +52,64 @@ class AIClassifier:
         self.config = config
         self.tags = config.custom_tags or self.DEFAULT_TAGS
 
-    def _build_prompt(self, message: Message) -> str:
+    def _build_few_shot_block(self, feedback_examples: List["Feedback"]) -> str:
+        """Build a few-shot learning block from user feedback examples.
+
+        Args:
+            feedback_examples: List of Feedback entries with corrections
+
+        Returns:
+            Formatted string for injection into the classification prompt
+        """
+        if not feedback_examples:
+            return ""
+
+        examples_text = []
+        for fb in feedback_examples:
+            # Format each correction as a learning example
+            snippet = fb.context_snippet[:150] if fb.context_snippet else "(no snippet)"
+            original = ", ".join(fb.original_tags) if fb.original_tags else "(none)"
+            corrected = ", ".join(fb.corrected_tags) if fb.corrected_tags else "(none)"
+
+            examples_text.append(
+                f"  - From: *@{fb.sender_domain}\n"
+                f"    Subject pattern: {fb.subject_pattern or '(no pattern)'}\n"
+                f"    Snippet: {snippet}\n"
+                f"    AI suggested: [{original}] → User corrected: [{corrected}]"
+            )
+
+        block = (
+            "\nUSER PREFERENCE HISTORY:\n"
+            "The user has made the following corrections to AI classifications.\n"
+            "Learn from these examples and apply similar patterns:\n\n"
+            + "\n\n".join(examples_text)
+            + "\n\nIMPORTANT: Prioritize the user's preferences shown above when classifying similar emails.\n"
+        )
+
+        return block
+
+    @staticmethod
+    def _extract_domain(email: str) -> str:
+        """Extract domain from email address.
+
+        Args:
+            email: Email address (e.g., "user@github.com")
+
+        Returns:
+            Domain part (e.g., "github.com")
+        """
+        if "@" in email:
+            return email.split("@")[-1].lower()
+        return email.lower()
+
+    def _build_prompt(
+        self, message: Message, feedback_examples: Optional[List["Feedback"]] = None
+    ) -> str:
         """Build classification prompt for the LLM.
 
         Args:
             message: Message to classify
+            feedback_examples: Optional list of user feedback for few-shot learning
 
         Returns:
             Prompt string
@@ -61,6 +118,9 @@ class AIClassifier:
         tag_descriptions = "\n".join(
             [f'    - "{tag["name"]}": {tag["description"]}' for tag in self.tags]
         )
+
+        # Build few-shot learning block if feedback available
+        few_shot_block = self._build_few_shot_block(feedback_examples or [])
 
         prompt = f"""
 Analyze this email and classify it with structured tags.
@@ -74,7 +134,7 @@ Snippet: {message.snippet}
 
 AVAILABLE TAGS:
 {tag_descriptions}
-
+{few_shot_block}
 CLASSIFICATION RULES:
 1. Select 1-3 most relevant tags from the list above
 2. Set priority to "high" if:
@@ -106,11 +166,18 @@ RESPOND WITH ONLY A JSON OBJECT (no markdown, no explanation):
 """
         return prompt
 
-    def classify(self, message: Message) -> Classification:
+    def classify(
+        self,
+        message: Message,
+        db: Optional["Database"] = None,
+        account_id: Optional[str] = None,
+    ) -> Classification:
         """Classify a message using the AI model.
 
         Args:
             message: Message to classify
+            db: Optional database for DFSL feedback retrieval
+            account_id: Optional account ID for DFSL feedback retrieval
 
         Returns:
             Classification result
@@ -118,7 +185,25 @@ RESPOND WITH ONLY A JSON OBJECT (no markdown, no explanation):
         Raises:
             Exception: If classification fails
         """
-        prompt = self._build_prompt(message)
+        # Retrieve DFSL feedback examples if database available
+        feedback_examples = []
+        if db and account_id:
+            try:
+                sender_domain = self._extract_domain(message.from_email)
+                feedback_examples = db.get_relevant_feedback(
+                    account_id=account_id,
+                    sender_domain=sender_domain,
+                    limit=5,
+                )
+                if feedback_examples:
+                    logger.debug(
+                        f"DFSL: Using {len(feedback_examples)} feedback examples "
+                        f"for classification of {message.id[:8]}"
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to retrieve DFSL feedback: {e}")
+
+        prompt = self._build_prompt(message, feedback_examples)
 
         try:
             response = requests.post(
@@ -224,11 +309,18 @@ RESPOND WITH ONLY A JSON OBJECT (no markdown, no explanation):
 
         return normalized
 
-    def classify_batch(self, messages: List[Message]) -> Dict[str, Classification]:
+    def classify_batch(
+        self,
+        messages: List[Message],
+        db: Optional["Database"] = None,
+        account_id: Optional[str] = None,
+    ) -> Dict[str, Classification]:
         """Classify multiple messages (sequential for now).
 
         Args:
             messages: List of messages to classify
+            db: Optional database for DFSL feedback retrieval
+            account_id: Optional account ID for DFSL feedback retrieval
 
         Returns:
             Dict mapping message ID to classification
@@ -237,7 +329,7 @@ RESPOND WITH ONLY A JSON OBJECT (no markdown, no explanation):
 
         for message in messages:
             try:
-                classification = self.classify(message)
+                classification = self.classify(message, db=db, account_id=account_id)
                 results[message.id] = classification
             except Exception as e:
                 logger.warning(f"Skipping message {message.id} due to error: {e}")
