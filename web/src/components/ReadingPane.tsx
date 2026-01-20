@@ -98,6 +98,7 @@ export function ReadingPane({
       return (
         <Box sx={{ height: '100%' }}>
           <MessageDetail
+            key={selectedMessageId}
             messageId={selectedMessageId}
             compact
             showBackButton
@@ -202,6 +203,7 @@ export function ReadingPane({
       >
         {selectedMessageId ? (
           <MessageDetail
+            key={selectedMessageId}
             messageId={selectedMessageId}
             compact
             showBackButton={false}
