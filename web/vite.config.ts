@@ -38,6 +38,7 @@ export default defineConfig({
         share_target: {
           action: '/compose',
           method: 'GET',
+          enctype: 'application/x-www-form-urlencoded',
           params: {
             title: 'subject',
             text: 'body',
