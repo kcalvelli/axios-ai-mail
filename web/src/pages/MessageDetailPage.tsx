@@ -187,6 +187,7 @@ export function MessageDetailPage() {
 
   const [editingTags, setEditingTags] = useState(false);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [tagInputValue, setTagInputValue] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [attachmentsLoading, setAttachmentsLoading] = useState(false);
@@ -320,13 +321,24 @@ export function MessageDetailPage() {
 
   const handleSaveTags = () => {
     if (message) {
+      // Include any pending input value that hasn't been added yet
+      let tagsToSave = [...selectedTags];
+      if (tagInputValue.trim()) {
+        const newTag = tagInputValue.toLowerCase().trim();
+        if (!tagsToSave.includes(newTag)) {
+          tagsToSave.push(newTag);
+        }
+      }
       updateTags.mutate(
         {
           id: message.id,
-          data: { tags: selectedTags },
+          data: { tags: tagsToSave },
         },
         {
-          onSuccess: () => setEditingTags(false),
+          onSuccess: () => {
+            setEditingTags(false);
+            setTagInputValue('');
+          },
         }
       );
     }
@@ -635,19 +647,24 @@ export function MessageDetailPage() {
                 freeSolo
                 options={allTags}
                 value={selectedTags}
+                inputValue={tagInputValue}
+                onInputChange={(_, newInputValue) => {
+                  setTagInputValue(newInputValue);
+                }}
                 onChange={(_, newValue) => {
                   // Handle both selected options and free-form text
                   const tags = newValue.map(v => typeof v === 'string' ? v.toLowerCase().trim() : v);
                   // Filter out empty strings and duplicates
                   const uniqueTags = [...new Set(tags.filter(t => t.length > 0))];
                   setSelectedTags(uniqueTags);
+                  setTagInputValue(''); // Clear input after selection
                 }}
                 renderInput={(params) => (
                   <TextField
                     {...params}
                     variant="outlined"
                     placeholder="Select or type tags..."
-                    helperText="Select from list or type custom tags"
+                    helperText="Select from list or type custom tags (press Enter to add)"
                   />
                 )}
                 sx={{ mb: 2 }}
