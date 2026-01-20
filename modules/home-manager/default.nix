@@ -1,6 +1,6 @@
 # Home-manager module for axios-ai-mail user configuration
-# Handles: email accounts, AI settings, config file, sync timer
-# Web service is handled by the NixOS module (services.axios-ai-mail)
+# Handles: email accounts, AI settings, config file generation
+# Services (web, sync, tailscale-serve) are handled by the NixOS module
 { config, lib, pkgs, ... }:
 
 with lib;
@@ -107,13 +107,6 @@ let
       sync = mkOption {
         type = types.submodule {
           options = {
-            frequency = mkOption {
-              type = types.str;
-              default = "5m";
-              description = "Sync frequency (systemd timer format).";
-              example = "10m";
-            };
-
             enableWebhooks = mkOption {
               type = types.bool;
               default = false;
@@ -122,7 +115,7 @@ let
           };
         };
         default = {};
-        description = "Sync configuration for this account.";
+        description = "Per-account sync configuration.";
       };
 
       labels = mkOption {
@@ -173,7 +166,6 @@ let
       settings = {
         label_prefix = account.labels.prefix;
         label_colors = account.labels.colors;
-        sync_frequency = account.sync.frequency;
         enable_webhooks = account.sync.enableWebhooks;
         ai_model = cfg.ai.model;
         ai_endpoint = cfg.ai.endpoint;
@@ -203,7 +195,6 @@ let
     };
 
     sync = {
-      frequency = cfg.sync.frequency;
       maxMessagesPerSync = cfg.sync.maxMessagesPerSync;
       enableWebhooks = cfg.sync.enableWebhooks;
     };
@@ -321,12 +312,6 @@ in {
     sync = mkOption {
       type = types.submodule {
         options = {
-          frequency = mkOption {
-            type = types.str;
-            default = "5m";
-            description = "Default sync frequency (systemd timer format).";
-          };
-
           maxMessagesPerSync = mkOption {
             type = types.int;
             default = 100;
@@ -341,7 +326,10 @@ in {
         };
       };
       default = {};
-      description = "Global sync configuration.";
+      description = ''
+        Global sync configuration.
+        Note: Sync frequency/timing is configured in the NixOS module (services.axios-ai-mail.sync).
+      '';
     };
   };
 
@@ -371,32 +359,6 @@ in {
     # Generate runtime configuration
     xdg.configFile."axios-ai-mail/config.yaml".text = builtins.toJSON runtimeConfig;
 
-    # Sync service and timer (user-level, runs as this user)
-    systemd.user.services.axios-ai-mail-sync = {
-      Unit = {
-        Description = "axios-ai-mail sync service";
-        After = [ "network-online.target" ];
-        Wants = [ "network-online.target" ];
-      };
-
-      Service = {
-        Type = "oneshot";
-        ExecStart = "${cfg.package}/bin/axios-ai-mail sync run";
-        Environment = [ "PYTHONUNBUFFERED=1" ];
-      };
-    };
-
-    systemd.user.timers.axios-ai-mail-sync = {
-      Unit.Description = "axios-ai-mail sync timer";
-
-      Timer = {
-        OnBootSec = "2min";
-        OnUnitActiveSec = cfg.sync.frequency;
-        Unit = "axios-ai-mail-sync.service";
-        Persistent = true;
-      };
-
-      Install.WantedBy = [ "timers.target" ];
-    };
+    # Note: Sync service and timer are now in the NixOS module (services.axios-ai-mail.sync)
   };
 }
