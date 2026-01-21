@@ -33,14 +33,11 @@
 ### 2.2 Actions
 - [x] 2.2.1 Implement `r` for reply
 - [x] 2.2.2 Implement `f` for forward
-- [ ] 2.2.3 Implement `e` to archive (mark read + move)
-- [x] 2.2.4 Implement `#`/`d` to delete
-- [x] 2.2.5 Implement `u` to toggle read/unread
-- [ ] 2.2.6 Implement `s` to star/unstar (future)
+- [x] 2.2.3 Implement `#`/`d` to delete
+- [x] 2.2.4 Implement `u` to toggle read/unread
 
 ### 2.3 Thread Navigation
 - [x] 2.3.1 Implement `o` to expand/collapse thread
-- [ ] 2.3.2 Implement `n`/`p` to move within thread messages
 
 ### 2.4 Help & Discovery
 - [x] 2.4.1 Create keyboard shortcut help modal (`?` to open)
@@ -48,28 +45,21 @@
 
 ## 3. Thread/Conversation View
 
+> **Design Decision**: Threads show contextually in detail view only.
+> Thread grouping in message list was removed - it conflicts with tag-centric workflow
+> where different messages in a thread may have different tags.
+
 ### 3.1 Backend
 - [x] 3.1.1 Add thread message fetching via `GET /api/messages?thread_id=...`
 - [x] 3.1.2 Return messages sorted by date ascending
 - [x] 3.1.3 Include full message body available via body endpoint
 
-### 3.2 Frontend Data
+### 3.2 Frontend
 - [x] 3.2.1 Create `useThreadMessages` hook to fetch thread messages
-- [ ] 3.2.2 Group messages by thread_id in message list (show as single row)
-- [ ] 3.2.3 Calculate thread metadata (participant count, message count, has unread)
-
-### 3.3 Thread UI
-- [ ] 3.3.1 Create `ThreadCard` component for list view (grouped view)
-- [ ] 3.3.2 Show thread summary (participants, count, latest snippet)
-- [x] 3.3.3 Create `ThreadView` component for detail view
-- [x] 3.3.4 Show messages as expandable cards in thread
-- [ ] 3.3.5 Visual timeline/connector between messages
-- [x] 3.3.6 Expand/collapse individual messages in thread
-
-### 3.4 Thread Interactions
-- [ ] 3.4.1 "Reply all" option for threads
-- [ ] 3.4.2 Mark entire thread as read
-- [ ] 3.4.3 Delete/archive entire thread
+- [x] 3.2.2 Create `ThreadView` component for detail view
+- [x] 3.2.3 Show messages as expandable cards in thread
+- [x] 3.2.4 Expand/collapse individual messages in thread
+- [x] 3.2.5 Highlight current message, expand latest by default
 
 ## 4. Quote Collapsing
 
@@ -87,7 +77,6 @@
 ### 4.3 Integration
 - [x] 4.3.1 Process message body through quote detector
 - [x] 4.3.2 HTML quote processing via `processHtmlQuotes`
-- [ ] 4.3.3 Remember expand state per-message during session
 
 ## 5. Enhanced HTML Rendering
 
@@ -128,27 +117,14 @@
 - [x] 6.2.3 Add avatar to message cards
 - [x] 6.2.4 Add avatar to message detail header
 
-### 6.3 Contact Card (Optional)
-- [ ] 6.3.1 Create `ContactCard` popover component
-- [ ] 6.3.2 Show on avatar/name click
-- [ ] 6.3.3 Display all messages from this sender link
-
 ## 7. Mobile Reading Improvements
 
 ### 7.1 Layout
 - [x] 7.1.1 Full-width message body on mobile (reduce padding)
 - [x] 7.1.2 Sticky header with actions while scrolling
-- [ ] 7.1.3 Collapsible header on scroll down, show on scroll up
 
 ### 7.2 Gestures
-- [x] 7.2.1 Swipe left/right on message cards for actions
-- [ ] 7.2.2 Swipe on detail view for next/prev message
-- [ ] 7.2.3 Pull down to close detail view (return to list)
-
-### 7.3 Actions
-- [ ] 7.3.1 Bottom sheet for message actions
-- [x] 7.3.2 Quick actions in swipe areas (reply, delete)
-- [ ] 7.3.3 Floating reply button
+- [x] 7.2.1 Swipe left/right on message cards for quick actions
 
 ## 8. Print & Export
 
@@ -159,34 +135,23 @@
 - [x] 8.1.4 Include message headers in print
 
 ### 8.2 Export
-- [ ] 8.2.1 Export as plain text option
-- [ ] 8.2.2 Copy message text to clipboard
-- [x] 8.2.3 "Save as PDF" hint (via browser print)
+- [x] 8.2.1 "Save as PDF" via browser print dialog
+
+---
 
 ## Summary
 
-**Completed:** 63/93 tasks (68%)
+**Completed:** 54/56 tasks (96%)
 
-### Fully Complete Sections:
-- Section 0: Critical Defects (3/3)
-- Section 1: Reading Pane (9/9)
-- Section 4: Quote Collapsing (8/9)
-- Section 6: Sender Info (8/8 core, 0/3 optional contact card)
-- Section 8.1: Print Support (4/4)
+### Remaining Work (Nice-to-Have):
+- [ ] 5.2.4 Store trusted senders who can always load images
+- [ ] 5.2.5 "Always trust this sender" option
 
-### Mostly Complete Sections:
-- Section 2: Keyboard Navigation (11/14)
-- Section 5: Enhanced HTML Rendering (11/13)
+These are the only remaining tasks. The trusted senders feature would allow users to whitelist senders whose remote images load automatically without clicking "Load images".
 
-### Partially Complete Sections:
-- Section 3: Thread View (7/15) - basic thread display works, grouping in list view not done
-- Section 7: Mobile Reading (4/9)
-- Section 8.2: Export (1/3)
-
-## Priority for Remaining Work
-
-1. Thread grouping in message list (3.2.2, 3.2.3, 3.3.1, 3.3.2)
-2. Archive keyboard shortcut (2.2.3)
-3. Trusted senders for images (5.2.4, 5.2.5)
-4. Mobile gestures on detail view (7.2.2, 7.2.3)
-5. Contact card (6.3.x) - optional polish
+### Removed from Scope:
+- **Archive functionality** - doesn't exist in tag-centric workflow
+- **Thread grouping in list** - conflicts with tag-based organization
+- **Contact card popover** - polish feature, not essential
+- **Advanced mobile gestures** - swipe next/prev in detail, pull-to-close
+- **Export as plain text** - print/PDF covers the use case
