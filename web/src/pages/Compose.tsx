@@ -32,6 +32,7 @@ import {
   FormatListBulleted as BulletListIcon,
   FormatListNumbered as NumberedListIcon,
   Save as SaveIcon,
+  Code as CodeIcon,
 } from '@mui/icons-material';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -104,6 +105,10 @@ export default function Compose() {
   const [showDiscardDialog, setShowDiscardDialog] = useState(false);
   const lastSavedContentRef = useRef<string>('');
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Source HTML mode (raw HTML editing for testing)
+  const [sourceMode, setSourceMode] = useState(false);
+  const [sourceHtml, setSourceHtml] = useState('');
 
   // Rich text editor - declared early so it can be used in effects
   const editor = useEditor({
@@ -314,8 +319,11 @@ export default function Compose() {
     // Allow partial drafts - only require account
     if (!selectedAccountId) return null;
 
-    const htmlContent = editor?.getHTML() || '';
-    const textContent = editor?.getText() || '';
+    // Get content based on current mode
+    const htmlContent = sourceMode ? sourceHtml : (editor?.getHTML() || '');
+    const textContent = sourceMode
+      ? sourceHtml.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()  // Strip HTML tags for plain text
+      : (editor?.getText() || '');
 
     // Don't save if content is completely empty
     if (!to && !subject && !textContent.trim()) return null;
@@ -360,7 +368,7 @@ export default function Compose() {
     } finally {
       if (showStatus) setSavingDraft(false);
     }
-  }, [selectedAccountId, editor, to, subject, cc, bcc, showCc, showBcc, threadId, replyTo, draftId, getCurrentContentHash]);
+  }, [selectedAccountId, editor, to, subject, cc, bcc, showCc, showBcc, threadId, replyTo, draftId, getCurrentContentHash, sourceMode, sourceHtml]);
 
   // Explicit save draft handler
   const handleSaveDraft = async () => {
@@ -533,6 +541,18 @@ export default function Compose() {
     navigate('/');
   };
 
+  // Toggle between WYSIWYG and source HTML mode
+  const toggleSourceMode = () => {
+    if (sourceMode) {
+      // Switching from source to WYSIWYG - load HTML into editor
+      editor?.commands.setContent(sourceHtml);
+    } else {
+      // Switching from WYSIWYG to source - get HTML from editor
+      setSourceHtml(editor?.getHTML() || '');
+    }
+    setSourceMode(!sourceMode);
+  };
+
   // Format last saved time
   const formatLastSaved = (date: Date | null) => {
     if (!date) return null;
@@ -674,74 +694,121 @@ export default function Compose() {
 
         {/* Rich text editor toolbar */}
         <Paper variant="outlined" sx={{ mb: 2 }}>
-          <Box sx={{ p: 1, borderBottom: 1, borderColor: 'divider', display: 'flex', gap: 1 }}>
+          <Box sx={{ p: 1, borderBottom: 1, borderColor: 'divider', display: 'flex', gap: 1, alignItems: 'center' }}>
             <Tooltip title="Bold">
-              <IconButton
-                size="small"
-                onClick={() => editor.chain().focus().toggleBold().run()}
-                color={editor.isActive('bold') ? 'primary' : 'default'}
-              >
-                <BoldIcon />
-              </IconButton>
+              <span>
+                <IconButton
+                  size="small"
+                  onClick={() => editor.chain().focus().toggleBold().run()}
+                  color={editor.isActive('bold') ? 'primary' : 'default'}
+                  disabled={sourceMode}
+                >
+                  <BoldIcon />
+                </IconButton>
+              </span>
             </Tooltip>
             <Tooltip title="Italic">
-              <IconButton
-                size="small"
-                onClick={() => editor.chain().focus().toggleItalic().run()}
-                color={editor.isActive('italic') ? 'primary' : 'default'}
-              >
-                <FormatItalicIcon />
-              </IconButton>
+              <span>
+                <IconButton
+                  size="small"
+                  onClick={() => editor.chain().focus().toggleItalic().run()}
+                  color={editor.isActive('italic') ? 'primary' : 'default'}
+                  disabled={sourceMode}
+                >
+                  <FormatItalicIcon />
+                </IconButton>
+              </span>
             </Tooltip>
             <Tooltip title="Bullet List">
-              <IconButton
-                size="small"
-                onClick={() => editor.chain().focus().toggleBulletList().run()}
-                color={editor.isActive('bulletList') ? 'primary' : 'default'}
-              >
-                <BulletListIcon />
-              </IconButton>
+              <span>
+                <IconButton
+                  size="small"
+                  onClick={() => editor.chain().focus().toggleBulletList().run()}
+                  color={editor.isActive('bulletList') ? 'primary' : 'default'}
+                  disabled={sourceMode}
+                >
+                  <BulletListIcon />
+                </IconButton>
+              </span>
             </Tooltip>
             <Tooltip title="Numbered List">
+              <span>
+                <IconButton
+                  size="small"
+                  onClick={() => editor.chain().focus().toggleOrderedList().run()}
+                  color={editor.isActive('orderedList') ? 'primary' : 'default'}
+                  disabled={sourceMode}
+                >
+                  <NumberedListIcon />
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Box sx={{ flexGrow: 1 }} />
+            <Tooltip title={sourceMode ? "Switch to Rich Text" : "Edit HTML Source"}>
               <IconButton
                 size="small"
-                onClick={() => editor.chain().focus().toggleOrderedList().run()}
-                color={editor.isActive('orderedList') ? 'primary' : 'default'}
+                onClick={toggleSourceMode}
+                color={sourceMode ? 'primary' : 'default'}
               >
-                <NumberedListIcon />
+                <CodeIcon />
               </IconButton>
             </Tooltip>
           </Box>
 
-          {/* Editor content */}
-          <Box
-            sx={{
-              minHeight: 300,
-              cursor: 'text',
-              '& .ProseMirror': {
+          {/* Editor content - WYSIWYG or Source HTML */}
+          {sourceMode ? (
+            <TextField
+              multiline
+              fullWidth
+              minRows={12}
+              value={sourceHtml}
+              onChange={(e) => {
+                setSourceHtml(e.target.value);
+                setIsDirty(true);
+              }}
+              placeholder="<p>Enter HTML content here...</p>"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 0,
+                  '& fieldset': { border: 'none' },
+                },
+                '& .MuiInputBase-input': {
+                  fontFamily: 'monospace',
+                  fontSize: '0.875rem',
+                  p: 2,
+                },
+              }}
+            />
+          ) : (
+            <Box
+              sx={{
                 minHeight: 300,
-                padding: 2,
-                outline: 'none',
-                '&:focus': {
+                cursor: 'text',
+                '& .ProseMirror': {
+                  minHeight: 300,
+                  padding: 2,
                   outline: 'none',
+                  '&:focus': {
+                    outline: 'none',
+                  },
+                  '& p': {
+                    margin: 0,
+                    marginBottom: 1,
+                  },
+                  '& p.is-editor-empty:first-child::before': {
+                    content: 'attr(data-placeholder)',
+                    color: 'text.disabled',
+                    float: 'left',
+                    height: 0,
+                    pointerEvents: 'none',
+                  },
                 },
-                '& p': {
-                  margin: 0,
-                  marginBottom: 1,
-                },
-                '& p.is-editor-empty:first-child::before': {
-                  content: 'attr(data-placeholder)',
-                  color: 'text.disabled',
-                  float: 'left',
-                  height: 0,
-                  pointerEvents: 'none',
-                },
-              },
-            }}
-            onClick={() => editor?.chain().focus().run()}
-          >
-            <EditorContent editor={editor} />
-          </Box>
+              }}
+              onClick={() => editor?.chain().focus().run()}
+            >
+              <EditorContent editor={editor} />
+            </Box>
+          )}
         </Paper>
 
         {/* Attachments */}
