@@ -72,10 +72,48 @@ export function useMarkRead() {
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: MarkReadRequest }) =>
       messages.markRead(id, data),
-    onSuccess: () => {
-      // Invalidate and refetch messages
+    onMutate: async ({ id, data }) => {
+      // Cancel any outgoing refetches for this message
+      await queryClient.cancelQueries({ queryKey: messageKeys.detail(id) });
+      await queryClient.cancelQueries({ queryKey: messageKeys.lists() });
+
+      // Snapshot previous values
+      const previousMessage = queryClient.getQueryData(messageKeys.detail(id));
+      const previousLists = queryClient.getQueriesData({ queryKey: messageKeys.lists() });
+
+      // Optimistically update the message detail cache
+      queryClient.setQueryData(messageKeys.detail(id), (old: any) => {
+        if (!old) return old;
+        return { ...old, is_unread: data.is_unread };
+      });
+
+      // Optimistically update all list caches
+      queryClient.setQueriesData({ queryKey: messageKeys.lists() }, (old: any) => {
+        if (!old?.messages) return old;
+        return {
+          ...old,
+          messages: old.messages.map((m: any) =>
+            m.id === id ? { ...m, is_unread: data.is_unread } : m
+          ),
+        };
+      });
+
+      return { previousMessage, previousLists };
+    },
+    onError: (_err, { id }, context) => {
+      // Rollback on error
+      if (context?.previousMessage) {
+        queryClient.setQueryData(messageKeys.detail(id), context.previousMessage);
+      }
+      if (context?.previousLists) {
+        context.previousLists.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+    },
+    onSettled: () => {
+      // Background refetch lists to sync unread counts (non-blocking)
       queryClient.invalidateQueries({ queryKey: messageKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: messageKeys.details() });
     },
   });
 }
