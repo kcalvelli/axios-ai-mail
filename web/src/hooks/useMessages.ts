@@ -58,10 +58,49 @@ export function useUpdateTags() {
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: UpdateTagsRequest }) =>
       messages.updateTags(id, data),
-    onSuccess: (_, variables) => {
-      // Invalidate and refetch both message lists and the specific message detail
+    onMutate: async ({ id, data }) => {
+      // Cancel any outgoing refetches for this message
+      await queryClient.cancelQueries({ queryKey: messageKeys.detail(id) });
+      await queryClient.cancelQueries({ queryKey: messageKeys.lists() });
+
+      // Snapshot previous values
+      const previousMessage = queryClient.getQueryData(messageKeys.detail(id));
+      const previousLists = queryClient.getQueriesData({ queryKey: messageKeys.lists() });
+
+      // Optimistically update the message detail cache
+      queryClient.setQueryData(messageKeys.detail(id), (old: any) => {
+        if (!old) return old;
+        return { ...old, tags: data.tags };
+      });
+
+      // Optimistically update all list caches
+      queryClient.setQueriesData({ queryKey: messageKeys.lists() }, (old: any) => {
+        if (!old?.messages) return old;
+        return {
+          ...old,
+          messages: old.messages.map((m: any) =>
+            m.id === id ? { ...m, tags: data.tags } : m
+          ),
+        };
+      });
+
+      return { previousMessage, previousLists };
+    },
+    onError: (_err, { id }, context) => {
+      // Rollback on error
+      if (context?.previousMessage) {
+        queryClient.setQueryData(messageKeys.detail(id), context.previousMessage);
+      }
+      if (context?.previousLists) {
+        context.previousLists.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+    },
+    onSettled: (_, __, { id }) => {
+      // Background refetch to sync with server (non-blocking)
       queryClient.invalidateQueries({ queryKey: messageKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: messageKeys.detail(variables.id) });
+      queryClient.invalidateQueries({ queryKey: messageKeys.detail(id) });
     },
   });
 }
