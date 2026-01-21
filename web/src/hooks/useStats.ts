@@ -3,7 +3,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { tags, stats, sync } from '../api/client';
+import { tags, stats, sync, messages, drafts } from '../api/client';
 import type { TriggerSyncRequest } from '../api/types';
 
 export const statsKeys = {
@@ -11,6 +11,8 @@ export const statsKeys = {
   tagsAvailable: ['tags', 'available'] as const,
   stats: ['stats'] as const,
   syncStatus: ['sync', 'status'] as const,
+  unreadCount: ['unread-count'] as const,
+  draftCount: ['draft-count'] as const,
 };
 
 export function useTags() {
@@ -54,5 +56,21 @@ export function useTriggerSync() {
       // Invalidate all queries to refresh data after sync
       queryClient.invalidateQueries();
     },
+  });
+}
+
+export function useUnreadCount() {
+  return useQuery({
+    queryKey: statsKeys.unreadCount,
+    queryFn: () => messages.getUnreadCount(),
+    staleTime: 30 * 1000, // 30 seconds - counts update frequently via WebSocket
+  });
+}
+
+export function useDraftCount() {
+  return useQuery({
+    queryKey: statsKeys.draftCount,
+    queryFn: () => drafts.getCount(),
+    staleTime: 30 * 1000, // 30 seconds - counts update frequently via WebSocket
   });
 }

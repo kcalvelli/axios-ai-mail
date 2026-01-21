@@ -2,7 +2,6 @@
  * Sidebar component - Navigation and filters
  */
 
-import { useEffect, useState } from 'react';
 import {
   Box,
   List,
@@ -30,9 +29,8 @@ import {
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { TagChip } from './TagChip';
-import { useTags } from '../hooks/useStats';
+import { useTags, useUnreadCount, useDraftCount } from '../hooks/useStats';
 import { useAppStore } from '../store/appStore';
-import axios from 'axios';
 
 interface SidebarProps {
   onNavigate?: () => void;
@@ -43,6 +41,8 @@ export function Sidebar({ onNavigate, collapsed = false }: SidebarProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { data: tagsData, isLoading } = useTags();
+  const { data: unreadCountData } = useUnreadCount();
+  const { data: draftCountData } = useDraftCount();
   const {
     selectedTags,
     toggleTag,
@@ -51,47 +51,9 @@ export function Sidebar({ onNavigate, collapsed = false }: SidebarProps) {
     setIsUnreadOnly,
   } = useAppStore();
 
-  // Draft count state
-  const [draftCount, setDraftCount] = useState(0);
-
-  // Unread count state
-  const [unreadCount, setUnreadCount] = useState(0);
-
-  // Fetch draft count
-  useEffect(() => {
-    const fetchDraftCount = async () => {
-      try {
-        const response = await axios.get('/api/drafts/count');
-        setDraftCount(response.data.count);
-      } catch (err) {
-        console.error('Failed to fetch draft count:', err);
-      }
-    };
-
-    fetchDraftCount();
-
-    // Refresh count periodically and when navigating
-    const interval = setInterval(fetchDraftCount, 30000);
-    return () => clearInterval(interval);
-  }, [location.pathname]);
-
-  // Fetch unread count
-  useEffect(() => {
-    const fetchUnreadCount = async () => {
-      try {
-        const response = await axios.get('/api/messages/unread-count');
-        setUnreadCount(response.data.count);
-      } catch (err) {
-        console.error('Failed to fetch unread count:', err);
-      }
-    };
-
-    fetchUnreadCount();
-
-    // Refresh count periodically
-    const interval = setInterval(fetchUnreadCount, 30000);
-    return () => clearInterval(interval);
-  }, [location.pathname]);
+  // Get counts from React Query data (with fallback to 0)
+  const unreadCount = unreadCountData?.count ?? 0;
+  const draftCount = draftCountData?.count ?? 0;
 
   // Handle navigation with optional callback for mobile
   const handleNavigation = (path: string) => {

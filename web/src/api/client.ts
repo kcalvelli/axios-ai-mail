@@ -110,6 +110,16 @@ export const messages = {
   // Smart replies (AI-generated reply suggestions)
   getSmartReplies: (id: string) =>
     api.get<SmartReplyResponse>(`/messages/${id}/smart-replies`).then((r) => r.data),
+
+  // Unread count
+  getUnreadCount: () =>
+    api.get<{ count: number }>('/messages/unread-count').then((r) => r.data),
+};
+
+// Draft endpoints
+export const drafts = {
+  getCount: () =>
+    api.get<{ count: number }>('/drafts/count').then((r) => r.data),
 };
 
 // Account endpoints

@@ -57,6 +57,8 @@ export function useWebSocket() {
             queryClient.invalidateQueries({ queryKey: messageKeys.lists() });
             queryClient.invalidateQueries({ queryKey: statsKeys.stats });
             queryClient.invalidateQueries({ queryKey: statsKeys.tags });
+            queryClient.invalidateQueries({ queryKey: statsKeys.unreadCount });
+            queryClient.invalidateQueries({ queryKey: statsKeys.draftCount });
             break;
 
           case 'message_classified':
@@ -82,6 +84,8 @@ export function useWebSocket() {
             }
             queryClient.invalidateQueries({ queryKey: messageKeys.lists() });
             queryClient.invalidateQueries({ queryKey: statsKeys.tags });
+            // Update unread count when read status changes
+            queryClient.invalidateQueries({ queryKey: statsKeys.unreadCount });
             break;
 
           case 'messages_deleted':
@@ -91,6 +95,7 @@ export function useWebSocket() {
             queryClient.invalidateQueries({ queryKey: messageKeys.lists() });
             queryClient.invalidateQueries({ queryKey: statsKeys.tags });
             queryClient.invalidateQueries({ queryKey: statsKeys.stats });
+            queryClient.invalidateQueries({ queryKey: statsKeys.unreadCount });
             break;
 
           case 'messages_restored':
@@ -98,6 +103,7 @@ export function useWebSocket() {
             console.log('Messages restored by another client:', message.message_ids);
             // Invalidate lists
             queryClient.invalidateQueries({ queryKey: messageKeys.lists() });
+            queryClient.invalidateQueries({ queryKey: statsKeys.unreadCount });
             break;
 
           case 'error':

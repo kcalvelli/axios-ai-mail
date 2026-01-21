@@ -4,6 +4,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { messages } from '../api/client';
+import { statsKeys } from './useStats';
 import type { UpdateTagsRequest, MarkReadRequest } from '../api/types';
 
 // Query keys
@@ -151,8 +152,9 @@ export function useMarkRead() {
       }
     },
     onSettled: () => {
-      // Background refetch lists to sync unread counts (non-blocking)
+      // Background refetch lists and unread count to sync (non-blocking)
       queryClient.invalidateQueries({ queryKey: messageKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: statsKeys.unreadCount });
     },
   });
 }
@@ -172,8 +174,9 @@ export function useDeleteMessage() {
   return useMutation({
     mutationFn: (id: string) => messages.delete(id),
     onSuccess: () => {
-      // Invalidate and refetch messages list
+      // Invalidate and refetch messages list and unread count
       queryClient.invalidateQueries({ queryKey: messageKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: statsKeys.unreadCount });
     },
   });
 }
@@ -191,6 +194,7 @@ export function useBulkMarkRead() {
       // Force refetch after backend confirms update
       queryClient.invalidateQueries({ queryKey: messageKeys.lists() });
       queryClient.invalidateQueries({ queryKey: messageKeys.details() });
+      queryClient.invalidateQueries({ queryKey: statsKeys.unreadCount });
     },
     onError: (error) => {
       console.error('useBulkMarkRead error:', error);
@@ -234,6 +238,7 @@ export function useBulkDelete() {
       // Invalidate to refetch fresh data
       queryClient.invalidateQueries({ queryKey: messageKeys.lists() });
       queryClient.invalidateQueries({ queryKey: messageKeys.details() });
+      queryClient.invalidateQueries({ queryKey: statsKeys.unreadCount });
     },
   });
 }
@@ -253,6 +258,7 @@ export function useDeleteAll() {
       // Invalidate and refetch messages
       queryClient.invalidateQueries({ queryKey: messageKeys.lists() });
       queryClient.invalidateQueries({ queryKey: messageKeys.details() });
+      queryClient.invalidateQueries({ queryKey: statsKeys.unreadCount });
     },
   });
 }
@@ -267,6 +273,7 @@ export function useBulkRestore() {
       // Invalidate and refetch messages
       queryClient.invalidateQueries({ queryKey: messageKeys.lists() });
       queryClient.invalidateQueries({ queryKey: messageKeys.details() });
+      queryClient.invalidateQueries({ queryKey: statsKeys.unreadCount });
     },
   });
 }
@@ -281,6 +288,7 @@ export function useBulkPermanentDelete() {
       // Invalidate and refetch messages
       queryClient.invalidateQueries({ queryKey: messageKeys.lists() });
       queryClient.invalidateQueries({ queryKey: messageKeys.details() });
+      queryClient.invalidateQueries({ queryKey: statsKeys.unreadCount });
     },
   });
 }
@@ -294,6 +302,7 @@ export function useClearTrash() {
       // Invalidate and refetch messages
       queryClient.invalidateQueries({ queryKey: messageKeys.lists() });
       queryClient.invalidateQueries({ queryKey: messageKeys.details() });
+      queryClient.invalidateQueries({ queryKey: statsKeys.unreadCount });
     },
   });
 }
