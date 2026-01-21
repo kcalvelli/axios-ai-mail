@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, Generator, List, Optional
 
-from sqlalchemy import create_engine, event, select, String
+from sqlalchemy import create_engine, event, select, String, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -42,7 +42,43 @@ class Database:
 
         # Create tables if they don't exist
         Base.metadata.create_all(self.engine)
+
+        # Run migrations for schema updates
+        self._run_migrations()
+
         logger.info(f"Database initialized at {self.db_path}")
+
+    def _run_migrations(self):
+        """Run database migrations to add missing columns."""
+        with self.engine.connect() as conn:
+            # Check if feedback table exists and needs DFSL columns
+            try:
+                result = conn.execute(text("PRAGMA table_info(feedback)"))
+                columns = {row[1] for row in result.fetchall()}
+
+                # DFSL migration: Add new columns to feedback table if missing
+                dfsl_columns = {
+                    "account_id": "VARCHAR(255)",
+                    "sender_domain": "VARCHAR(255)",
+                    "subject_pattern": "VARCHAR(500)",
+                    "context_snippet": "VARCHAR(300)",
+                    "used_count": "INTEGER DEFAULT 0",
+                }
+
+                for col_name, col_type in dfsl_columns.items():
+                    if col_name not in columns:
+                        logger.info(f"Migration: Adding column {col_name} to feedback table")
+                        conn.execute(text(f"ALTER TABLE feedback ADD COLUMN {col_name} {col_type}"))
+
+                # Create indexes for new columns if they don't exist
+                if "account_id" not in columns:
+                    conn.execute(text("CREATE INDEX IF NOT EXISTS ix_feedback_account_id ON feedback(account_id)"))
+                if "sender_domain" not in columns:
+                    conn.execute(text("CREATE INDEX IF NOT EXISTS ix_feedback_sender_domain ON feedback(sender_domain)"))
+
+                conn.commit()
+            except Exception as e:
+                logger.warning(f"Migration check failed (table may not exist yet): {e}")
 
     @contextmanager
     def session(self) -> Generator[Session, None, None]:
