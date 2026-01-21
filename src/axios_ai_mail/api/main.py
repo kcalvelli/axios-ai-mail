@@ -140,29 +140,42 @@ def _setup_idle_watchers(config: dict):
 def _on_idle_new_mail(account_id: str):
     """Callback when IMAP IDLE detects new mail.
 
-    Sends a WebSocket notification and triggers a quick sync.
+    Sends a WebSocket notification and triggers a quick sync for the account.
     """
     import asyncio
     from .websocket import send_new_mail_notification
+    from .routes.sync import run_sync_task, get_sync_state
 
     logger.info(f"IDLE: New mail detected for {account_id}")
 
-    # Send WebSocket notification
-    # Run in event loop since we're called from a thread
+    # Get the running event loop from the main thread
+    loop = getattr(app.state, 'event_loop', None)
+    if not loop or not loop.is_running():
+        logger.warning("No event loop available for IDLE notification")
+        return
+
     try:
-        # Get the running event loop from the main thread
-        # We need to use get_running_loop() but it only works from async context
-        # Instead, we'll use the app's stored loop reference
-        loop = getattr(app.state, 'event_loop', None)
-        if loop and loop.is_running():
-            asyncio.run_coroutine_threadsafe(
-                send_new_mail_notification(account_id),
-                loop,
-            )
-        else:
-            logger.warning("No event loop available for IDLE notification")
+        # Send WebSocket notification immediately
+        asyncio.run_coroutine_threadsafe(
+            send_new_mail_notification(account_id),
+            loop,
+        )
+
+        # Check if this account is already syncing
+        state = get_sync_state()
+        if account_id in state.get("syncing_accounts", []):
+            logger.debug(f"Account {account_id} already syncing, skipping IDLE-triggered sync")
+            return
+
+        # Trigger a quick sync for just this account (max 50 messages)
+        logger.info(f"IDLE: Triggering sync for {account_id}")
+        asyncio.run_coroutine_threadsafe(
+            run_sync_task(app.state.db, account_id, max_messages=50),
+            loop,
+        )
+
     except Exception as e:
-        logger.warning(f"Failed to send IDLE notification: {e}")
+        logger.warning(f"Failed to handle IDLE notification: {e}")
 
 
 @app.on_event("startup")
