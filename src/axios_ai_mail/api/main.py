@@ -150,12 +150,17 @@ def _on_idle_new_mail(account_id: str):
     # Send WebSocket notification
     # Run in event loop since we're called from a thread
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
+        # Get the running event loop from the main thread
+        # We need to use get_running_loop() but it only works from async context
+        # Instead, we'll use the app's stored loop reference
+        loop = getattr(app.state, 'event_loop', None)
+        if loop and loop.is_running():
             asyncio.run_coroutine_threadsafe(
                 send_new_mail_notification(account_id),
                 loop,
             )
+        else:
+            logger.warning("No event loop available for IDLE notification")
     except Exception as e:
         logger.warning(f"Failed to send IDLE notification: {e}")
 
@@ -163,6 +168,11 @@ def _on_idle_new_mail(account_id: str):
 @app.on_event("startup")
 async def startup_event():
     """Load configuration and sync to database on startup."""
+    import asyncio
+
+    # Store event loop reference for use by IDLE threads
+    app.state.event_loop = asyncio.get_running_loop()
+
     logger.info("Loading configuration on API startup")
     config = ConfigLoader.load_config()
     if config:

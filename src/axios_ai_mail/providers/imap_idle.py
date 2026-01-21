@@ -126,13 +126,26 @@ class IMAPIdleConnection:
             self._connection.send(self._idle_tag + b" IDLE\r\n")
 
             # Wait for continuation response (+)
-            response = self._connection.readline()
-            if not response.startswith(b"+"):
-                logger.error(f"IDLE command failed: {response}")
-                return False
+            # May need to skip OK response from previous IDLE if timing is off
+            for _ in range(3):  # Try up to 3 reads
+                response = self._connection.readline()
+                if response.startswith(b"+"):
+                    logger.debug(f"Entered IDLE mode for {self.config.account_id}")
+                    return True
+                elif b"OK" in response and b"Idle" in response:
+                    # This is the OK from previous IDLE session, skip it
+                    logger.debug(f"Skipping previous IDLE OK response: {response}")
+                    continue
+                elif response.startswith(b"*"):
+                    # Unilateral response (EXISTS, EXPUNGE, etc.) - skip
+                    logger.debug(f"Skipping unilateral response: {response}")
+                    continue
+                else:
+                    logger.error(f"IDLE command failed: {response}")
+                    return False
 
-            logger.debug(f"Entered IDLE mode for {self.config.account_id}")
-            return True
+            logger.error(f"Failed to enter IDLE after retries for {self.config.account_id}")
+            return False
 
         except Exception as e:
             logger.error(f"Failed to enter IDLE for {self.config.account_id}: {e}")
