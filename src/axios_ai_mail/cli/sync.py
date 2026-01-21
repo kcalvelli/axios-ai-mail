@@ -80,9 +80,9 @@ def sync_run(
     for db_account in accounts:
         console.print(f"\n[bold]Syncing account: {db_account.email}[/bold]")
 
+        # Initialize provider using factory pattern
+        provider = ProviderFactory.create_from_account(db_account)
         try:
-            # Initialize provider using factory pattern
-            provider = ProviderFactory.create_from_account(db_account)
             provider.authenticate()
 
             # Initialize AI classifier with config from file
@@ -120,7 +120,9 @@ def sync_run(
         except Exception as e:
             console.print(f"[red]Sync failed for {db_account.email}: {e}[/red]")
             logger.exception("Sync error")
-            continue
+        finally:
+            # Release connection back to pool
+            provider.release()
 
     # Summary
     if results:

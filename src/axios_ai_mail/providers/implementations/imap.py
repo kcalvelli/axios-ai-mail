@@ -10,6 +10,7 @@ from email.header import decode_header
 from typing import Dict, List, Optional, Set
 
 from ..base import BaseEmailProvider, Message, ProviderConfig
+from ..connection_pool import get_connection_pool
 from ...credentials import Credentials
 
 logger = logging.getLogger(__name__)
@@ -42,9 +43,10 @@ class IMAPProvider(BaseEmailProvider):
         self._supports_keywords: Optional[bool] = None
         self._current_folder: Optional[str] = None
         self._folder_mapping: Optional[Dict[str, str]] = None  # Cache discovered folder mapping
+        self._using_pool: bool = False  # Track if we got connection from pool
 
-    def authenticate(self) -> None:
-        """Authenticate with IMAP server using password."""
+    def _create_connection(self) -> imaplib.IMAP4_SSL:
+        """Create a new IMAP connection (used by pool)."""
         logger.info(f"Authenticating IMAP: {self.config.email}@{self.config.host}")
 
         # Load password from credential file
@@ -52,22 +54,61 @@ class IMAPProvider(BaseEmailProvider):
 
         # Connect to IMAP server
         if self.config.use_ssl:
-            self.connection = imaplib.IMAP4_SSL(self.config.host, self.config.port)
+            conn = imaplib.IMAP4_SSL(self.config.host, self.config.port)
         else:
-            self.connection = imaplib.IMAP4(self.config.host, self.config.port)
+            conn = imaplib.IMAP4(self.config.host, self.config.port)
 
         # Login
-        self.connection.login(self.config.email, password)
+        conn.login(self.config.email, password)
         logger.info(f"IMAP authentication successful for {self.config.email}")
 
-        # Check for KEYWORD capability
-        typ, capabilities = self.connection.capability()
-        if typ == "OK":
-            capabilities_str = capabilities[0].decode("utf-8", errors="ignore")
-            self._supports_keywords = "KEYWORD" in capabilities_str
-            logger.info(
-                f"IMAP KEYWORD extension: {'supported' if self._supports_keywords else 'not supported'}"
-            )
+        return conn
+
+    def authenticate(self) -> None:
+        """Authenticate with IMAP server using connection pool."""
+        pool = get_connection_pool()
+
+        # Get or create connection from pool
+        self.connection = pool.get_connection(
+            account_id=self.config.account_id,
+            create_fn=self._create_connection,
+        )
+        self._using_pool = True
+
+        # Check for KEYWORD capability (only on first connect or reconnect)
+        if self._supports_keywords is None:
+            typ, capabilities = self.connection.capability()
+            if typ == "OK":
+                capabilities_str = capabilities[0].decode("utf-8", errors="ignore")
+                self._supports_keywords = "KEYWORD" in capabilities_str
+                logger.info(
+                    f"IMAP KEYWORD extension: {'supported' if self._supports_keywords else 'not supported'}"
+                )
+
+    def release(self) -> None:
+        """Release connection back to pool (keep alive for reuse)."""
+        if self._using_pool and self.connection:
+            pool = get_connection_pool()
+            pool.release_connection(self.config.account_id)
+            logger.debug(f"Released IMAP connection for {self.config.account_id} to pool")
+        self.connection = None
+        self._using_pool = False
+
+    def close(self) -> None:
+        """Close connection (remove from pool)."""
+        if self._using_pool:
+            pool = get_connection_pool()
+            pool.close_connection(self.config.account_id)
+            logger.debug(f"Closed IMAP connection for {self.config.account_id}")
+        elif self.connection:
+            try:
+                self.connection.logout()
+            except Exception:
+                pass
+        self.connection = None
+        self._using_pool = False
+        # Clear folder cache on close
+        self._folder_mapping = None
 
     def _parse_message_id(self, message_id: str) -> tuple[str, str]:
         """

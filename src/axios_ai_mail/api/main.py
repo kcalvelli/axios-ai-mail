@@ -11,6 +11,9 @@ from fastapi.staticfiles import StaticFiles
 from ..config.loader import ConfigLoader
 from ..db.database import Database
 from ..ai_classifier import AIClassifier, AIConfig
+from ..providers.connection_pool import shutdown_connection_pool
+from ..providers.imap_idle import get_idle_watcher, shutdown_idle_watcher, IdleConfig
+from .routes.sync import _sync_executor
 from .routes import accounts, attachments, drafts, feedback, maintenance, messages, send, stats, sync, trusted_senders
 from .websocket import router as websocket_router
 
@@ -84,6 +87,76 @@ else:
     logger.warning(f"Static files not found at {static_dir}. Web UI will not be available.")
 
 
+def _setup_idle_watchers(config: dict):
+    """Setup IMAP IDLE watchers for configured IMAP accounts.
+
+    Args:
+        config: Loaded configuration dict
+    """
+    accounts = config.get("accounts", {})
+    idle_watcher = get_idle_watcher()
+
+    for account_id, account_config in accounts.items():
+        # Only setup IDLE for IMAP accounts
+        if account_config.get("provider") != "imap":
+            continue
+
+        # Check if IDLE is enabled for this account (default: True for IMAP)
+        if not account_config.get("enable_idle", True):
+            logger.info(f"IDLE disabled for {account_id}")
+            continue
+
+        imap_config = account_config.get("imap", {})
+        host = imap_config.get("host")
+        if not host:
+            logger.warning(f"No IMAP host configured for {account_id}, skipping IDLE")
+            continue
+
+        try:
+            idle_config = IdleConfig(
+                account_id=account_id,
+                email=account_config.get("email"),
+                host=host,
+                port=imap_config.get("port", 993),
+                credential_file=account_config.get("credential_file", ""),
+                use_ssl=imap_config.get("use_ssl", True),
+                folder="INBOX",  # IDLE typically watches INBOX
+            )
+            idle_watcher.add_account(idle_config, _on_idle_new_mail)
+            logger.info(f"IDLE watcher configured for {account_id}")
+        except Exception as e:
+            logger.error(f"Failed to setup IDLE for {account_id}: {e}")
+
+    # Start all watchers
+    idle_watcher.start_all()
+    watched = idle_watcher.get_watched_accounts()
+    if watched:
+        logger.info(f"IMAP IDLE watchers started for: {', '.join(watched)}")
+
+
+def _on_idle_new_mail(account_id: str):
+    """Callback when IMAP IDLE detects new mail.
+
+    Sends a WebSocket notification and triggers a quick sync.
+    """
+    import asyncio
+    from .websocket import send_new_mail_notification
+
+    logger.info(f"IDLE: New mail detected for {account_id}")
+
+    # Send WebSocket notification
+    # Run in event loop since we're called from a thread
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            asyncio.run_coroutine_threadsafe(
+                send_new_mail_notification(account_id),
+                loop,
+            )
+    except Exception as e:
+        logger.warning(f"Failed to send IDLE notification: {e}")
+
+
 @app.on_event("startup")
 async def startup_event():
     """Load configuration and sync to database on startup."""
@@ -109,6 +182,9 @@ async def startup_event():
             app.state.classifier = AIClassifier(classifier_config)
             logger.info(f"AI classifier initialized with model {classifier_config.model}")
 
+        # Initialize IMAP IDLE watchers for IMAP accounts
+        _setup_idle_watchers(config)
+
 
 @app.get("/api/health")
 async def health_check():
@@ -124,4 +200,10 @@ async def health_check():
 async def shutdown_event():
     """Clean up on shutdown."""
     logger.info("Shutting down API server")
+    # Shutdown IMAP IDLE watchers first
+    shutdown_idle_watcher()
+    # Shutdown sync thread pool
+    _sync_executor.shutdown(wait=True)
+    # Shutdown IMAP connection pool
+    shutdown_connection_pool()
     db.close()

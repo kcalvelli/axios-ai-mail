@@ -3,7 +3,7 @@
 import email.utils
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Set
 
 from google.auth.transport.requests import Request
@@ -68,7 +68,8 @@ class GmailProvider(BaseEmailProvider):
             # Load OAuth token from credential file
             token_data = CredLoader.load_oauth_token(self.config.credential_file)
 
-            # Create credentials object
+            # Create credentials object with expiry if available
+            # This allows proactive refresh instead of waiting for 401
             self.creds = Credentials(
                 token=token_data["access_token"],
                 refresh_token=token_data["refresh_token"],
@@ -76,22 +77,38 @@ class GmailProvider(BaseEmailProvider):
                 client_id=token_data["client_id"],
                 client_secret=token_data["client_secret"],
                 scopes=self.SCOPES,
+                expiry=token_data.get("expiry"),  # datetime or None
             )
 
-            # Refresh token if expired
-            if self.creds.expired and self.creds.refresh_token:
+            # Refresh token if expired or will expire within 5 minutes
+            # The google-auth library checks creds.expired but we also do a
+            # proactive check with a 5-minute buffer to avoid 401s
+            needs_refresh = False
+            if self.creds.expired:
+                needs_refresh = True
+                logger.debug(f"Token expired for {self.email}")
+            elif self.creds.expiry:
+                # Check if token expires within 5 minutes
+                buffer = timedelta(minutes=5)
+                if self.creds.expiry <= datetime.now(timezone.utc) + buffer:
+                    needs_refresh = True
+                    logger.debug(f"Token for {self.email} expires soon, refreshing proactively")
+
+            if needs_refresh and self.creds.refresh_token:
                 logger.info(f"Refreshing OAuth token for {self.email}")
                 self.creds.refresh(Request())
 
-                # Try to save updated token
+                # Save updated token with new expiry
                 try:
                     updated_token = {
                         "access_token": self.creds.token,
                         "refresh_token": self.creds.refresh_token,
                         "client_id": token_data["client_id"],
                         "client_secret": token_data["client_secret"],
+                        "expiry": self.creds.expiry,  # datetime object
                     }
                     CredLoader.save_oauth_token(self.config.credential_file, updated_token)
+                    logger.debug(f"Saved refreshed token with expiry {self.creds.expiry}")
                 except Exception as e:
                     logger.warning(f"Could not save refreshed token: {e}")
 

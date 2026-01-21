@@ -176,6 +176,23 @@ async def send_messages_restored(message_ids: List[str]):
     })
 
 
+async def send_new_mail_notification(account_id: str):
+    """Send new mail notification from IMAP IDLE.
+
+    This is triggered when IDLE detects new mail, before sync runs.
+    The client can use this to show a notification or trigger a refresh.
+
+    Args:
+        account_id: Account that received new mail
+    """
+    await manager.broadcast({
+        "type": "new_mail_notification",
+        "account_id": account_id,
+        "message": f"New mail detected for {account_id}",
+        "timestamp": datetime.utcnow().isoformat(),
+    })
+
+
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     """WebSocket endpoint for real-time updates."""

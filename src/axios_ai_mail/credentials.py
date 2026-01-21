@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import stat
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Optional
 
@@ -43,16 +44,18 @@ class Credentials:
             )
 
     @staticmethod
-    def load_oauth_token(file_path: str | Path) -> Dict[str, str]:
+    def load_oauth_token(file_path: str | Path) -> Dict:
         """Load OAuth2 token from file.
 
         Supports JSON format with keys: access_token, refresh_token, client_id, client_secret.
+        Optional key: token_expiry (ISO format timestamp or Unix timestamp)
 
         Args:
             file_path: Path to OAuth token file (decrypted by sops-nix/agenix/systemd-creds)
 
         Returns:
-            Dict containing OAuth token data
+            Dict containing OAuth token data. If token_expiry is present, it will be
+            converted to a datetime object in the 'expiry' key.
 
         Raises:
             CredentialError: If file cannot be read or parsed
@@ -77,6 +80,31 @@ class Credentials:
                     f"OAuth token missing required keys: {', '.join(missing_keys)}"
                 )
 
+            # Parse token_expiry if present
+            if "token_expiry" in token_data:
+                expiry_value = token_data["token_expiry"]
+                try:
+                    if isinstance(expiry_value, (int, float)):
+                        # Unix timestamp
+                        token_data["expiry"] = datetime.fromtimestamp(
+                            expiry_value, tz=timezone.utc
+                        )
+                    elif isinstance(expiry_value, str):
+                        # ISO format string
+                        # Handle both with and without timezone
+                        if expiry_value.endswith("Z"):
+                            expiry_value = expiry_value[:-1] + "+00:00"
+                        token_data["expiry"] = datetime.fromisoformat(expiry_value)
+                        # Ensure it's timezone-aware
+                        if token_data["expiry"].tzinfo is None:
+                            token_data["expiry"] = token_data["expiry"].replace(
+                                tzinfo=timezone.utc
+                            )
+                    logger.debug(f"Token expiry: {token_data['expiry']}")
+                except (ValueError, TypeError) as e:
+                    logger.warning(f"Could not parse token_expiry '{expiry_value}': {e}")
+                    # Don't fail - just won't have expiry info
+
             logger.debug(f"Successfully loaded OAuth token from {file_path}")
             return token_data
 
@@ -86,12 +114,13 @@ class Credentials:
             raise CredentialError(f"Failed to read OAuth token file {file_path}: {e}")
 
     @staticmethod
-    def save_oauth_token(file_path: str | Path, token_data: Dict[str, str]) -> None:
+    def save_oauth_token(file_path: str | Path, token_data: Dict) -> None:
         """Save OAuth2 token to file (for token refresh).
 
         Args:
             file_path: Path to OAuth token file
-            token_data: Updated token data
+            token_data: Updated token data. May contain 'expiry' as datetime object,
+                       which will be serialized as 'token_expiry' ISO string.
 
         Raises:
             CredentialError: If file cannot be written
@@ -99,9 +128,17 @@ class Credentials:
         file_path = Path(file_path).expanduser().resolve()
 
         try:
+            # Prepare data for JSON serialization
+            save_data = token_data.copy()
+
+            # Convert expiry datetime to ISO string for storage
+            if "expiry" in save_data and isinstance(save_data["expiry"], datetime):
+                save_data["token_expiry"] = save_data["expiry"].isoformat()
+                del save_data["expiry"]  # Remove datetime object
+
             # Write with restricted permissions
             with open(file_path, "w") as f:
-                json.dump(token_data, f, indent=2)
+                json.dump(save_data, f, indent=2)
 
             # Ensure file has 0600 permissions
             os.chmod(file_path, stat.S_IRUSR | stat.S_IWUSR)

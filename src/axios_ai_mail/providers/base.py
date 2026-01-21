@@ -235,6 +235,23 @@ class BaseEmailProvider(ABC):
         """Authenticate with the provider."""
         pass
 
+    def release(self) -> None:
+        """Release connection back to pool (if applicable).
+
+        This is called after sync completes to return the connection
+        to the pool for reuse. Providers that don't use connection
+        pooling can leave this as a no-op.
+        """
+        pass
+
+    def close(self) -> None:
+        """Close and dispose of the connection.
+
+        Called when the provider is no longer needed. Should clean up
+        any resources and close connections.
+        """
+        pass
+
     @abstractmethod
     def fetch_messages(
         self, since: Optional[datetime] = None, max_results: int = 100
