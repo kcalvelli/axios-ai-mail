@@ -101,13 +101,16 @@ def _setup_idle_watchers(config: dict):
         if account_config.get("provider") != "imap":
             continue
 
+        # Get settings (IMAP config is stored flat in settings)
+        settings = account_config.get("settings", {})
+
         # Check if IDLE is enabled for this account (default: True for IMAP)
-        if not account_config.get("enable_idle", True):
+        if not settings.get("enable_idle", True):
             logger.info(f"IDLE disabled for {account_id}")
             continue
 
-        imap_config = account_config.get("imap", {})
-        host = imap_config.get("host")
+        # IMAP settings are stored as imap_host, imap_port, etc.
+        host = settings.get("imap_host")
         if not host:
             logger.warning(f"No IMAP host configured for {account_id}, skipping IDLE")
             continue
@@ -117,9 +120,9 @@ def _setup_idle_watchers(config: dict):
                 account_id=account_id,
                 email=account_config.get("email"),
                 host=host,
-                port=imap_config.get("port", 993),
-                credential_file=account_config.get("credential_file", ""),
-                use_ssl=imap_config.get("use_ssl", True),
+                port=settings.get("imap_port", 993),
+                credential_file=account_config.get("credential_file", settings.get("credential_file", "")),
+                use_ssl=settings.get("imap_tls", True),
                 folder="INBOX",  # IDLE typically watches INBOX
             )
             idle_watcher.add_account(idle_config, _on_idle_new_mail)
