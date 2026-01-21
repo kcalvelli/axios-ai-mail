@@ -219,3 +219,27 @@ class Attachment(Base):
 
     def __repr__(self) -> str:
         return f"<Attachment(id={self.id!r}, filename={self.filename!r}, size={self.size})>"
+
+
+class TrustedSender(Base):
+    """Trusted senders for auto-loading remote images.
+
+    When a sender is trusted, their emails will automatically load remote images
+    instead of blocking them by default.
+    """
+
+    __tablename__ = "trusted_senders"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    account_id: Mapped[str] = mapped_column(
+        String(255), ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    email_or_domain: Mapped[str] = mapped_column(String(255), nullable=False)
+    is_domain: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+
+    # Relationships
+    account: Mapped["Account"] = relationship()
+
+    def __repr__(self) -> str:
+        return f"<TrustedSender(id={self.id}, email_or_domain={self.email_or_domain!r}, is_domain={self.is_domain})>"

@@ -89,8 +89,8 @@
 - [x] 5.2.1 Detect remote images in sanitized HTML
 - [x] 5.2.2 Replace with placeholder by default
 - [x] 5.2.3 Add "Load remote images" button
-- [ ] 5.2.4 Store trusted senders who can always load images
-- [ ] 5.2.5 "Always trust this sender" option
+- [x] 5.2.4 Store trusted senders who can always load images
+- [x] 5.2.5 "Always trust this sender" option
 
 ### 5.3 Dark Mode Adaptation
 - [x] 5.3.1 Detect emails with light backgrounds
@@ -141,13 +141,9 @@
 
 ## Summary
 
-**Completed:** 54/56 tasks (96%)
+**Completed:** 56/56 tasks (100%) ✅
 
-### Remaining Work (Nice-to-Have):
-- [ ] 5.2.4 Store trusted senders who can always load images
-- [ ] 5.2.5 "Always trust this sender" option
-
-These are the only remaining tasks. The trusted senders feature would allow users to whitelist senders whose remote images load automatically without clicking "Load images".
+All tasks in this proposal have been completed.
 
 ### Removed from Scope:
 - **Archive functionality** - doesn't exist in tag-centric workflow

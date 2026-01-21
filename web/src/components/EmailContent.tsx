@@ -6,8 +6,9 @@
  */
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { Box, Button, Alert, useTheme } from '@mui/material';
-import { Image, ImageNotSupported, LightMode, ZoomOutMap } from '@mui/icons-material';
+import { Box, Button, Alert, useTheme, Tooltip, CircularProgress } from '@mui/material';
+import { Image, ImageNotSupported, LightMode, ZoomOutMap, VerifiedUser } from '@mui/icons-material';
+import { useIsSenderTrusted, useAddTrustedSender } from '../hooks/useTrustedSenders';
 
 interface InlineAttachment {
   content_id: string;
@@ -25,6 +26,10 @@ interface EmailContentProps {
   compact?: boolean;
   /** Inline attachments for resolving cid: URLs */
   inlineAttachments?: InlineAttachment[];
+  /** Account ID for trusted sender checking */
+  accountId?: string;
+  /** Sender email address for trusted sender checking */
+  senderEmail?: string;
 }
 
 // Known tracking domains to strip completely
@@ -142,11 +147,25 @@ export function EmailContent({
   onLoadRemoteImages,
   compact = false,
   inlineAttachments,
+  accountId,
+  senderEmail,
 }: EmailContentProps) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const [showRemoteImages, setShowRemoteImages] = useState(allowRemoteImages);
   const [forceOriginal, setForceOriginal] = useState(false);
+
+  // Check if sender is trusted for auto-loading images
+  const { data: trustedData } = useIsSenderTrusted(accountId, senderEmail);
+  const addTrustedSender = useAddTrustedSender();
+  const isTrusted = trustedData?.is_trusted ?? false;
+
+  // Auto-show images if sender is trusted
+  useEffect(() => {
+    if (isTrusted && !showRemoteImages) {
+      setShowRemoteImages(true);
+    }
+  }, [isTrusted]);
 
   // Overflow detection for compact mode scaling
   const contentRef = useRef<HTMLDivElement>(null);
@@ -210,6 +229,23 @@ export function EmailContent({
     onLoadRemoteImages?.();
   }, [onLoadRemoteImages]);
 
+  const handleTrustSender = useCallback(() => {
+    if (accountId && senderEmail) {
+      // Extract domain from email
+      const domain = senderEmail.split('@')[1];
+      if (domain) {
+        addTrustedSender.mutate(
+          { account_id: accountId, email_or_domain: domain, is_domain: true },
+          {
+            onSuccess: () => {
+              setShowRemoteImages(true);
+            },
+          }
+        );
+      }
+    }
+  }, [accountId, senderEmail, addTrustedSender]);
+
   const applyDarkMode = isDark && !forceOriginal;
 
   const handleClick = useCallback((e: React.MouseEvent) => {
@@ -232,14 +268,29 @@ export function EmailContent({
           severity="info"
           icon={<ImageNotSupported />}
           action={
-            <Button
-              color="inherit"
-              size="small"
-              onClick={handleLoadImages}
-              startIcon={<Image />}
-            >
-              Load Images
-            </Button>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              <Button
+                color="inherit"
+                size="small"
+                onClick={handleLoadImages}
+                startIcon={<Image />}
+              >
+                Load Images
+              </Button>
+              {accountId && senderEmail && !isTrusted && (
+                <Tooltip title="Always load images from this domain">
+                  <Button
+                    color="inherit"
+                    size="small"
+                    onClick={handleTrustSender}
+                    startIcon={addTrustedSender.isPending ? <CircularProgress size={16} /> : <VerifiedUser />}
+                    disabled={addTrustedSender.isPending}
+                  >
+                    Trust Sender
+                  </Button>
+                </Tooltip>
+              )}
+            </Box>
           }
           sx={{ mb: compact ? 1 : 2 }}
         >

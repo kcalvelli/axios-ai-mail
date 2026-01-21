@@ -750,7 +750,13 @@ export function MessageDetailPage() {
             <>
               {/* Main HTML content with enhanced rendering */}
               {/* Pass compact={isMobile} to enable scaling for wide emails on mobile */}
-              <EmailContent html={mainHtml} compact={isMobile} inlineAttachments={body?.inline_attachments} />
+              <EmailContent
+                html={mainHtml}
+                compact={isMobile}
+                inlineAttachments={body?.inline_attachments}
+                accountId={message.account_id}
+                senderEmail={senderEmail}
+              />
 
               {/* Quoted HTML toggle */}
               {quotedHtml && (
@@ -771,7 +777,13 @@ export function MessageDetailPage() {
                         color: 'text.secondary',
                       }}
                     >
-                      <EmailContent html={quotedHtml} compact={isMobile} inlineAttachments={body?.inline_attachments} />
+                      <EmailContent
+                        html={quotedHtml}
+                        compact={isMobile}
+                        inlineAttachments={body?.inline_attachments}
+                        accountId={message.account_id}
+                        senderEmail={senderEmail}
+                      />
                     </Box>
                   )}
                 </Box>

@@ -10,7 +10,7 @@ from sqlalchemy import create_engine, event, select, String, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from .models import Account, Attachment, Base, Classification, Draft, Feedback, Message, PendingOperation
+from .models import Account, Attachment, Base, Classification, Draft, Feedback, Message, PendingOperation, TrustedSender
 
 logger = logging.getLogger(__name__)
 
@@ -1404,6 +1404,111 @@ class Database:
             if count > 0:
                 logger.info(f"Cleaned up {count} completed pending operations")
             return count
+
+    # ==================== Trusted Senders ====================
+
+    def add_trusted_sender(
+        self,
+        account_id: str,
+        email_or_domain: str,
+        is_domain: bool = False,
+    ) -> TrustedSender:
+        """Add a trusted sender for auto-loading remote images.
+
+        Args:
+            account_id: Account ID
+            email_or_domain: Email address or domain to trust
+            is_domain: Whether this is a domain (True) or email address (False)
+
+        Returns:
+            The created TrustedSender record
+        """
+        with self.session() as session:
+            # Check if already exists
+            existing = session.execute(
+                select(TrustedSender).where(
+                    TrustedSender.account_id == account_id,
+                    TrustedSender.email_or_domain == email_or_domain.lower(),
+                )
+            ).scalar_one_or_none()
+
+            if existing:
+                return existing
+
+            trusted = TrustedSender(
+                account_id=account_id,
+                email_or_domain=email_or_domain.lower(),
+                is_domain=is_domain,
+            )
+            session.add(trusted)
+            session.commit()
+            session.refresh(trusted)
+            logger.info(f"Added trusted sender: {email_or_domain} for account {account_id}")
+            return trusted
+
+    def remove_trusted_sender(self, trusted_sender_id: int) -> bool:
+        """Remove a trusted sender.
+
+        Args:
+            trusted_sender_id: ID of the trusted sender to remove
+
+        Returns:
+            True if removed, False if not found
+        """
+        with self.session() as session:
+            trusted = session.get(TrustedSender, trusted_sender_id)
+            if trusted:
+                session.delete(trusted)
+                session.commit()
+                logger.info(f"Removed trusted sender: {trusted.email_or_domain}")
+                return True
+            return False
+
+    def get_trusted_senders(self, account_id: str) -> List[TrustedSender]:
+        """Get all trusted senders for an account.
+
+        Args:
+            account_id: Account ID
+
+        Returns:
+            List of TrustedSender records
+        """
+        with self.session() as session:
+            result = session.execute(
+                select(TrustedSender)
+                .where(TrustedSender.account_id == account_id)
+                .order_by(TrustedSender.created_at.desc())
+            )
+            return list(result.scalars().all())
+
+    def is_sender_trusted(self, account_id: str, sender_email: str) -> bool:
+        """Check if a sender is trusted for an account.
+
+        Checks both exact email matches and domain matches.
+
+        Args:
+            account_id: Account ID
+            sender_email: The sender's email address
+
+        Returns:
+            True if the sender is trusted
+        """
+        sender_email = sender_email.lower()
+        # Extract domain from email
+        domain = sender_email.split("@")[-1] if "@" in sender_email else sender_email
+
+        with self.session() as session:
+            # Check for exact email match or domain match
+            result = session.execute(
+                select(TrustedSender).where(
+                    TrustedSender.account_id == account_id,
+                    (
+                        (TrustedSender.email_or_domain == sender_email) |
+                        ((TrustedSender.email_or_domain == domain) & (TrustedSender.is_domain == True))
+                    ),
+                )
+            )
+            return result.scalar_one_or_none() is not None
 
     # Utility methods
 

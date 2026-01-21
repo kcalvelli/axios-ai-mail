@@ -779,7 +779,13 @@ export function MessageDetail({
                   )}
 
                   {/* Main HTML content with enhanced rendering */}
-                  <EmailContent html={mainHtml} compact={compact} inlineAttachments={body?.inline_attachments} />
+                  <EmailContent
+                    html={mainHtml}
+                    compact={compact}
+                    inlineAttachments={body?.inline_attachments}
+                    accountId={message.account_id}
+                    senderEmail={senderEmail}
+                  />
 
                   {/* Quoted HTML toggle */}
                   {quotedHtml && (
@@ -800,7 +806,13 @@ export function MessageDetail({
                             color: 'text.secondary',
                           }}
                         >
-                          <EmailContent html={quotedHtml} compact={compact} inlineAttachments={body?.inline_attachments} />
+                          <EmailContent
+                            html={quotedHtml}
+                            compact={compact}
+                            inlineAttachments={body?.inline_attachments}
+                            accountId={message.account_id}
+                            senderEmail={senderEmail}
+                          />
                         </Box>
                       )}
                     </Box>

@@ -163,3 +163,22 @@ export interface WebSocketMessage {
   messages?: NewMessageNotification[];
   count?: number;
 }
+
+// Trusted Senders types
+export interface TrustedSender {
+  id: number;
+  account_id: string;
+  email_or_domain: string;
+  is_domain: boolean;
+  created_at: string;
+}
+
+export interface TrustedSenderListResponse {
+  senders: TrustedSender[];
+  total: number;
+}
+
+export interface TrustedSenderCheckResponse {
+  is_trusted: boolean;
+  sender_email: string;
+}

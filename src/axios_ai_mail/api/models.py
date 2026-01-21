@@ -240,3 +240,41 @@ class FeedbackDeleteResponse(BaseModel):
     success: bool
     deleted_count: int
     message: str
+
+
+# Trusted Senders Models
+
+
+class TrustedSenderCreate(BaseModel):
+    """Request to add a trusted sender."""
+
+    account_id: str
+    email_or_domain: str
+    is_domain: bool = False
+
+
+class TrustedSenderResponse(BaseModel):
+    """Single trusted sender entry."""
+
+    id: int
+    account_id: str
+    email_or_domain: str
+    is_domain: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class TrustedSenderListResponse(BaseModel):
+    """List of trusted senders."""
+
+    senders: List[TrustedSenderResponse]
+    total: int
+
+
+class TrustedSenderCheckResponse(BaseModel):
+    """Response for checking if a sender is trusted."""
+
+    is_trusted: bool
+    sender_email: str

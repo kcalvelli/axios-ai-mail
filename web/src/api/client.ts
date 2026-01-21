@@ -16,6 +16,9 @@ import type {
   MarkReadRequest,
   TriggerSyncRequest,
   SmartReplyResponse,
+  TrustedSender,
+  TrustedSenderListResponse,
+  TrustedSenderCheckResponse,
 } from './types';
 
 // Create axios instance
@@ -139,6 +142,23 @@ export const sync = {
 // Health check
 export const health = {
   check: () => api.get('/health').then((r) => r.data),
+};
+
+// Trusted senders endpoints
+export const trustedSenders = {
+  list: (accountId: string) =>
+    api.get<TrustedSenderListResponse>('/trusted-senders', { params: { account_id: accountId } }).then((r) => r.data),
+
+  add: (data: { account_id: string; email_or_domain: string; is_domain?: boolean }) =>
+    api.post<TrustedSender>('/trusted-senders', data).then((r) => r.data),
+
+  remove: (id: number) =>
+    api.delete<{ success: boolean; message: string }>(`/trusted-senders/${id}`).then((r) => r.data),
+
+  check: (accountId: string, senderEmail: string) =>
+    api.get<TrustedSenderCheckResponse>('/trusted-senders/check', {
+      params: { account_id: accountId, sender_email: senderEmail },
+    }).then((r) => r.data),
 };
 
 export default api;
