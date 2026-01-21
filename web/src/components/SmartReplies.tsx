@@ -18,19 +18,7 @@ export function SmartReplies({ messageId, onSelectReply, folder, tags = [] }: Sm
   const skipTags = ['newsletter', 'junk'];
   const shouldSkip = folder === 'sent' || tags.some(tag => skipTags.includes(tag));
 
-  const { data, isLoading, error, isFetching } = useSmartReplies(messageId, !shouldSkip);
-
-  // Debug logging
-  console.log('SmartReplies render:', {
-    messageId,
-    folder,
-    tags,
-    shouldSkip,
-    isLoading,
-    isFetching,
-    error: error ? String(error) : null,
-    dataReplies: data?.replies?.length ?? 'no data',
-  });
+  const { data, isLoading, error } = useSmartReplies(messageId, !shouldSkip);
 
   // Don't render anything if we should skip, have an error, or have no replies
   if (shouldSkip || error || (!isLoading && (!data || data.replies.length === 0))) {
