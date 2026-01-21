@@ -490,7 +490,7 @@ async def get_message_body(request: Request, message_id: str):
             if config:
                 try:
                     # Get provider for this account
-                    from ...providers.factory import ProviderFactory
+                    # Note: ProviderFactory is imported at module level
                     from ...config.loader import AccountConfig
 
                     # Find account config

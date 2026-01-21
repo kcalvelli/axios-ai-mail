@@ -36,7 +36,16 @@ class ConnectionManager:
     async def send_personal_message(self, message: dict, websocket: WebSocket):
         """Send a message to a specific client."""
         try:
+            # Check if websocket is still in active connections before sending
+            if websocket not in self.active_connections:
+                return
             await websocket.send_text(json.dumps(message))
+        except RuntimeError as e:
+            # WebSocket already disconnected - this is normal during shutdown
+            if "not connected" in str(e).lower() or "close" in str(e).lower():
+                logger.debug(f"WebSocket already disconnected: {e}")
+            else:
+                logger.error(f"Error sending message to client: {e}")
         except Exception as e:
             logger.error(f"Error sending message to client: {e}")
 
@@ -47,6 +56,13 @@ class ConnectionManager:
             for connection in self.active_connections:
                 try:
                     await connection.send_text(json.dumps(message))
+                except RuntimeError as e:
+                    # WebSocket already disconnected - this is normal
+                    if "not connected" in str(e).lower() or "close" in str(e).lower():
+                        logger.debug(f"WebSocket already disconnected during broadcast: {e}")
+                    else:
+                        logger.error(f"Error broadcasting to client: {e}")
+                    disconnected.append(connection)
                 except Exception as e:
                     logger.error(f"Error broadcasting to client: {e}")
                     disconnected.append(connection)
@@ -207,6 +223,14 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         await manager.disconnect(websocket)
         logger.info("WebSocket disconnected normally")
+
+    except RuntimeError as e:
+        # Handle "WebSocket is not connected" errors gracefully
+        if "not connected" in str(e).lower():
+            logger.debug(f"WebSocket disconnected: {e}")
+        else:
+            logger.error(f"WebSocket runtime error: {e}")
+        await manager.disconnect(websocket)
 
     except Exception as e:
         logger.error(f"WebSocket error: {e}", exc_info=True)
