@@ -137,12 +137,19 @@ def _setup_idle_watchers(config: dict):
         logger.info(f"IMAP IDLE watchers started for: {', '.join(watched)}")
 
 
+# Track last IDLE-triggered sync time per account (debounce)
+_idle_sync_times: dict = {}
+IDLE_SYNC_DEBOUNCE_SECONDS = 30  # Don't sync same account more than once per 30s
+
+
 def _on_idle_new_mail(account_id: str):
     """Callback when IMAP IDLE detects new mail.
 
     Sends a WebSocket notification and triggers a quick sync for the account.
+    Includes debounce to prevent sync loops.
     """
     import asyncio
+    import time
     from .websocket import send_new_mail_notification
     from .routes.sync import run_sync_task, get_sync_state
 
@@ -161,11 +168,24 @@ def _on_idle_new_mail(account_id: str):
             loop,
         )
 
+        # Check debounce - don't sync same account too frequently
+        now = time.time()
+        last_sync = _idle_sync_times.get(account_id, 0)
+        if now - last_sync < IDLE_SYNC_DEBOUNCE_SECONDS:
+            logger.debug(
+                f"Account {account_id} synced {now - last_sync:.1f}s ago, "
+                f"skipping (debounce {IDLE_SYNC_DEBOUNCE_SECONDS}s)"
+            )
+            return
+
         # Check if this account is already syncing
         state = get_sync_state()
         if account_id in state.get("syncing_accounts", []):
             logger.debug(f"Account {account_id} already syncing, skipping IDLE-triggered sync")
             return
+
+        # Update last sync time
+        _idle_sync_times[account_id] = now
 
         # Trigger a quick sync for just this account (max 50 messages)
         logger.info(f"IDLE: Triggering sync for {account_id}")
