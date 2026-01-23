@@ -61,7 +61,6 @@ Thumbs.db
 /src/axios_ai_mail/.venv
 *.log
 /tmp/
-axios-ai-mail.png
 
 # Web frontend
 web/node_modules/

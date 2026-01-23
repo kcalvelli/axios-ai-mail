@@ -1,7 +1,7 @@
 # axios-ai-mail
 
 <p align="center">
-  <img src="axios-ai-mail.png" alt="axios-ai-mail logo" width="200" />
+  <img src="docs/axios-ai-mail.png" alt="axios-ai-mail logo" width="200" />
 </p>
 
 **AI-powered inbox organizer for NixOS and Home Manager users.**
