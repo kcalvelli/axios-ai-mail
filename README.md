@@ -1,5 +1,9 @@
 # axios-ai-mail
 
+<p align="center">
+  <img src="axios-ai-mail.png" alt="axios-ai-mail logo" width="200" />
+</p>
+
 **AI-powered inbox organizer for NixOS and Home Manager users.**
 
 axios-ai-mail is a declarative email management system that combines direct provider integration (Gmail, IMAP) with local AI classification to automatically organize your inbox. Messages are tagged, prioritized, and organized—all locally, with zero cloud dependencies for AI processing.
@@ -42,7 +46,20 @@ axios-ai-mail is a declarative email management system that combines direct prov
 ### Mobile Experience
 - **Touch-Optimized** - Swipe gestures for common actions
 - **PWA Support** - Install as a standalone app
+- **Material You Icons** - Adaptive theming on Android 13+
 - **Offline Indicator** - Visual feedback when disconnected
+
+#### Material You Icon Support
+
+On Android 13+, the app icon automatically adapts to your device's color theme using [Material You](https://material.io/blog/announcing-material-you) dynamic theming. This is achieved through three icon types in the PWA manifest:
+
+| Icon Type | Purpose | Format |
+|-----------|---------|--------|
+| `purpose: "any"` | Standard app icon display | PNG (192×192, 512×512) |
+| `purpose: "maskable"` | Adaptive shapes (circles, squircles, etc.) | PNG with safe zone padding |
+| `purpose: "monochrome"` | Material You themed icons | SVG silhouette (white on transparent) |
+
+The monochrome icon (`icon-monochrome.svg`) is a simplified white silhouette of the logo that Android uses as a mask—the system applies your wallpaper-derived color palette automatically. This creates a cohesive home screen where all themed app icons share your personal color scheme.
 
 <p align="center">
   <img src="docs/screenshots/mobile-light-drawer.png" alt="Mobile Light Mode - Drawer" width="300" />
