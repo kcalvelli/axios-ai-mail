@@ -174,9 +174,10 @@ export function useDeleteMessage() {
   return useMutation({
     mutationFn: (id: string) => messages.delete(id),
     onSuccess: () => {
-      // Invalidate and refetch messages list and unread count
+      // Invalidate and refetch messages list, unread count, and tags
       queryClient.invalidateQueries({ queryKey: messageKeys.lists() });
       queryClient.invalidateQueries({ queryKey: statsKeys.unreadCount });
+      queryClient.invalidateQueries({ queryKey: statsKeys.tags });
     },
   });
 }
@@ -239,6 +240,7 @@ export function useBulkDelete() {
       queryClient.invalidateQueries({ queryKey: messageKeys.lists() });
       queryClient.invalidateQueries({ queryKey: messageKeys.details() });
       queryClient.invalidateQueries({ queryKey: statsKeys.unreadCount });
+      queryClient.invalidateQueries({ queryKey: statsKeys.tags });
     },
   });
 }
@@ -259,6 +261,7 @@ export function useDeleteAll() {
       queryClient.invalidateQueries({ queryKey: messageKeys.lists() });
       queryClient.invalidateQueries({ queryKey: messageKeys.details() });
       queryClient.invalidateQueries({ queryKey: statsKeys.unreadCount });
+      queryClient.invalidateQueries({ queryKey: statsKeys.tags });
     },
   });
 }
@@ -274,6 +277,7 @@ export function useBulkRestore() {
       queryClient.invalidateQueries({ queryKey: messageKeys.lists() });
       queryClient.invalidateQueries({ queryKey: messageKeys.details() });
       queryClient.invalidateQueries({ queryKey: statsKeys.unreadCount });
+      queryClient.invalidateQueries({ queryKey: statsKeys.tags });
     },
   });
 }
@@ -289,6 +293,7 @@ export function useBulkPermanentDelete() {
       queryClient.invalidateQueries({ queryKey: messageKeys.lists() });
       queryClient.invalidateQueries({ queryKey: messageKeys.details() });
       queryClient.invalidateQueries({ queryKey: statsKeys.unreadCount });
+      queryClient.invalidateQueries({ queryKey: statsKeys.tags });
     },
   });
 }
@@ -303,6 +308,7 @@ export function useClearTrash() {
       queryClient.invalidateQueries({ queryKey: messageKeys.lists() });
       queryClient.invalidateQueries({ queryKey: messageKeys.details() });
       queryClient.invalidateQueries({ queryKey: statsKeys.unreadCount });
+      queryClient.invalidateQueries({ queryKey: statsKeys.tags });
     },
   });
 }

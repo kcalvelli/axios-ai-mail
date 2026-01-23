@@ -38,6 +38,7 @@ interface AppState {
   setSelectedAccount: (accountId: string | null) => void;
   toggleTag: (tag: string) => void;
   clearTags: () => void;
+  removeInvalidTags: (validTags: string[]) => void;
   setSearchQuery: (query: string) => void;
   setIsUnreadOnly: (value: boolean) => void;
   setSyncStatus: (status: 'idle' | 'syncing' | 'error') => void;
@@ -115,6 +116,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     })),
 
   clearTags: () => set({ selectedTags: [] }),
+
+  removeInvalidTags: (validTags) =>
+    set((state) => {
+      const validTagSet = new Set(validTags);
+      const filteredTags = state.selectedTags.filter((tag) => validTagSet.has(tag));
+      // Only update if something changed
+      if (filteredTags.length === state.selectedTags.length) {
+        return state;
+      }
+      return { selectedTags: filteredTags };
+    }),
 
   setSearchQuery: (query) => set({ searchQuery: query }),
 

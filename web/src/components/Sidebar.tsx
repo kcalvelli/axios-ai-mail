@@ -2,6 +2,7 @@
  * Sidebar component - Navigation and filters
  */
 
+import { useEffect } from 'react';
 import {
   Box,
   List,
@@ -47,6 +48,7 @@ export function Sidebar({ onNavigate, collapsed = false }: SidebarProps) {
     selectedTags,
     toggleTag,
     clearTags,
+    removeInvalidTags,
     isUnreadOnly,
     setIsUnreadOnly,
   } = useAppStore();
@@ -54,6 +56,14 @@ export function Sidebar({ onNavigate, collapsed = false }: SidebarProps) {
   // Get counts from React Query data (with fallback to 0)
   const unreadCount = unreadCountData?.count ?? 0;
   const draftCount = draftCountData?.count ?? 0;
+
+  // Auto-deselect tags that no longer exist (e.g., after all messages with that tag are deleted)
+  useEffect(() => {
+    if (tagsData && selectedTags.length > 0) {
+      const availableTagNames = tagsData.tags.map((tag) => tag.name);
+      removeInvalidTags(availableTagNames);
+    }
+  }, [tagsData, selectedTags.length, removeInvalidTags]);
 
   // Handle navigation with optional callback for mobile
   const handleNavigation = (path: string) => {
