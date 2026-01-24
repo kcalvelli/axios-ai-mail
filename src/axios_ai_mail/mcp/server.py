@@ -8,7 +8,6 @@ import logging
 
 from mcp.server.fastmcp import FastMCP
 
-from .. import __version__
 from .client import AxiosMailClient
 from .tools import register_tools
 
@@ -28,10 +27,7 @@ def create_server(api_url: str = DEFAULT_API_URL) -> FastMCP:
         Configured FastMCP server instance
     """
     # Create the MCP server
-    mcp = FastMCP(
-        name="axios-ai-mail",
-        version=__version__,
-    )
+    mcp = FastMCP("axios-ai-mail")
 
     # Create API client
     client = AxiosMailClient(base_url=api_url)
