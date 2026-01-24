@@ -113,8 +113,17 @@ Full keyboard shortcut support for power users:
 
 ### Prerequisites
 
-1. **NixOS or Home Manager** - This is a Nix-native application
-2. **Ollama** - For local AI classification
+1. **NixOS with flakes** - Runs as system-level services
+2. **Ollama** - For local AI classification (`ollama pull llama3.2`)
+
+### Split Architecture
+
+axios-ai-mail uses a split architecture:
+
+| Module | Level | Purpose |
+|--------|-------|---------|
+| **NixOS module** | System | Web service, sync timer, Tailscale Serve |
+| **Home-Manager module** | User | Email accounts, AI settings, config file |
 
 ### Add to Your Flake
 
@@ -122,30 +131,46 @@ Full keyboard shortcut support for power users:
 {
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    home-manager.url = "github:nix-community/home-manager";
     axios-ai-mail.url = "github:kcalvelli/axios-ai-mail";
   };
 
-  outputs = { self, nixpkgs, axios-ai-mail, ... }: {
-    homeConfigurations.youruser = home-manager.lib.homeManagerConfiguration {
+  outputs = { nixpkgs, home-manager, axios-ai-mail, ... }: {
+    nixosConfigurations.yourhost = nixpkgs.lib.nixosSystem {
       modules = [
-        axios-ai-mail.homeManagerModules.default
-        ./home.nix
+        # 1. Apply overlay
+        { nixpkgs.overlays = [ axios-ai-mail.overlays.default ]; }
+
+        # 2. Import NixOS module
+        axios-ai-mail.nixosModules.default
+
+        # 3. Enable services
+        {
+          services.axios-ai-mail = {
+            enable = true;
+            port = 8080;
+            user = "youruser";
+          };
+        }
+
+        # 4. Home-manager for user config
+        home-manager.nixosModules.home-manager
+        {
+          home-manager.users.youruser = { ... }: {
+            imports = [ axios-ai-mail.homeManagerModules.default ];
+
+            programs.axios-ai-mail = {
+              enable = true;
+              ai.model = "llama3.2";
+              accounts.gmail = {
+                provider = "gmail";
+                email = "you@gmail.com";
+                oauthTokenFile = "/path/to/token";
+              };
+            };
+          };
+        }
       ];
-    };
-  };
-}
-```
-
-### Enable in Home Manager
-
-```nix
-{
-  programs.axios-ai-mail = {
-    enable = true;
-
-    ai = {
-      model = "llama3.2";
-      endpoint = "http://localhost:11434";
     };
   };
 }
@@ -154,39 +179,90 @@ Full keyboard shortcut support for power users:
 Then rebuild:
 
 ```bash
-home-manager switch
+sudo nixos-rebuild switch --flake .
 ```
 
 For complete setup instructions including Gmail OAuth and IMAP configuration, see the **[Quick Start Guide](docs/QUICKSTART.md)**.
 
 ## Usage
 
-### Start the Web Interface
+### Access the Web Interface
+
+Once enabled, the web UI runs automatically as a systemd service:
 
 ```bash
-axios-ai-mail web
+# Check status
+systemctl status axios-ai-mail-web.service
 ```
 
-Then open http://localhost:8080 in your browser.
+Open http://localhost:8080 in your browser.
 
-### Sync Messages
+### Sync Service
+
+Email sync runs automatically via systemd timer:
 
 ```bash
-# Sync all accounts
-axios-ai-mail sync run
+# Check sync timer
+systemctl status axios-ai-mail-sync.timer
 
-# Sync specific account with limit
-axios-ai-mail sync run --account personal --max 50
+# Trigger manual sync
+sudo systemctl start axios-ai-mail-sync.service
+
+# View sync logs
+sudo journalctl -u axios-ai-mail-sync.service -f
 ```
 
-### CLI Help
+### MCP Server for AI Assistants
+
+axios-ai-mail includes an MCP (Model Context Protocol) server that allows AI assistants like Claude to automate email workflows through natural language.
+
+**Available Tools:**
+
+| Tool | Description |
+|------|-------------|
+| `list_accounts` | List configured email accounts |
+| `search_emails` | Search with filters (account, folder, tags, text) |
+| `read_email` | Get full email content by ID |
+| `compose_email` | Create a draft email |
+| `send_email` | Send a draft or compose+send in one step |
+| `reply_to_email` | Create a reply draft for a thread |
+| `mark_read` | Mark messages as read/unread |
+| `delete_email` | Delete emails (trash or permanent) |
+
+**Example prompts:**
+- "Send an email from my work account to joe@example.com saying I'll be late"
+- "Show me unread emails tagged as important"
+- "Mark all newsletters as read"
+
+**Configuration for Claude Desktop:**
+
+Add to your Claude Desktop config (`~/.config/claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "axios-ai-mail": {
+      "command": "axios-ai-mail",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+**CLI Commands:**
 
 ```bash
-axios-ai-mail --help
-axios-ai-mail sync --help
-axios-ai-mail auth --help
-axios-ai-mail accounts --help
+# Start MCP server manually (for testing)
+axios-ai-mail mcp
+
+# With custom API URL
+axios-ai-mail mcp --api-url http://localhost:9000
+
+# Show available tools
+axios-ai-mail mcp info
 ```
+
+> **Note:** The web service must be running for the MCP server to work.
 
 ## Screenshots
 
@@ -238,6 +314,7 @@ axios-ai-mail accounts --help
 - [x] Real-time sync via WebSockets
 - [x] Bulk operations with undo
 - [x] AI-generated quick replies
+- [x] MCP server for AI assistant integration
 
 ### Planned
 

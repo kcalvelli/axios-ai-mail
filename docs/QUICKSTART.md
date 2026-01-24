@@ -6,12 +6,23 @@ Get axios-ai-mail running in about 15 minutes.
 
 Before you begin, ensure you have:
 
-1. **NixOS or Home Manager** installed and configured
+1. **NixOS with flakes** - This app runs as a NixOS system service
 2. **Ollama** running with a model pulled:
    ```bash
    ollama pull llama3.2
    ```
-3. **A Nix flake-based configuration** (recommended)
+3. **A Nix flake-based configuration** (required)
+
+## Architecture Overview
+
+axios-ai-mail uses a **split architecture**:
+
+| Module | Level | Purpose |
+|--------|-------|---------|
+| **NixOS module** | System | Web service, sync timer, Tailscale Serve |
+| **Home-Manager module** | User | Email accounts, AI settings, config generation |
+
+This separation allows proper service management while keeping user configuration in home-manager.
 
 ## Step 1: Add to Your Flake
 
@@ -26,20 +37,64 @@ Add axios-ai-mail to your `flake.nix`:
   };
 
   outputs = { self, nixpkgs, home-manager, axios-ai-mail, ... }: {
-    homeConfigurations.youruser = home-manager.lib.homeManagerConfiguration {
-      pkgs = nixpkgs.legacyPackages.x86_64-linux;
+    nixosConfigurations.yourhostname = nixpkgs.lib.nixosSystem {
+      system = "x86_64-linux";
       modules = [
-        axios-ai-mail.homeManagerModules.default
-        ./home.nix
+        # 1. Apply overlay (adds pkgs.axios-ai-mail)
+        { nixpkgs.overlays = [ axios-ai-mail.overlays.default ]; }
+
+        # 2. Import NixOS module for system services
+        axios-ai-mail.nixosModules.default
+
+        # 3. Your NixOS configuration
+        ./configuration.nix
+
+        # 4. Home-manager integration
+        home-manager.nixosModules.home-manager
+        {
+          home-manager.users.youruser = { ... }: {
+            imports = [ axios-ai-mail.homeManagerModules.default ];
+            # User config goes here (see Step 2)
+          };
+        }
       ];
     };
   };
 }
 ```
 
-## Step 2: Basic Configuration
+## Step 2: NixOS Configuration (System Services)
 
-Add to your Home Manager configuration (e.g., `home.nix`):
+In your NixOS configuration (e.g., `configuration.nix`), enable the services:
+
+```nix
+{ config, ... }:
+{
+  # Enable axios-ai-mail system services
+  services.axios-ai-mail = {
+    enable = true;
+    port = 8080;
+    user = "youruser";  # User whose config to read
+
+    # Sync timer (runs periodically)
+    sync = {
+      enable = true;      # Default: true
+      frequency = "5m";   # Default: "5m"
+      onBoot = "2min";    # Default: "2min"
+    };
+
+    # Optional: Expose via Tailscale (requires services.tailscale.enable)
+    # tailscaleServe = {
+    #   enable = true;
+    #   httpsPort = 8443;  # Access at https://hostname.tailnet:8443
+    # };
+  };
+}
+```
+
+## Step 3: Home-Manager Configuration (User Settings)
+
+In your home-manager configuration, set up accounts and AI settings:
 
 ```nix
 { config, ... }:
@@ -53,53 +108,46 @@ Add to your Home Manager configuration (e.g., `home.nix`):
       model = "llama3.2";
       endpoint = "http://localhost:11434";
     };
+
+    # Email accounts (see Step 4 for setup)
+    accounts.personal = {
+      provider = "gmail";
+      email = "you@gmail.com";
+      realName = "Your Name";
+      oauthTokenFile = config.age.secrets.gmail-token.path;
+    };
   };
 }
 ```
 
-Rebuild to install:
-
-```bash
-home-manager switch
-```
-
-## Step 3: Set Up Email Account
+## Step 4: Set Up Email Account
 
 Choose your email provider:
 
 ### Option A: Gmail (OAuth2)
 
-Gmail requires OAuth2 authentication. Run the setup wizard:
-
-```bash
-axios-ai-mail auth gmail --account personal
-```
-
-The wizard will:
-1. Open Google Cloud Console in your browser
-2. Guide you through creating OAuth credentials
-3. Complete the OAuth flow
+Gmail requires OAuth2 authentication. You'll need to create credentials in Google Cloud Console.
 
 **Creating Google Cloud Credentials:**
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a new project named `axios-ai-mail`
 3. Enable the **Gmail API**
-4. Go to **OAuth consent screen** → Configure as "External"
-5. Go to **Credentials** → Create **OAuth client ID**
+4. Go to **OAuth consent screen** -> Configure as "External"
+5. Go to **Credentials** -> Create **OAuth client ID**
    - Application type: **Desktop app**
    - Download the JSON file
-6. Return to terminal and press Enter
 
-**Encrypt the token (axiOS users):**
+**Encrypt the token (axiOS/agenix users):**
 
 ```bash
 # Add to secrets.nix
 cd ~/.config/nixos_config/secrets
 echo '"gmail-personal.age".publicKeys = users ++ systems;' >> secrets.nix
 
-# Encrypt
-agenix -e gmail-personal.age < ~/.local/share/axios-ai-mail/credentials/personal.json
+# Encrypt the credentials JSON
+agenix -e gmail-personal.age
+# Paste your OAuth token JSON, save and exit
 
 # Stage for git
 git add gmail-personal.age
@@ -108,36 +156,23 @@ git add gmail-personal.age
 **Add to Nix config:**
 
 ```nix
-{ config, ... }:
-{
-  # Decrypt secret at runtime
-  age.secrets.gmail-personal.file = ../secrets/gmail-personal.age;
+# In your NixOS config
+age.secrets.gmail-personal.file = ./secrets/gmail-personal.age;
 
-  programs.axios-ai-mail = {
-    enable = true;
-
-    accounts.personal = {
-      provider = "gmail";
-      email = "you@gmail.com";
-      realName = "Your Name";
-      oauthTokenFile = config.age.secrets.gmail-personal.path;
-    };
-  };
-}
+# In your home-manager config
+programs.axios-ai-mail.accounts.personal = {
+  provider = "gmail";
+  email = "you@gmail.com";
+  realName = "Your Name";
+  oauthTokenFile = config.age.secrets.gmail-personal.path;
+};
 ```
 
 ### Option B: IMAP (Password-based)
 
 For Fastmail, ProtonMail Bridge, or other IMAP servers:
 
-```bash
-# Create password file
-mkdir -p ~/.config/axios-ai-mail
-echo "your-app-password" > ~/.config/axios-ai-mail/fastmail-password
-chmod 600 ~/.config/axios-ai-mail/fastmail-password
-```
-
-**Or use agenix (recommended):**
+**Using agenix (recommended):**
 
 ```bash
 cd ~/.config/nixos_config/secrets
@@ -149,56 +184,45 @@ git add fastmail-password.age
 **Add to Nix config:**
 
 ```nix
-{ config, ... }:
-{
-  age.secrets.fastmail-password.file = ../secrets/fastmail-password.age;
+# In your NixOS config
+age.secrets.fastmail-password.file = ./secrets/fastmail-password.age;
 
-  programs.axios-ai-mail = {
-    enable = true;
+# In your home-manager config
+programs.axios-ai-mail.accounts.work = {
+  provider = "imap";
+  email = "you@fastmail.com";
+  realName = "Your Name";
+  passwordFile = config.age.secrets.fastmail-password.path;
 
-    accounts.work = {
-      provider = "imap";
-      email = "you@fastmail.com";
-      realName = "Your Name";
-      passwordFile = config.age.secrets.fastmail-password.path;
-
-      imap = {
-        host = "imap.fastmail.com";
-        port = 993;
-        tls = true;
-      };
-
-      smtp = {
-        host = "smtp.fastmail.com";
-        port = 465;
-        tls = true;
-      };
-    };
+  imap = {
+    host = "imap.fastmail.com";
+    port = 993;
+    tls = true;
   };
-}
+
+  smtp = {
+    host = "smtp.fastmail.com";
+    port = 465;
+    tls = true;
+  };
+};
 ```
 
-## Step 4: Rebuild and Sync
+## Step 5: Rebuild and Verify
 
 ```bash
-# Apply configuration
-home-manager switch
+# Rebuild NixOS
+sudo nixos-rebuild switch --flake .
 
-# Run initial sync (fetch 50 messages to test)
-axios-ai-mail sync run --max 50
+# Check service status
+systemctl status axios-ai-mail-web.service
+systemctl status axios-ai-mail-sync.timer
 
-# You should see output like:
-# Syncing account: personal
-# Fetched 50 messages
-# Classifying messages...
-# Classification complete: 50/50
+# View logs
+sudo journalctl -u axios-ai-mail-web.service -f
 ```
 
-## Step 5: Start the Web UI
-
-```bash
-axios-ai-mail web
-```
+## Step 6: Access the Web UI
 
 Open http://localhost:8080 in your browser.
 
@@ -209,7 +233,7 @@ You should see:
 
 ![Desktop View](screenshots/desktop-dark-split-pane.png)
 
-## Step 6: Install as PWA (Optional)
+## Step 7: Install as PWA (Optional)
 
 For a native app experience:
 
@@ -231,38 +255,66 @@ The app will appear in your application launcher.
 
 > **Note:** ProtonMail requires the ProtonMail Bridge app running locally.
 
+## Service Management
+
+axios-ai-mail runs as **system-level systemd services**:
+
+```bash
+# Check service status
+systemctl status axios-ai-mail-web.service
+systemctl status axios-ai-mail-sync.timer
+systemctl status axios-ai-mail-tailscale-serve.service  # if enabled
+
+# Restart web service
+sudo systemctl restart axios-ai-mail-web.service
+
+# Trigger sync manually (instead of waiting for timer)
+sudo systemctl start axios-ai-mail-sync.service
+
+# View web service logs
+sudo journalctl -u axios-ai-mail-web.service -f
+
+# View sync service logs
+sudo journalctl -u axios-ai-mail-sync.service -f
+```
+
 ## Troubleshooting
 
-### "Connection refused" on sync
+### "Connection refused" on web UI
+
+Ensure the web service is running:
+```bash
+systemctl status axios-ai-mail-web.service
+```
+
+### AI classification not working
 
 Ensure Ollama is running:
 ```bash
-systemctl --user status ollama  # If using systemd
-# or
-ollama serve  # Start manually
+systemctl status ollama  # or however you run Ollama
+ollama list  # Should show llama3.2 or your configured model
+```
+
+### Messages not syncing
+
+Check sync service logs:
+```bash
+sudo journalctl -u axios-ai-mail-sync.service -n 50
+```
+
+Trigger a manual sync:
+```bash
+sudo systemctl start axios-ai-mail-sync.service
 ```
 
 ### OAuth token expired (Gmail)
 
-Re-run the auth wizard:
+Re-encrypt a fresh token and rebuild:
 ```bash
-axios-ai-mail auth gmail --account personal
-```
-
-Then re-encrypt and rebuild.
-
-### Messages not appearing
-
-Check sync logs:
-```bash
-axios-ai-mail sync run --verbose
-```
-
-### Web UI not loading
-
-Check the API is running:
-```bash
-curl http://localhost:8080/api/health
+cd ~/.config/nixos_config/secrets
+agenix -e gmail-personal.age
+# Paste new token, save
+sudo nixos-rebuild switch --flake .
 ```
 
 ## Next Steps
@@ -276,65 +328,113 @@ curl http://localhost:8080/api/health
 Here's a complete multi-account setup:
 
 ```nix
-{ config, ... }:
+# flake.nix
 {
-  programs.axios-ai-mail = {
-    enable = true;
+  inputs = {
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    home-manager.url = "github:nix-community/home-manager";
+    axios-ai-mail.url = "github:kcalvelli/axios-ai-mail";
+    agenix.url = "github:ryantm/agenix";
+  };
 
-    # Sync settings
-    sync = {
-      frequency = "5m";
-      maxMessagesPerSync = 100;
-    };
+  outputs = { nixpkgs, home-manager, axios-ai-mail, agenix, ... }: {
+    nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
+      system = "x86_64-linux";
+      modules = [
+        # Overlays
+        { nixpkgs.overlays = [ axios-ai-mail.overlays.default ]; }
 
-    # AI classification
-    ai = {
-      enable = true;
-      model = "llama3.2";
-      endpoint = "http://localhost:11434";
-      temperature = 0.3;
-      useDefaultTags = true;
+        # Modules
+        agenix.nixosModules.default
+        axios-ai-mail.nixosModules.default
 
-      # Add custom tags
-      tags = [
-        { name = "clients"; description = "Client communications"; }
-        { name = "reports"; description = "Weekly/monthly reports"; }
+        # NixOS config
+        ({ config, ... }: {
+          # Secrets
+          age.secrets.gmail-token.file = ./secrets/gmail-token.age;
+          age.secrets.fastmail-password.file = ./secrets/fastmail-password.age;
+
+          # axios-ai-mail system services
+          services.axios-ai-mail = {
+            enable = true;
+            port = 8080;
+            user = "keith";
+
+            sync = {
+              enable = true;
+              frequency = "5m";
+              onBoot = "2min";
+            };
+
+            # Optional: Tailscale Serve
+            # tailscaleServe = {
+            #   enable = true;
+            #   httpsPort = 8443;
+            # };
+          };
+        })
+
+        # Home-manager
+        home-manager.nixosModules.home-manager
+        {
+          home-manager.users.keith = { config, ... }: {
+            imports = [ axios-ai-mail.homeManagerModules.default ];
+
+            programs.axios-ai-mail = {
+              enable = true;
+
+              ai = {
+                enable = true;
+                model = "llama3.2";
+                endpoint = "http://localhost:11434";
+                temperature = 0.3;
+                useDefaultTags = true;
+
+                # Add custom tags
+                tags = [
+                  { name = "clients"; description = "Client communications"; }
+                  { name = "reports"; description = "Weekly/monthly reports"; }
+                ];
+
+                labelColors = {
+                  urgent = "red";
+                  work = "blue";
+                  finance = "green";
+                  personal = "purple";
+                };
+              };
+
+              # Gmail account
+              accounts.gmail = {
+                provider = "gmail";
+                email = "you@gmail.com";
+                realName = "Your Name";
+                oauthTokenFile = config.age.secrets.gmail-token.path;
+              };
+
+              # Fastmail account
+              accounts.fastmail = {
+                provider = "imap";
+                email = "you@fastmail.com";
+                realName = "Your Name";
+                passwordFile = config.age.secrets.fastmail-password.path;
+
+                imap = {
+                  host = "imap.fastmail.com";
+                  port = 993;
+                  tls = true;
+                };
+
+                smtp = {
+                  host = "smtp.fastmail.com";
+                  port = 465;
+                  tls = true;
+                };
+              };
+            };
+          };
+        }
       ];
-
-      labelColors = {
-        urgent = "red";
-        work = "blue";
-        finance = "green";
-        personal = "purple";
-      };
-    };
-
-    # Gmail account
-    accounts.gmail = {
-      provider = "gmail";
-      email = "you@gmail.com";
-      realName = "Your Name";
-      oauthTokenFile = config.age.secrets.gmail-token.path;
-    };
-
-    # Fastmail account
-    accounts.fastmail = {
-      provider = "imap";
-      email = "you@fastmail.com";
-      realName = "Your Name";
-      passwordFile = config.age.secrets.fastmail-password.path;
-
-      imap = {
-        host = "imap.fastmail.com";
-        port = 993;
-        tls = true;
-      };
-
-      smtp = {
-        host = "smtp.fastmail.com";
-        port = 465;
-        tls = true;
-      };
     };
   };
 }

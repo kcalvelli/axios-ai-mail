@@ -10,6 +10,8 @@ Complete guide to using axios-ai-mail on desktop and mobile devices.
 - [Theme Switching](#theme-switching)
 - [PWA Installation](#pwa-installation)
 - [Offline Behavior](#offline-behavior)
+- [Real-Time Sync (IMAP IDLE)](#real-time-sync-imap-idle)
+- [Tips & Tricks](#tips--tricks)
 
 ---
 
@@ -362,6 +364,38 @@ The top bar shows connection status:
 
 ---
 
+## Real-Time Sync (IMAP IDLE)
+
+For IMAP accounts, axios-ai-mail supports near real-time email notifications using IMAP IDLE:
+
+### How It Works
+
+- The sync service maintains persistent connections to your IMAP servers
+- When new mail arrives, the server notifies the client immediately
+- A sync is triggered within seconds of receiving new email
+- Falls back to polling if IDLE is not supported
+
+### Supported Providers
+
+| Provider | IDLE Support | Latency |
+|----------|--------------|---------|
+| Fastmail | Yes | <2s |
+| ProtonMail Bridge | Yes | <2s |
+| iCloud | Yes | <2s |
+| Gmail | No (use polling) | 5m |
+| Outlook.com | No (use polling) | 5m |
+
+> **Note:** Gmail and Outlook use their own APIs which don't support IDLE. They sync on the configured timer interval.
+
+### Checking Sync Status
+
+```bash
+# View sync logs to see IDLE activity
+sudo journalctl -u axios-ai-mail-sync.service -f
+```
+
+---
+
 ## Tips & Tricks
 
 ### Efficient Email Processing
@@ -379,8 +413,8 @@ The top bar shows connection status:
 ### Managing Multiple Accounts
 
 - Filter by account email in the sidebar
-- Different accounts can have different sync frequencies
 - All accounts appear in a unified inbox
+- IMAP accounts get near real-time sync via IDLE
 
 ### Quick Replies
 
@@ -388,3 +422,20 @@ AI-generated quick reply suggestions appear on messages:
 - Click to start a reply with that text
 - Suggestions based on message content
 - Can be edited before sending
+
+### Service Management
+
+axios-ai-mail runs as system-level services:
+
+```bash
+# Check status
+systemctl status axios-ai-mail-web.service
+systemctl status axios-ai-mail-sync.timer
+
+# Trigger manual sync
+sudo systemctl start axios-ai-mail-sync.service
+
+# View logs
+sudo journalctl -u axios-ai-mail-web.service -f
+sudo journalctl -u axios-ai-mail-sync.service -f
+```

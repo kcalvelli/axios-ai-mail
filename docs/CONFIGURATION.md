@@ -4,124 +4,162 @@ Complete reference for all axios-ai-mail Nix configuration options.
 
 ## Table of Contents
 
-- [Quick Reference](#quick-reference)
-- [Basic Configuration](#basic-configuration)
-- [Account Configuration](#account-configuration)
-  - [Gmail (OAuth2)](#gmail-oauth2)
-  - [IMAP (Password)](#imap-password)
-- [AI Configuration](#ai-configuration)
-- [Sync Configuration](#sync-configuration)
+- [Architecture Overview](#architecture-overview)
+- [NixOS Module (System Services)](#nixos-module-system-services)
+  - [Basic Options](#basic-options)
+  - [Sync Timer](#sync-timer)
+  - [Tailscale Serve](#tailscale-serve)
+- [Home-Manager Module (User Config)](#home-manager-module-user-config)
+  - [Account Configuration](#account-configuration)
+  - [AI Configuration](#ai-configuration)
+  - [Sync Settings](#sync-settings)
 - [AI Model Recommendations](#ai-model-recommendations)
 - [Custom Tags](#custom-tags)
-- [Multi-Account Setup](#multi-account-setup)
-- [Systemd Services](#systemd-services)
 - [Example Configurations](#example-configurations)
 
 ---
 
-## Quick Reference
+## Architecture Overview
+
+axios-ai-mail uses a **split architecture** with two separate Nix modules:
+
+| Module | Namespace | Level | Purpose |
+|--------|-----------|-------|---------|
+| **NixOS** | `services.axios-ai-mail` | System | Web service, sync timer, Tailscale Serve |
+| **Home-Manager** | `programs.axios-ai-mail` | User | Email accounts, AI settings, config file |
+
+**Why split?**
+- System services need root to bind ports and run reliably
+- User config (accounts, AI preferences) belongs in home-manager
+- Proper Nix dependency tracking via overlay
+
+**Required components:**
+1. **Overlay** - Adds `pkgs.axios-ai-mail` to nixpkgs
+2. **NixOS module** - Runs systemd services
+3. **Home-Manager module** - Generates user config file
+
+---
+
+## NixOS Module (System Services)
+
+Namespace: `services.axios-ai-mail`
+
+### Basic Options
 
 ```nix
-programs.axios-ai-mail = {
-  enable = true;                          # Enable the module
-
-  # AI Settings
-  ai = {
-    enable = true;                        # Enable AI classification
-    model = "llama3.2";                   # Ollama model name
-    endpoint = "http://localhost:11434";  # Ollama API URL
-    temperature = 0.3;                    # LLM temperature (0.0-1.0)
-    useDefaultTags = true;                # Use built-in 35-tag taxonomy
-    tags = [];                            # Additional custom tags
-    excludeTags = [];                     # Tags to remove from defaults
-    labelPrefix = "AI";                   # Provider label prefix
-    labelColors = {};                     # Tag color overrides
-  };
-
-  # Sync Settings
-  sync = {
-    frequency = "5m";                     # Sync interval
-    maxMessagesPerSync = 100;             # Messages per sync batch
-    enableWebhooks = false;               # Real-time push (experimental)
-  };
-
-  # Accounts (see detailed examples below)
-  accounts = {};
+services.axios-ai-mail = {
+  enable = true;
+  package = pkgs.axios-ai-mail;  # Default from overlay
+  port = 8080;
+  user = "youruser";
+  group = "users";
+  openFirewall = false;
 };
 ```
 
----
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `enable` | boolean | `false` | Enable axios-ai-mail services |
+| `package` | package | `pkgs.axios-ai-mail` | Package to use |
+| `port` | port | `8080` | Web UI port |
+| `user` | string | *required* | User to run as (reads config from their home) |
+| `group` | string | `"users"` | Group to run as |
+| `openFirewall` | boolean | `false` | Open firewall port for web UI |
 
-## Basic Configuration
+### Sync Timer
 
-### Minimal Setup
+Configures the periodic email sync service.
 
 ```nix
-{ config, ... }:
-{
-  programs.axios-ai-mail = {
-    enable = true;
-
-    accounts.personal = {
-      provider = "gmail";
-      email = "you@gmail.com";
-      oauthTokenFile = config.age.secrets.gmail-token.path;
-    };
-  };
-}
+services.axios-ai-mail.sync = {
+  enable = true;       # Default: true
+  frequency = "5m";    # Default: "5m"
+  onBoot = "2min";     # Default: "2min"
+};
 ```
-
-### Module Options
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `enable` | boolean | `false` | Enable axios-ai-mail |
-| `package` | package | `pkgs.axios-ai-mail` | Package to use |
-| `accounts` | attrset | `{}` | Email account configurations |
-| `ai` | submodule | see below | AI classification settings |
-| `sync` | submodule | see below | Sync behavior settings |
+| `enable` | boolean | `true` | Enable periodic sync |
+| `frequency` | string | `"5m"` | Sync interval (systemd timer format) |
+| `onBoot` | string | `"2min"` | Delay before first sync after boot |
+
+**Frequency format** (systemd timer):
+- `5m` - Every 5 minutes
+- `1h` - Every hour
+- `30s` - Every 30 seconds
+- `1d` - Daily
+
+**Systemd units created:**
+- `axios-ai-mail-sync.service` - Oneshot sync job
+- `axios-ai-mail-sync.timer` - Periodic trigger
+
+### Tailscale Serve
+
+Exposes the web UI across your Tailscale network via HTTPS.
+
+```nix
+services.axios-ai-mail.tailscaleServe = {
+  enable = true;
+  httpsPort = 8443;  # Access at https://hostname.tailnet:8443
+};
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `enable` | boolean | `false` | Enable Tailscale Serve |
+| `httpsPort` | port | `8443` | HTTPS port on your tailnet |
+
+**Requirements:**
+- `services.tailscale.enable = true` must be set
+- Tailscale must be connected before service starts (handled automatically)
+
+**Access URL:** `https://{machine-name}.{tailnet-name}:{httpsPort}`
+
+Example: `https://myserver.tail12345.ts.net:8443`
 
 ---
 
-## Account Configuration
+## Home-Manager Module (User Config)
 
-### Gmail (OAuth2)
+Namespace: `programs.axios-ai-mail`
 
-Gmail requires OAuth2 authentication with credentials from Google Cloud Console.
+### Quick Reference
+
+```nix
+programs.axios-ai-mail = {
+  enable = true;
+
+  accounts = { };    # Email accounts (see below)
+  ai = { };          # AI classification settings
+  sync = { };        # Sync behavior settings
+};
+```
+
+### Account Configuration
+
+#### Gmail (OAuth2)
 
 ```nix
 accounts.personal = {
   provider = "gmail";
   email = "you@gmail.com";
-  realName = "Your Name";                              # Optional
+  realName = "Your Name";
   oauthTokenFile = config.age.secrets.gmail-token.path;
 
-  # Optional per-account overrides
+  # Optional per-account settings
   labels = {
-    prefix = "AI";                                     # Label prefix
-    colors = {                                         # Provider-specific colors
-      work = "blue";
-      finance = "green";
-    };
+    prefix = "AI";           # Label prefix (default: "AI")
+    colors = { };            # Color overrides
   };
 
   sync = {
-    frequency = "5m";                                  # Per-account frequency
-    enableWebhooks = false;                            # Gmail push notifications
+    enableWebhooks = false;  # Gmail push notifications (experimental)
   };
 };
 ```
 
-**OAuth Token Setup:**
-
-1. Run `axios-ai-mail auth gmail --account personal`
-2. Complete OAuth flow in browser
-3. Encrypt the token with agenix/sops-nix
-4. Reference the decrypted path in `oauthTokenFile`
-
-### IMAP (Password)
-
-For Fastmail, ProtonMail Bridge, self-hosted servers, and other IMAP providers.
+#### IMAP (Password)
 
 ```nix
 accounts.work = {
@@ -132,74 +170,50 @@ accounts.work = {
 
   imap = {
     host = "imap.fastmail.com";
-    port = 993;                                        # Default: 993
-    tls = true;                                        # Default: true
+    port = 993;              # Default: 993
+    tls = true;              # Default: true
   };
 
   smtp = {
     host = "smtp.fastmail.com";
-    port = 465;                                        # Default: 465
-    tls = true;                                        # Default: true
+    port = 465;              # Default: 465
+    tls = true;              # Default: true
   };
 };
 ```
 
-**Password Setup:**
-
-Option 1: Plain file (not recommended for multi-user systems)
-
-```bash
-mkdir -p ~/.config/axios-ai-mail
-echo "your-password" > ~/.config/axios-ai-mail/password
-chmod 600 ~/.config/axios-ai-mail/password
-```
-
-Option 2: agenix (recommended)
-
-```bash
-cd ~/.config/nixos_config/secrets
-agenix -e fastmail-password.age
-# Enter password, save, exit
-git add fastmail-password.age
-```
-
-Then reference:
-
-```nix
-age.secrets.fastmail-password.file = ../secrets/fastmail-password.age;
-```
-
-### Account Options Reference
+#### Account Options Reference
 
 | Option | Type | Required | Description |
 |--------|------|----------|-------------|
-| `provider` | `"gmail"`, `"imap"`, `"outlook"` | Yes | Provider type |
+| `provider` | `"gmail"` \| `"imap"` \| `"outlook"` | Yes | Provider type |
 | `email` | string | Yes | Email address |
-| `realName` | string | No | Display name |
-| `oauthTokenFile` | path | Gmail/Outlook | OAuth token path |
+| `realName` | string | No | Display name for sent mail |
+| `oauthTokenFile` | path | Gmail/Outlook | OAuth token file path |
 | `passwordFile` | path | IMAP | Password file path |
 | `imap` | submodule | IMAP | IMAP server settings |
-| `smtp` | submodule | No | SMTP server settings |
-| `labels` | submodule | No | Label customization |
-| `sync` | submodule | No | Per-account sync settings |
+| `smtp` | submodule | No | SMTP server settings (for sending) |
+| `labels.prefix` | string | No | AI label prefix (default: "AI") |
+| `labels.colors` | attrset | No | Per-account color overrides |
+| `sync.enableWebhooks` | boolean | No | Enable push notifications |
 
----
-
-## AI Configuration
-
-### Options
+### AI Configuration
 
 ```nix
 ai = {
-  enable = true;
-  model = "llama3.2";
-  endpoint = "http://localhost:11434";
-  temperature = 0.3;
-  useDefaultTags = true;
-  tags = [];
-  excludeTags = [];
-  labelPrefix = "AI";
-  labelColors = {};
+  enable = true;                        # Default: true
+  model = "llama3.2";                   # Ollama model name
+  endpoint = "http://localhost:11434";  # Ollama API URL
+  temperature = 0.3;                    # LLM temperature (0.0-1.0)
+
+  # Tag taxonomy
+  useDefaultTags = true;                # Use built-in 35-tag taxonomy
+  tags = [];                            # Additional custom tags
+  excludeTags = [];                     # Tags to remove from defaults
+
+  # Label styling
+  labelPrefix = "AI";                   # Prefix for provider labels
+  labelColors = {};                     # Tag color overrides
 };
 ```
 
@@ -215,39 +229,26 @@ ai = {
 | `labelPrefix` | string | `"AI"` | Prefix for provider labels |
 | `labelColors` | attrset | `{}` | Tag color overrides |
 
-### Temperature Guidelines
-
+**Temperature guidelines:**
 - `0.1-0.3` - Highly deterministic, best for classification
 - `0.4-0.6` - More varied responses
-- `0.7+` - Not recommended for classification tasks
+- `0.7+` - Not recommended for classification
 
----
-
-## Sync Configuration
-
-### Options
+### Sync Settings
 
 ```nix
 sync = {
-  frequency = "5m";
-  maxMessagesPerSync = 100;
-  enableWebhooks = false;
+  maxMessagesPerSync = 100;  # Max messages per batch
+  enableWebhooks = false;    # Real-time push (experimental)
 };
 ```
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `frequency` | string | `"5m"` | Systemd timer interval |
-| `maxMessagesPerSync` | integer | `100` | Max messages per batch |
-| `enableWebhooks` | boolean | `false` | Real-time push (experimental) |
+| `maxMessagesPerSync` | integer | `100` | Max messages per sync batch |
+| `enableWebhooks` | boolean | `false` | Enable real-time webhooks |
 
-### Frequency Format
-
-Uses systemd timer format:
-- `5m` - Every 5 minutes
-- `1h` - Every hour
-- `30s` - Every 30 seconds
-- `1d` - Daily
+> **Note:** Sync *timing* (`frequency`, `onBoot`) is configured in the NixOS module, not here.
 
 ---
 
@@ -262,32 +263,6 @@ Uses systemd timer format:
 | **Maximum Quality** | `llama3.1:8b` | 8GB | 4-5s/msg |
 | **Fastest** | `qwen2.5:1.5b` | 1.5GB | <1s/msg |
 
-### Model Configuration Examples
-
-**Default (recommended):**
-
-```nix
-ai.model = "llama3.2";
-```
-
-**Low VRAM systems:**
-
-```nix
-ai = {
-  model = "qwen2.5:3b";
-  temperature = 0.2;  # More consistent with smaller models
-};
-```
-
-**Maximum quality:**
-
-```nix
-ai = {
-  model = "llama3.1:8b";
-  temperature = 0.3;
-};
-```
-
 ### Hardware Requirements
 
 | Setup | RAM | VRAM | Recommended Model |
@@ -301,28 +276,26 @@ ai = {
 
 ## Custom Tags
 
-### Using Default Tags
+### Default Tag Taxonomy
 
-The default taxonomy includes 35 tags across categories:
+When `useDefaultTags = true` (default), you get 35 tags across these categories:
 
-**Priority:** urgent, important, review
-**Work:** work, project, meeting, deadline
-**Personal:** personal, family, friends, hobby
-**Finance:** finance, invoice, payment, expense
-**Shopping:** shopping, receipt, shipping
-**Travel:** travel, booking, itinerary, flight
-**Developer:** dev, github, ci, alert
-**Marketing:** marketing, newsletter, promotion, announcement
-**Social:** social, notification, update, reminder
-**System:** junk
-
-Enable with:
-
-```nix
-ai.useDefaultTags = true;
-```
+| Category | Tags |
+|----------|------|
+| **Priority** | `urgent`, `important`, `review` |
+| **Work** | `work`, `project`, `meeting`, `deadline` |
+| **Personal** | `personal`, `family`, `friends`, `hobby` |
+| **Finance** | `finance`, `invoice`, `payment`, `expense` |
+| **Shopping** | `shopping`, `receipt`, `shipping` |
+| **Travel** | `travel`, `booking`, `itinerary`, `flight` |
+| **Developer** | `dev`, `github`, `ci`, `alert` |
+| **Marketing** | `marketing`, `newsletter`, `promotion`, `announcement` |
+| **Social** | `social`, `notification`, `update`, `reminder` |
+| **System** | `junk` |
 
 ### Adding Custom Tags
+
+Extend the defaults with your own tags:
 
 ```nix
 ai = {
@@ -337,18 +310,22 @@ ai = {
 
 ### Excluding Default Tags
 
+Remove tags you don't want:
+
 ```nix
 ai = {
   useDefaultTags = true;
-  excludeTags = [ "social" "newsletter" "hobby" ];  # Remove these
+  excludeTags = [ "social" "newsletter" "hobby" ];
 };
 ```
 
 ### Replacing All Tags
 
+Use only your custom taxonomy:
+
 ```nix
 ai = {
-  useDefaultTags = false;  # Disable defaults
+  useDefaultTags = false;
   tags = [
     { name = "work"; description = "Work-related emails"; }
     { name = "personal"; description = "Personal correspondence"; }
@@ -360,7 +337,7 @@ ai = {
 
 ### Label Colors
 
-Colors for Gmail labels and UI display:
+Override colors for specific tags:
 
 ```nix
 ai.labelColors = {
@@ -379,241 +356,174 @@ ai.labelColors = {
 
 **Gmail color options:** `red`, `orange`, `yellow`, `green`, `teal`, `blue`, `purple`, `gray`, `brown`, `pink`
 
----
-
-## Multi-Account Setup
-
-### Example: Personal + Work
-
-```nix
-{ config, ... }:
-{
-  age.secrets = {
-    gmail-personal.file = ../secrets/gmail-personal.age;
-    fastmail-work.file = ../secrets/fastmail-work.age;
-  };
-
-  programs.axios-ai-mail = {
-    enable = true;
-
-    ai = {
-      model = "llama3.2";
-      useDefaultTags = true;
-      labelColors = {
-        work = "blue";
-        finance = "green";
-        personal = "purple";
-      };
-    };
-
-    accounts.personal = {
-      provider = "gmail";
-      email = "you@gmail.com";
-      realName = "Your Name";
-      oauthTokenFile = config.age.secrets.gmail-personal.path;
-    };
-
-    accounts.work = {
-      provider = "imap";
-      email = "you@company.com";
-      realName = "Your Name";
-      passwordFile = config.age.secrets.fastmail-work.path;
-
-      imap = {
-        host = "imap.fastmail.com";
-        port = 993;
-        tls = true;
-      };
-
-      smtp = {
-        host = "smtp.fastmail.com";
-        port = 465;
-        tls = true;
-      };
-    };
-  };
-}
-```
-
-### Account Filtering in UI
-
-Each account email appears as a filter in the sidebar. Click to view only messages from that account.
-
----
-
-## Systemd Services
-
-axios-ai-mail creates two user-level systemd units:
-
-### Sync Timer
-
-```bash
-# Check timer status
-systemctl --user status axios-ai-mail-sync.timer
-
-# Manually trigger sync
-systemctl --user start axios-ai-mail-sync.service
-
-# View sync logs
-journalctl --user -u axios-ai-mail-sync -f
-```
-
-### Timer Configuration
-
-The timer uses `OnUnitActiveSec` for intervals:
-
-```nix
-sync.frequency = "5m";  # Runs every 5 minutes after last run
-```
-
-Timer options:
-- `OnBootSec = "2min"` - First run 2 minutes after login
-- `Persistent = true` - Catch up missed runs
-
-### Disabling Automatic Sync
-
-If you prefer manual sync only:
-
-```bash
-systemctl --user disable axios-ai-mail-sync.timer
-systemctl --user stop axios-ai-mail-sync.timer
-```
+> **Note:** Default tags already have sensible category-based colors. Override only if needed.
 
 ---
 
 ## Example Configurations
 
-### Minimal Gmail Setup
+### Minimal Setup
 
 ```nix
-{ config, ... }:
-{
-  age.secrets.gmail.file = ../secrets/gmail.age;
+# NixOS module
+services.axios-ai-mail = {
+  enable = true;
+  port = 8080;
+  user = "keith";
+};
 
-  programs.axios-ai-mail = {
-    enable = true;
+# Home-manager module
+programs.axios-ai-mail = {
+  enable = true;
 
-    accounts.gmail = {
-      provider = "gmail";
-      email = "you@gmail.com";
-      oauthTokenFile = config.age.secrets.gmail.path;
-    };
+  accounts.gmail = {
+    provider = "gmail";
+    email = "you@gmail.com";
+    oauthTokenFile = config.age.secrets.gmail.path;
   };
-}
-```
-
-### Fastmail with Custom Tags
-
-```nix
-{ config, ... }:
-{
-  age.secrets.fastmail.file = ../secrets/fastmail.age;
-
-  programs.axios-ai-mail = {
-    enable = true;
-
-    ai = {
-      model = "llama3.2";
-      useDefaultTags = true;
-      tags = [
-        { name = "clients"; description = "Client emails"; }
-        { name = "invoices"; description = "Invoices to process"; }
-      ];
-      labelColors = {
-        clients = "blue";
-        invoices = "green";
-      };
-    };
-
-    accounts.main = {
-      provider = "imap";
-      email = "you@fastmail.com";
-      realName = "Your Name";
-      passwordFile = config.age.secrets.fastmail.path;
-
-      imap = {
-        host = "imap.fastmail.com";
-        port = 993;
-        tls = true;
-      };
-
-      smtp = {
-        host = "smtp.fastmail.com";
-        port = 465;
-        tls = true;
-      };
-    };
-  };
-}
+};
 ```
 
 ### Full Production Setup
 
 ```nix
-{ config, lib, pkgs, inputs, ... }:
-{
-  imports = [ inputs.axios-ai-mail.homeManagerModules.default ];
+# NixOS module
+services.axios-ai-mail = {
+  enable = true;
+  port = 8080;
+  user = "keith";
 
-  programs.axios-ai-mail = {
+  sync = {
     enable = true;
+    frequency = "5m";
+    onBoot = "2min";
+  };
 
-    sync = {
-      frequency = "5m";
-      maxMessagesPerSync = 100;
-    };
+  tailscaleServe = {
+    enable = true;
+    httpsPort = 8443;
+  };
+};
 
-    ai = {
-      enable = true;
-      model = "llama3.2";
-      endpoint = "http://localhost:11434";
-      temperature = 0.3;
-      useDefaultTags = true;
+# Home-manager module
+programs.axios-ai-mail = {
+  enable = true;
 
-      tags = [
-        { name = "newsletter"; description = "Newsletters and subscriptions"; }
-        { name = "junk"; description = "Promotional emails, spam, marketing"; }
-      ];
+  ai = {
+    enable = true;
+    model = "llama3.2";
+    endpoint = "http://localhost:11434";
+    temperature = 0.3;
+    useDefaultTags = true;
 
-      labelPrefix = "AI";
-      labelColors = {
-        urgent = "red";
-        important = "red";
-        work = "blue";
-        finance = "green";
-        personal = "purple";
-        shopping = "yellow";
-        travel = "magenta";
-        dev = "cyan";
-        newsletter = "gray";
-        junk = "brown";
-      };
-    };
+    tags = [
+      { name = "clients"; description = "Client communications"; }
+      { name = "invoices"; description = "Invoices to process"; }
+    ];
 
-    accounts.gmail = {
-      provider = "gmail";
-      email = "you@gmail.com";
-      realName = "Your Name";
-      oauthTokenFile = config.age.secrets.gmail.path;
-    };
-
-    accounts.work = {
-      provider = "imap";
-      email = "you@company.com";
-      realName = "Your Name";
-      passwordFile = config.age.secrets.work-email.path;
-
-      imap = {
-        host = "imap.fastmail.com";
-        port = 993;
-        tls = true;
-      };
-
-      smtp = {
-        host = "smtp.fastmail.com";
-        port = 465;
-        tls = true;
-      };
+    labelColors = {
+      urgent = "red";
+      important = "red";
+      work = "blue";
+      finance = "green";
+      clients = "blue";
+      invoices = "green";
     };
   };
-}
+
+  sync = {
+    maxMessagesPerSync = 100;
+  };
+
+  accounts.gmail = {
+    provider = "gmail";
+    email = "personal@gmail.com";
+    realName = "Your Name";
+    oauthTokenFile = config.age.secrets.gmail-token.path;
+  };
+
+  accounts.work = {
+    provider = "imap";
+    email = "work@fastmail.com";
+    realName = "Your Name";
+    passwordFile = config.age.secrets.fastmail-password.path;
+
+    imap = {
+      host = "imap.fastmail.com";
+      port = 993;
+      tls = true;
+    };
+
+    smtp = {
+      host = "smtp.fastmail.com";
+      port = 465;
+      tls = true;
+    };
+  };
+};
+```
+
+### Low-Resource Setup
+
+For systems with limited RAM/VRAM:
+
+```nix
+programs.axios-ai-mail = {
+  enable = true;
+
+  ai = {
+    model = "qwen2.5:1.5b";  # Smallest model
+    temperature = 0.2;       # More deterministic
+    useDefaultTags = false;  # Fewer tags = faster
+
+    tags = [
+      { name = "work"; description = "Work emails"; }
+      { name = "personal"; description = "Personal emails"; }
+      { name = "finance"; description = "Financial emails"; }
+      { name = "junk"; description = "Spam and promotions"; }
+    ];
+  };
+
+  sync = {
+    maxMessagesPerSync = 25;  # Smaller batches
+  };
+};
+```
+
+---
+
+## Service Management
+
+### Systemd Services
+
+```bash
+# Web service
+systemctl status axios-ai-mail-web.service
+sudo systemctl restart axios-ai-mail-web.service
+sudo journalctl -u axios-ai-mail-web.service -f
+
+# Sync timer
+systemctl status axios-ai-mail-sync.timer
+systemctl list-timers axios-ai-mail-sync.timer
+
+# Trigger manual sync
+sudo systemctl start axios-ai-mail-sync.service
+sudo journalctl -u axios-ai-mail-sync.service -f
+
+# Tailscale Serve (if enabled)
+systemctl status axios-ai-mail-tailscale-serve.service
+tailscale serve status
+```
+
+### Disabling Automatic Sync
+
+To disable the timer but keep manual sync available:
+
+```nix
+services.axios-ai-mail.sync.enable = false;
+```
+
+You can still trigger syncs manually:
+```bash
+sudo systemctl start axios-ai-mail-sync.service
 ```

@@ -41,6 +41,9 @@ dependencies = [
     # Utilities
     "python-dateutil>=2.8",
     "pyyaml>=6.0",
+
+    # MCP (Model Context Protocol)
+    "mcp>=1.0.0",
 ]
 
 [project.optional-dependencies]

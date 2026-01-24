@@ -113,6 +113,9 @@
           python-dateutil
           pyyaml
 
+          # MCP (Model Context Protocol)
+          mcp
+
           # Web API (Phase 2)
           fastapi
           uvicorn

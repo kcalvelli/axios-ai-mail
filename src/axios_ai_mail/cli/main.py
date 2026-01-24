@@ -51,12 +51,14 @@ def main(
 # Import subcommands
 from .accounts import accounts_app
 from .auth import auth_app
+from .mcp import mcp_app
 from .sync import sync_app
 from .status import status_app
 from .web import web_app
 
 app.add_typer(accounts_app, name="accounts")
 app.add_typer(auth_app, name="auth")
+app.add_typer(mcp_app, name="mcp")
 app.add_typer(sync_app, name="sync")
 app.add_typer(status_app, name="status")
 app.add_typer(web_app, name="web")
