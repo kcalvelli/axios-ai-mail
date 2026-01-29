@@ -194,6 +194,22 @@ let
       maxMessagesPerSync = cfg.sync.maxMessagesPerSync;
       enableWebhooks = cfg.sync.enableWebhooks;
     };
+
+    gateway = {
+      url = cfg.gateway.url;
+    };
+
+    actions = mapAttrs (name: action: {
+      description = action.description;
+      server = action.server;
+      tool = action.tool;
+    } // optionalAttrs (action.extractionPrompt != null) {
+      extractionPrompt = action.extractionPrompt;
+    } // optionalAttrs (action.defaultArgs != {}) {
+      defaultArgs = action.defaultArgs;
+    } // optionalAttrs (!action.enabled) {
+      enabled = false;
+    }) cfg.actions;
   };
 
 in {
@@ -331,6 +347,85 @@ in {
       description = ''
         Global sync configuration.
         Note: Sync frequency/timing is configured in the NixOS module (services.axios-ai-mail.sync).
+      '';
+    };
+
+    gateway = mkOption {
+      type = types.submodule {
+        options = {
+          url = mkOption {
+            type = types.str;
+            default = "http://localhost:8085";
+            description = "mcp-gateway REST API URL for action tag execution.";
+            example = "http://mcp-gateway.tailnet:8085";
+          };
+        };
+      };
+      default = {};
+      description = "mcp-gateway configuration for action tag processing.";
+    };
+
+    actions = mkOption {
+      type = types.attrsOf (types.submodule {
+        options = {
+          description = mkOption {
+            type = types.str;
+            default = "";
+            description = "Human-readable description of this action.";
+          };
+
+          server = mkOption {
+            type = types.str;
+            description = "MCP server ID in mcp-gateway (e.g., 'dav').";
+            example = "dav";
+          };
+
+          tool = mkOption {
+            type = types.str;
+            description = "MCP tool name to call (e.g., 'create_contact').";
+            example = "create_contact";
+          };
+
+          extractionPrompt = mkOption {
+            type = types.nullOr types.str;
+            default = null;
+            description = ''
+              Custom Ollama prompt for extracting data from the email.
+              If null, the built-in prompt is used (for built-in actions).
+            '';
+          };
+
+          defaultArgs = mkOption {
+            type = types.attrsOf types.str;
+            default = {};
+            description = ''
+              Default arguments to pass to the MCP tool.
+              Extracted data is merged on top (does not override defaults).
+            '';
+            example = literalExpression ''{ addressbook = "Family"; }'';
+          };
+
+          enabled = mkOption {
+            type = types.bool;
+            default = true;
+            description = "Whether this action is enabled.";
+          };
+        };
+      });
+      default = {};
+      description = ''
+        Action tags that trigger MCP tool calls via mcp-gateway.
+        Built-in actions (add-contact, create-reminder) are always available.
+        Custom actions defined here are merged with built-ins.
+      '';
+      example = literalExpression ''
+        {
+          "save-receipt" = {
+            description = "Save receipt to expense tracker";
+            server = "expenses";
+            tool = "add_expense";
+          };
+        }
       '';
     };
   };

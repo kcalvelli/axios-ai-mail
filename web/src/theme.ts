@@ -150,6 +150,7 @@ export const tagColors: Record<string, string> = {
   social: '#00897b',    // teal
   newsletter: '#757575', // gray
   junk: '#795548',      // brown
+  action: '#ff8f00',    // amber - action tags
 };
 
 // Export both named and default

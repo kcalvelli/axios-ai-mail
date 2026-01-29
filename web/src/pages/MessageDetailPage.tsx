@@ -59,7 +59,7 @@ import {
 } from '../hooks/useMessages';
 import { useKeyboardNavigation } from '../hooks/useKeyboardNavigation';
 import { useAppStore } from '../store/appStore';
-import { useAvailableTags } from '../hooks/useStats';
+import { useAvailableTags, useActionTagNames } from '../hooks/useStats';
 import { TagChip } from '../components/TagChip';
 import { ConfidenceBadgeAlways } from '../components/ConfidenceBadge';
 import { SmartReplies } from '../components/SmartReplies';
@@ -77,6 +77,7 @@ export function MessageDetailPage() {
   const { data: message, isLoading, error } = useMessage(id!);
   const { data: body, isLoading: bodyLoading } = useMessageBody(id!);
   const { data: availableTagsData } = useAvailableTags();
+  const actionTagNames = useActionTagNames();
   const updateTags = useUpdateTags();
   const markRead = useMarkRead();
   const deleteMessage = useDeleteMessage();
@@ -538,7 +539,23 @@ export function MessageDetailPage() {
   };
 
   // Get all available tags from taxonomy (not just tags in use)
-  const allTags = availableTagsData?.tags.map((t) => t.name) || [];
+  // Sort so action tags appear in their own group at the end
+  const allTags = useMemo(() => {
+    if (!availableTagsData?.tags) return [];
+    return [...availableTagsData.tags]
+      .sort((a, b) => {
+        if (a.category === 'action' && b.category !== 'action') return 1;
+        if (a.category !== 'action' && b.category === 'action') return -1;
+        return a.name.localeCompare(b.name);
+      })
+      .map((t) => t.name);
+  }, [availableTagsData]);
+
+  // Build a map from tag name to category for groupBy
+  const tagCategoryMap = useMemo(() => {
+    if (!availableTagsData?.tags) return new Map<string, string>();
+    return new Map(availableTagsData.tags.map((t) => [t.name, t.category]));
+  }, [availableTagsData]);
   const { name: senderName, email: senderEmail } = extractSenderName(message.from_email);
 
   return (
@@ -646,6 +663,10 @@ export function MessageDetailPage() {
                 multiple
                 freeSolo
                 options={allTags}
+                groupBy={(option) => {
+                  const cat = tagCategoryMap.get(option);
+                  return cat === 'action' ? 'Actions' : 'Tags';
+                }}
                 value={selectedTags}
                 inputValue={tagInputValue}
                 onInputChange={(_, newInputValue) => {
@@ -685,6 +706,7 @@ export function MessageDetailPage() {
                   key={tag}
                   tag={tag}
                   onDelete={() => handleRemoveTag(tag)}
+                  isActionTag={actionTagNames.has(tag)}
                 />
               ))}
               <Chip

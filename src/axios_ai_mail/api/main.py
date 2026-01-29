@@ -14,7 +14,7 @@ from ..ai_classifier import AIClassifier, AIConfig
 from ..providers.connection_pool import shutdown_connection_pool
 from ..providers.imap_idle import get_idle_watcher, shutdown_idle_watcher, IdleConfig
 from .routes.sync import _sync_executor
-from .routes import accounts, attachments, drafts, feedback, maintenance, messages, send, stats, sync, trusted_senders
+from .routes import accounts, actions, attachments, drafts, feedback, maintenance, messages, send, stats, sync, trusted_senders
 from .websocket import router as websocket_router
 
 # Configure logging for the entire axios_ai_mail package
@@ -63,6 +63,7 @@ app.state.db = db
 app.include_router(messages.router, prefix="/api", tags=["messages"])
 app.include_router(accounts.router, prefix="/api", tags=["accounts"])
 app.include_router(stats.router, prefix="/api", tags=["stats"])
+app.include_router(actions.router, prefix="/api", tags=["actions"])
 app.include_router(sync.router, prefix="/api", tags=["sync"])
 app.include_router(drafts.router, prefix="/api", tags=["drafts"])
 app.include_router(attachments.router, prefix="/api", tags=["attachments"])

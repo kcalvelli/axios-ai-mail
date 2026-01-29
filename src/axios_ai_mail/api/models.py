@@ -278,3 +278,47 @@ class TrustedSenderCheckResponse(BaseModel):
 
     is_trusted: bool
     sender_email: str
+
+
+# Action tag models
+
+
+class ActionDefinitionResponse(BaseModel):
+    """Available action tag definition."""
+
+    name: str
+    description: str
+    server: str
+    tool: str
+    enabled: bool
+    available: bool  # Whether the MCP tool is available in gateway
+
+
+class ActionsListResponse(BaseModel):
+    """List of available action definitions."""
+
+    actions: List[ActionDefinitionResponse]
+
+
+class ActionLogEntryResponse(BaseModel):
+    """Action log entry."""
+
+    id: str
+    message_id: str
+    account_id: str
+    action_name: str
+    server: str
+    tool: str
+    status: str
+    error: Optional[str] = None
+    extracted_data: Optional[dict] = None
+    tool_result: Optional[dict] = None
+    attempts: int
+    processed_at: str
+
+
+class ActionLogResponse(BaseModel):
+    """Paginated action log response."""
+
+    entries: List[ActionLogEntryResponse]
+    total: int

@@ -53,7 +53,7 @@ import {
   useMarkRead,
   useMessageBody,
 } from '../hooks/useMessages';
-import { useAvailableTags } from '../hooks/useStats';
+import { useAvailableTags, useActionTagNames } from '../hooks/useStats';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { useAppStore } from '../store/appStore';
 
@@ -94,6 +94,7 @@ export function MessageDetail({
   const { data: message, isLoading, error } = useMessage(messageId);
   const { data: body, isLoading: bodyLoading } = useMessageBody(messageId);
   const { data: availableTagsData } = useAvailableTags();
+  const actionTagNames = useActionTagNames();
   const updateTags = useUpdateTags();
   const markRead = useMarkRead();
 
@@ -491,7 +492,23 @@ export function MessageDetail({
   };
 
   // Get all available tags from taxonomy (not just tags in use)
-  const allTags = availableTagsData?.tags.map((t) => t.name) || [];
+  // Sort so action tags appear in their own group at the end
+  const allTags = useMemo(() => {
+    if (!availableTagsData?.tags) return [];
+    return [...availableTagsData.tags]
+      .sort((a, b) => {
+        if (a.category === 'action' && b.category !== 'action') return 1;
+        if (a.category !== 'action' && b.category === 'action') return -1;
+        return a.name.localeCompare(b.name);
+      })
+      .map((t) => t.name);
+  }, [availableTagsData]);
+
+  // Build a map from tag name to category for groupBy
+  const tagCategoryMap = useMemo(() => {
+    if (!availableTagsData?.tags) return new Map<string, string>();
+    return new Map(availableTagsData.tags.map((t) => [t.name, t.category]));
+  }, [availableTagsData]);
   const { name: senderName, email: senderEmail } = extractSenderName(message.from_email);
 
   return (
@@ -605,6 +622,10 @@ export function MessageDetail({
                 multiple
                 freeSolo
                 options={allTags}
+                groupBy={(option) => {
+                  const cat = tagCategoryMap.get(option);
+                  return cat === 'action' ? 'Actions' : 'Tags';
+                }}
                 value={selectedTags}
                 inputValue={tagInputValue}
                 onInputChange={(_, newInputValue) => {
@@ -637,7 +658,7 @@ export function MessageDetail({
           ) : (
             <Stack direction="row" spacing={0.5} flexWrap="wrap" gap={0.5} alignItems="center">
               {message.tags.map((tag) => (
-                <TagChip key={tag} tag={tag} onDelete={() => handleRemoveTag(tag)} size="small" />
+                <TagChip key={tag} tag={tag} onDelete={() => handleRemoveTag(tag)} size="small" isActionTag={actionTagNames.has(tag)} />
               ))}
               <Chip label="+ Edit" variant="outlined" size="small" onClick={handleEditTags} />
             </Stack>

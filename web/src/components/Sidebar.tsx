@@ -30,7 +30,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { TagChip } from './TagChip';
-import { useTags, useUnreadCount, useDraftCount } from '../hooks/useStats';
+import { useTags, useUnreadCount, useDraftCount, useActionTagNames } from '../hooks/useStats';
 import { useAppStore } from '../store/appStore';
 
 interface SidebarProps {
@@ -44,6 +44,7 @@ export function Sidebar({ onNavigate, collapsed = false }: SidebarProps) {
   const { data: tagsData, isLoading } = useTags();
   const { data: unreadCountData } = useUnreadCount();
   const { data: draftCountData } = useDraftCount();
+  const actionTagNames = useActionTagNames();
   const {
     selectedTags,
     toggleTag,
@@ -276,6 +277,7 @@ export function Sidebar({ onNavigate, collapsed = false }: SidebarProps) {
                   size="small"
                   selected={selectedTags.includes(tag.name)}
                   isAccountTag={tag.type === 'account'}
+                  isActionTag={actionTagNames.has(tag.name)}
                 />
                 <Typography
                   variant="caption"

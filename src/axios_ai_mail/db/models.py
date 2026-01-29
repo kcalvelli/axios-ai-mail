@@ -221,6 +221,47 @@ class Attachment(Base):
         return f"<Attachment(id={self.id!r}, filename={self.filename!r}, size={self.size})>"
 
 
+class ActionLog(Base):
+    """Audit log of action tag executions.
+
+    Records every action tag processing attempt with extracted data,
+    tool results, and status for debugging and status tracking.
+    """
+
+    __tablename__ = "action_log"
+
+    id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    message_id: Mapped[str] = mapped_column(
+        String(255), ForeignKey("messages.id", ondelete="CASCADE"), nullable=False
+    )
+    account_id: Mapped[str] = mapped_column(
+        String(255), ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    action_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    server: Mapped[str] = mapped_column(String(100), nullable=False)
+    tool: Mapped[str] = mapped_column(String(100), nullable=False)
+    extracted_data: Mapped[Optional[Dict]] = mapped_column(JSON, nullable=True)
+    tool_result: Mapped[Optional[Dict]] = mapped_column(JSON, nullable=True)
+    status: Mapped[str] = mapped_column(
+        String(20), nullable=False
+    )  # success, failed, skipped
+    error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    processed_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, default=datetime.utcnow, index=True
+    )
+
+    # Relationships
+    account: Mapped["Account"] = relationship()
+    message: Mapped["Message"] = relationship()
+
+    def __repr__(self) -> str:
+        return (
+            f"<ActionLog(id={self.id!r}, action={self.action_name!r}, "
+            f"status={self.status!r}, message_id={self.message_id!r})>"
+        )
+
+
 class TrustedSender(Base):
     """Trusted senders for auto-loading remote images.
 

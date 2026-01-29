@@ -1,19 +1,19 @@
 ## 1. Core Infrastructure
 
-- [ ] 1.1 Create `gateway_client.py` - HTTP client for mcp-gateway REST API
+- [x] 1.1 Create `gateway_client.py` - HTTP client for mcp-gateway REST API
   - `GatewayClient` class with async httpx
   - `discover_tools()` → `GET /api/tools` (returns available servers and tools)
   - `call_tool(server, tool, arguments)` → `POST /api/tools/{server}/{tool}`
   - Configurable base URL, timeout, retry logic
   - Graceful error handling (connection refused, timeout, 4xx/5xx)
 
-- [ ] 1.2 Create `config/actions.py` - Action registry with built-in defaults
+- [x] 1.2 Create `config/actions.py` - Action registry with built-in defaults
   - `ActionDefinition` dataclass (name, description, server, tool, extraction_prompt, default_args)
   - `DEFAULT_ACTIONS` dict with `add-contact` and `create-reminder`
   - `merge_actions()` function combining defaults with user-defined actions
   - Extraction prompt templates for each built-in action
 
-- [ ] 1.3 Create `action_agent.py` - Core action processing engine
+- [x] 1.3 Create `action_agent.py` - Core action processing engine
   - `ActionAgent` class with `__init__(db, gateway_client, ai_classifier, config)`
   - `discover_available_actions()` - cross-reference registry with gateway tools
   - `process_actions(account_id, max_actions)` - main processing loop
@@ -21,12 +21,12 @@
   - `_execute_action(action_def, extracted_data)` - call mcp-gateway tool
   - `_update_status(message_id, action_name, result)` - update tags and action_log
 
-- [ ] 1.4 Add `ActionLog` model to `db/models.py`
+- [x] 1.4 Add `ActionLog` model to `db/models.py`
   - Fields: id, message_id, account_id, action_name, server, tool, extracted_data, tool_result, status, error, processed_at
   - Foreign keys to messages and accounts
   - Index on (account_id, processed_at) for cleanup queries
 
-- [ ] 1.5 Add database methods for action log
+- [x] 1.5 Add database methods for action log
   - `store_action_log(...)` - record action result
   - `get_action_log(message_id)` - get action history for a message
   - `cleanup_action_log(max_age_days)` - clean old entries
@@ -34,54 +34,53 @@
 
 ## 2. Integration with Sync Engine
 
-- [ ] 2.1 Add action processing step to `sync_engine.py`
+- [x] 2.1 Add action processing step to `sync_engine.py`
   - Initialize `ActionAgent` with gateway client and config
   - Add step after classification: `self._process_action_tags()`
   - Respect `max_actions_per_sync` config (default: 10)
   - Log action processing results in sync summary
 
-- [ ] 2.2 Update `ai_classifier.py` to exclude action tags
-  - Action category tags MUST NOT appear in classifier output
-  - Add action tag names to exclusion list in prompt building
-  - Ensure DFSL feedback ignores action tag additions/removals
+- [x] 2.2 Update classifier integration to exclude action tags
+  - Action category tags excluded from `get_tags_for_prompt()` output
+  - Action tags preserved during reclassification via `preserve_tags` parameter
+  - Action tags not in classifier's valid tag list
 
 ## 3. Tag System Updates
 
-- [ ] 3.1 Add action category to `config/tags.py`
-  - Add `"action"` to `CATEGORY_COLORS` (suggest: a distinct color like `"amber"` or `"pink"`)
-  - Add default action tags: `add-contact`, `create-reminder`
-  - Mark action tags with `"user_only": True` flag (classifier exclusion hint)
+- [x] 3.1 Add action category to `config/tags.py`
+  - Add `"action"` to `CATEGORY_COLORS` (amber)
+  - `action_tags_from_definitions()` generates tags from action config
+  - Action tags excluded from classifier prompts
 
-- [ ] 3.2 Update `merge_tags()` to include action tags from config
-  - Load action definitions from config
-  - Generate corresponding tags with action category
-  - Ensure custom user actions also create matching tags
+- [x] 3.2 Update available tags to include action tags
+  - `stats.py` available tags endpoint includes action tags from definitions
+  - Action tags get category "action" for frontend grouping
 
 ## 4. Configuration
 
-- [ ] 4.1 Update `modules/home-manager/default.nix`
+- [x] 4.1 Update `modules/home-manager/default.nix`
   - Add `programs.axios-ai-mail.actions` option set
-  - Each action: `{ description, gateway.server, gateway.tool, extractionPrompt?, defaultArgs? }`
+  - Each action: `{ description, server, tool, extractionPrompt?, defaultArgs?, enabled? }`
   - Add `programs.axios-ai-mail.gateway.url` option (default: `"http://localhost:8085"`)
-  - Generate action config into `config.yaml`
+  - Generate action and gateway config into `config.yaml`
 
-- [ ] 4.2 Update `config/loader.py` to load action and gateway config
-  - Parse `actions` section from config.yaml
-  - Parse `gateway.url` from config.yaml
+- [x] 4.2 Update `config/loader.py` to load action and gateway config
+  - `get_gateway_config()` - parse gateway section
+  - `get_actions_config()` - parse actions section and merge with defaults
   - Create `ActionDefinition` instances from config
-  - Merge with built-in defaults
 
 ## 5. Web UI
 
-- [ ] 5.1 Style action tags distinctively in the frontend
-  - Action category tags get a unique visual treatment (icon, border, color)
-  - Show processing status indicator (pending, processing, completed, failed)
-  - Action tags should be visually distinguishable from classification tags
+- [x] 5.1 Style action tags distinctively in the frontend
+  - Action category tags get amber color, dashed border, bolt icon
+  - `TagChip` component updated with `isActionTag` prop
+  - `useActionTagNames()` hook for determining action tag status
+  - Applied to MessageCard, MessageDetail, MessageDetailPage, and Sidebar
 
-- [ ] 5.2 Add action tag assignment UX
-  - Allow users to add action tags from the tag editor
-  - Group action tags separately in the tag picker (e.g., "Actions" section)
-  - Show confirmation tooltip: "This tag will trigger an action on next sync"
+- [x] 5.2 Add action tag assignment UX
+  - Action tags available in tag editor Autocomplete
+  - Action tags grouped separately ("Actions" section) in tag picker via `groupBy`
+  - Sorted so action tags appear after regular tags
 
 - [ ] 5.3 Add action log viewer (optional, can defer)
   - Simple list view of recent action results
@@ -90,18 +89,16 @@
 
 ## 6. API
 
-- [ ] 6.1 Add action log API endpoints
+- [x] 6.1 Add action log API endpoints
   - `GET /api/actions/log` - list recent action results (with pagination)
-  - `GET /api/actions/log/{message_id}` - action history for a specific message
   - `GET /api/actions/available` - list configured action tags and their tool mappings
   - `POST /api/actions/retry/{log_id}` - retry a failed action
 
 ## 7. Database Migration
 
-- [ ] 7.1 Create migration for `action_log` table
-  - Add table with all fields from model
-  - Add indexes
-  - No data migration needed (new table)
+- [x] 7.1 Database migration for `action_log` table
+  - No explicit migration needed - `Base.metadata.create_all()` auto-creates new tables
+  - Table created automatically on first startup
 
 ## 8. Testing
 

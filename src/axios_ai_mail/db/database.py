@@ -10,7 +10,7 @@ from sqlalchemy import create_engine, event, select, String, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from .models import Account, Attachment, Base, Classification, Draft, Feedback, Message, PendingOperation, TrustedSender
+from .models import Account, ActionLog, Attachment, Base, Classification, Draft, Feedback, Message, PendingOperation, TrustedSender
 
 logger = logging.getLogger(__name__)
 
@@ -558,11 +558,28 @@ class Database:
         can_archive: bool,
         model: str,
         confidence: Optional[float] = None,
+        preserve_tags: Optional[List[str]] = None,
     ) -> Classification:
-        """Store or update a classification."""
+        """Store or update a classification.
+
+        Args:
+            message_id: Message ID
+            tags: Classification tags
+            priority: Priority level
+            todo: Whether action is required
+            can_archive: Whether the message can be auto-archived
+            model: AI model used
+            confidence: Classification confidence
+            preserve_tags: Tag names to preserve from existing classification
+                (used to keep action tags during reclassification)
+        """
         with self.session() as session:
             classification = session.get(Classification, message_id)
             if classification:
+                # Preserve specified tags from existing classification
+                if preserve_tags and classification.tags:
+                    preserved = [t for t in classification.tags if t in preserve_tags]
+                    tags = tags + [t for t in preserved if t not in tags]
                 classification.tags = tags
                 classification.priority = priority
                 classification.todo = todo
@@ -1509,6 +1526,180 @@ class Database:
                 )
             )
             return result.scalar_one_or_none() is not None
+
+    # Action log operations
+
+    def store_action_log(
+        self,
+        log_id: str,
+        message_id: str,
+        account_id: str,
+        action_name: str,
+        server: str,
+        tool: str,
+        status: str,
+        extracted_data: Optional[Dict] = None,
+        tool_result: Optional[Dict] = None,
+        error: Optional[str] = None,
+        attempts: int = 1,
+    ) -> ActionLog:
+        """Record an action tag execution result.
+
+        Args:
+            log_id: Unique ID for the log entry
+            message_id: Message the action was applied to
+            account_id: Account ID
+            action_name: Action tag name (e.g., "add-contact")
+            server: MCP server ID (e.g., "dav")
+            tool: MCP tool name (e.g., "create_contact")
+            status: Execution status (success, failed, skipped)
+            extracted_data: Data extracted by Ollama
+            tool_result: Result returned by the MCP tool
+            error: Error message if failed
+            attempts: Number of attempts made
+
+        Returns:
+            Created ActionLog entry
+        """
+        with self.session() as session:
+            entry = ActionLog(
+                id=log_id,
+                message_id=message_id,
+                account_id=account_id,
+                action_name=action_name,
+                server=server,
+                tool=tool,
+                status=status,
+                extracted_data=extracted_data,
+                tool_result=tool_result,
+                error=error,
+                attempts=attempts,
+                processed_at=datetime.utcnow(),
+            )
+            session.add(entry)
+            session.commit()
+            session.refresh(entry)
+            logger.info(f"Action log: {action_name} on {message_id} -> {status}")
+            return entry
+
+    def get_action_log(
+        self,
+        account_id: Optional[str] = None,
+        message_id: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> List[ActionLog]:
+        """Query action log entries.
+
+        Args:
+            account_id: Filter by account (optional)
+            message_id: Filter by message (optional)
+            limit: Max entries to return
+            offset: Pagination offset
+
+        Returns:
+            List of ActionLog entries, newest first
+        """
+        with self.session() as session:
+            query = select(ActionLog)
+            if account_id:
+                query = query.where(ActionLog.account_id == account_id)
+            if message_id:
+                query = query.where(ActionLog.message_id == message_id)
+            query = query.order_by(ActionLog.processed_at.desc()).offset(offset).limit(limit)
+            result = session.execute(query)
+            return list(result.scalars().all())
+
+    def get_action_attempt_count(self, message_id: str, action_name: str) -> int:
+        """Get the number of attempts for a specific action on a message.
+
+        Used to enforce max retry limits.
+
+        Args:
+            message_id: Message ID
+            action_name: Action tag name
+
+        Returns:
+            Total number of attempts across all log entries
+        """
+        with self.session() as session:
+            from sqlalchemy import func
+
+            result = session.execute(
+                select(func.coalesce(func.sum(ActionLog.attempts), 0)).where(
+                    ActionLog.message_id == message_id,
+                    ActionLog.action_name == action_name,
+                )
+            )
+            return result.scalar_one()
+
+    def get_pending_action_messages(
+        self,
+        account_id: str,
+        action_tag_names: List[str],
+        limit: int = 10,
+    ) -> List[Message]:
+        """Find messages with action tags that need processing.
+
+        Scans classifications for messages that have tags matching known action
+        tag names. Returns oldest first for fair processing order.
+
+        Args:
+            account_id: Account ID to filter by
+            action_tag_names: List of action tag names to look for
+            limit: Max messages to process per cycle
+
+        Returns:
+            List of messages with pending action tags
+        """
+        if not action_tag_names:
+            return []
+
+        with self.session() as session:
+            # Get all classified messages for this account
+            query = (
+                select(Message)
+                .join(Classification, Classification.message_id == Message.id)
+                .where(Message.account_id == account_id)
+                .order_by(Message.date.asc())
+            )
+            result = session.execute(query)
+            messages = result.scalars().all()
+
+            # Filter to messages that have at least one action tag
+            pending = []
+            for msg in messages:
+                if msg.classification and msg.classification.tags:
+                    action_tags = [t for t in msg.classification.tags if t in action_tag_names]
+                    if action_tags:
+                        pending.append(msg)
+                        if len(pending) >= limit:
+                            break
+
+            return pending
+
+    def cleanup_action_log(self, max_age_days: int = 90) -> int:
+        """Delete old action log entries.
+
+        Args:
+            max_age_days: Delete entries older than this many days
+
+        Returns:
+            Number of entries deleted
+        """
+        cutoff = datetime.utcnow() - timedelta(days=max_age_days)
+        with self.session() as session:
+            result = session.execute(
+                select(ActionLog).where(ActionLog.processed_at < cutoff)
+            )
+            entries = result.scalars().all()
+            count = len(entries)
+            for entry in entries:
+                session.delete(entry)
+            session.commit()
+            if count > 0:
+                logger.info(f"Cleaned up {count} action log entries older than {max_age_days} days")
+            return count
 
     # Utility methods
 

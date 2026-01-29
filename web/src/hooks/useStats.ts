@@ -2,6 +2,7 @@
  * React Query hooks for tags and statistics
  */
 
+import { useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { tags, stats, sync, messages, drafts } from '../api/client';
 import type { TriggerSyncRequest } from '../api/types';
@@ -73,4 +74,18 @@ export function useDraftCount() {
     queryFn: () => drafts.getCount(),
     staleTime: 30 * 1000, // 30 seconds - counts update frequently via WebSocket
   });
+}
+
+/**
+ * Hook to get the set of action tag names from the available tags taxonomy.
+ * Use this to determine if a tag is an action tag when rendering TagChip.
+ */
+export function useActionTagNames(): Set<string> {
+  const { data } = useAvailableTags();
+  return useMemo(() => {
+    if (!data?.tags) return new Set<string>();
+    return new Set(
+      data.tags.filter((t) => t.category === 'action').map((t) => t.name)
+    );
+  }, [data]);
 }

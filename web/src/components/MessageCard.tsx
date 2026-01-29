@@ -21,6 +21,7 @@ import { ConfidenceBadge } from './ConfidenceBadge';
 import { SenderAvatar, extractSenderName } from './SenderAvatar';
 import { useAppStore } from '../store/appStore';
 import { useMarkRead } from '../hooks/useMessages';
+import { useActionTagNames } from '../hooks/useStats';
 import { sanitizeSnippet } from '../utils/sanitizeSnippet';
 import type { Message } from '../api/types';
 
@@ -45,6 +46,7 @@ export function MessageCard({
   const theme = useMuiTheme();
   const { toggleTag, toggleMessageSelection, isMessageSelected, selectedMessageId } = useAppStore();
   const markRead = useMarkRead();
+  const actionTagNames = useActionTagNames();
   const isDark = theme.palette.mode === 'dark';
 
   const isSelected = isMessageSelected(message.id);
@@ -256,6 +258,7 @@ export function MessageCard({
                     tag={tag}
                     onClick={handleTagClick(tag)}
                     size="small"
+                    isActionTag={actionTagNames.has(tag)}
                   />
                 ))}
                 {!compact && (

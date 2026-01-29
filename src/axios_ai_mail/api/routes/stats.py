@@ -6,7 +6,8 @@ from typing import List
 from fastapi import APIRouter, HTTPException, Request
 
 from ..models import TagsListResponse, TagResponse, StatsResponse, AvailableTagsResponse, AvailableTagResponse
-from ...config.tags import DEFAULT_TAGS
+from ...config.actions import merge_actions
+from ...config.tags import DEFAULT_TAGS, action_tags_from_definitions
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -115,6 +116,20 @@ async def list_available_tags(request: Request):
                     name=tag["name"],
                     description=tag.get("description", f"Custom tag: {tag['name']}"),
                     category=tag.get("category", "custom"),
+                ))
+                seen_names.add(tag["name"])
+
+        # Add action tags from action definitions
+        app_config = getattr(request.app.state, 'config', None) or {}
+        custom_actions = app_config.get("actions", {}) if isinstance(app_config, dict) else {}
+        actions = merge_actions(custom_actions if custom_actions else None)
+        action_tags = action_tags_from_definitions(actions)
+        for tag in action_tags:
+            if tag["name"] not in seen_names:
+                tags.append(AvailableTagResponse(
+                    name=tag["name"],
+                    description=tag["description"],
+                    category="action",
                 ))
                 seen_names.add(tag["name"])
 

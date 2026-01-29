@@ -59,7 +59,7 @@ def remove_syncing_account(account_id: str):
         _sync_state["last_sync"] = datetime.now(timezone.utc)
 
 
-def _sync_account_blocking(account, ai_config, db, max_messages: int):
+def _sync_account_blocking(account, ai_config, db, max_messages: int, config: dict = None):
     """Synchronously sync a single account (runs in thread pool).
 
     This blocking function is run in a thread pool to allow parallel
@@ -69,6 +69,9 @@ def _sync_account_blocking(account, ai_config, db, max_messages: int):
         Tuple of (account_id, result, error) where result is SyncResult
         or None if there was an error.
     """
+    from ...action_agent import ActionAgent
+    from ...config.actions import merge_actions
+    from ...gateway_client import GatewayClient
     from ...sync_engine import SyncEngine
     from ...ai_classifier import AIClassifier
     from ...providers.factory import ProviderFactory
@@ -80,11 +83,31 @@ def _sync_account_blocking(account, ai_config, db, max_messages: int):
 
         ai_classifier = AIClassifier(ai_config)
 
+        # Initialize action agent if config is available
+        action_agent = None
+        if config:
+            gateway_config = config.get("gateway", {})
+            gateway_url = gateway_config.get("url", "http://localhost:8085")
+            custom_actions = config.get("actions", {})
+            actions = merge_actions(custom_actions if custom_actions else None)
+
+            if actions:
+                ai_settings = config.get("ai", {})
+                gateway = GatewayClient(base_url=gateway_url)
+                action_agent = ActionAgent(
+                    database=db,
+                    gateway=gateway,
+                    actions=actions,
+                    ollama_endpoint=ai_settings.get("endpoint", "http://localhost:11434"),
+                    ollama_model=ai_settings.get("model", "llama3.2"),
+                )
+
         sync_engine = SyncEngine(
             provider=provider,
             database=db,
             ai_classifier=ai_classifier,
             label_prefix=account.settings.get("label_prefix", "AI"),
+            action_agent=action_agent,
         )
 
         result = sync_engine.sync(max_messages=max_messages)
@@ -98,12 +121,13 @@ def _sync_account_blocking(account, ai_config, db, max_messages: int):
         provider.release()
 
 
-async def _sync_single_account(account, ai_config, db, max_messages: int, loop):
+async def _sync_single_account(account, ai_config, db, max_messages: int, loop, config: dict = None):
     """Async wrapper to sync a single account using thread pool.
 
     Sends WebSocket events and manages sync state for one account.
     """
     from ..websocket import send_sync_started, send_sync_completed, send_error, send_new_messages
+    from functools import partial
 
     account_id = account.id
     add_syncing_account(account_id)
@@ -112,14 +136,11 @@ async def _sync_single_account(account, ai_config, db, max_messages: int, loop):
         # Send WebSocket event: sync started
         await send_sync_started(account_id)
 
-        # Run blocking sync in thread pool
+        # Run blocking sync in thread pool (use partial to pass config kwarg)
+        sync_fn = partial(_sync_account_blocking, account, ai_config, db, max_messages, config)
         account_id, result, error = await loop.run_in_executor(
             _sync_executor,
-            _sync_account_blocking,
-            account,
-            ai_config,
-            db,
-            max_messages,
+            sync_fn,
         )
 
         if error:
@@ -189,7 +210,7 @@ async def run_sync_task(db, account_id: Optional[str], max_messages: int):
         # Sync all accounts in parallel
         logger.info(f"Starting parallel sync for {len(accounts)} account(s)")
         tasks = [
-            _sync_single_account(account, ai_config, db, max_messages, loop)
+            _sync_single_account(account, ai_config, db, max_messages, loop, config)
             for account in accounts
         ]
 

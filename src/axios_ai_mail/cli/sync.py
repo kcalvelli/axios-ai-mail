@@ -8,9 +8,12 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from ..action_agent import ActionAgent
 from ..ai_classifier import AIClassifier, AIConfig
+from ..config.actions import merge_actions
 from ..config.loader import ConfigLoader
 from ..db.database import Database
+from ..gateway_client import GatewayClient, GatewayError
 from ..providers.factory import ProviderFactory
 from ..sync_engine import SyncEngine
 
@@ -36,6 +39,40 @@ def _create_ai_config(config: dict) -> AIConfig:
         endpoint=ai_settings.get("endpoint", "http://localhost:11434"),
         temperature=ai_settings.get("temperature", 0.3),
         custom_tags=custom_tags,
+    )
+
+
+def _create_action_agent(config: dict, db: Database) -> Optional[ActionAgent]:
+    """Create ActionAgent from loaded configuration if actions are configured.
+
+    Args:
+        config: Configuration dict from ConfigLoader.load_config()
+        db: Database instance
+
+    Returns:
+        ActionAgent if configured, None otherwise
+    """
+    # Get gateway URL from config
+    gateway_config = config.get("gateway", {})
+    gateway_url = gateway_config.get("url", "http://localhost:8085")
+
+    # Get custom actions from config
+    custom_actions = config.get("actions", {})
+    actions = merge_actions(custom_actions if custom_actions else None)
+
+    if not actions:
+        return None
+
+    # Get AI settings for Ollama
+    ai_settings = ConfigLoader.get_ai_config(config)
+
+    gateway = GatewayClient(base_url=gateway_url)
+    return ActionAgent(
+        database=db,
+        gateway=gateway,
+        actions=actions,
+        ollama_endpoint=ai_settings.get("endpoint", "http://localhost:11434"),
+        ollama_model=ai_settings.get("model", "llama3.2"),
     )
 
 
@@ -94,12 +131,18 @@ def sync_run(
                 tag_names = [t["name"] for t in ai_config.custom_tags]
                 logger.info(f"Using custom tags from config: {tag_names}")
 
+            # Initialize action agent (optional)
+            action_agent = _create_action_agent(config, db)
+            if action_agent:
+                logger.info(f"Action agent enabled with {len(action_agent.actions)} actions")
+
             # Initialize sync engine
             sync_engine = SyncEngine(
                 provider=provider,
                 database=db,
                 ai_classifier=ai_classifier,
                 label_prefix=db_account.settings.get("label_prefix", "AI"),
+                action_agent=action_agent,
             )
 
             # Run sync
@@ -115,6 +158,8 @@ def sync_run(
             console.print(f"  Messages fetched: {result.messages_fetched}")
             console.print(f"  Messages classified: {result.messages_classified}")
             console.print(f"  Labels updated: {result.labels_updated}")
+            if result.actions_processed:
+                console.print(f"  Actions: {result.actions_succeeded}/{result.actions_processed} succeeded")
             console.print(f"  Duration: {result.duration_seconds:.2f}s")
 
         except Exception as e:
@@ -191,12 +236,16 @@ def sync_reclassify(
             tag_names = [t["name"] for t in ai_config.custom_tags]
             console.print(f"Using custom tags: {', '.join(tag_names)}")
 
+        # Initialize action agent (for preserving action tags during reclassification)
+        action_agent = _create_action_agent(config, db)
+
         # Initialize sync engine
         sync_engine = SyncEngine(
             provider=provider,
             database=db,
             ai_classifier=ai_classifier,
             label_prefix=db_account.settings.get("label_prefix", "AI"),
+            action_agent=action_agent,
         )
 
         # Run reclassification

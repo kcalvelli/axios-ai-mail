@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from ..db.database import Database
+from .actions import ActionDefinition, merge_actions
 from .tags import DEFAULT_TAGS, merge_tags, get_tag_color, CATEGORY_COLORS
 
 logger = logging.getLogger(__name__)
@@ -229,6 +230,40 @@ class ConfigLoader:
                 result["enableWebhooks"] = account_sync["enableWebhooks"]
 
         return result
+
+    @classmethod
+    def get_gateway_config(cls, config: Optional[Dict] = None) -> Dict:
+        """Get mcp-gateway configuration.
+
+        Args:
+            config: Configuration dict, or None to load from default path
+
+        Returns:
+            Gateway configuration dict with url
+        """
+        if config is None:
+            config = cls.load_config()
+
+        gateway_config = config.get("gateway", {})
+        return {
+            "url": gateway_config.get("url", "http://localhost:8085"),
+        }
+
+    @classmethod
+    def get_actions_config(cls, config: Optional[Dict] = None) -> Dict[str, ActionDefinition]:
+        """Get merged action definitions (built-in + custom).
+
+        Args:
+            config: Configuration dict, or None to load from default path
+
+        Returns:
+            Dict of action name -> ActionDefinition
+        """
+        if config is None:
+            config = cls.load_config()
+
+        custom_actions = config.get("actions", {})
+        return merge_actions(custom_actions if custom_actions else None)
 
     @classmethod
     def clear_cache(cls) -> None:

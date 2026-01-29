@@ -405,4 +405,5 @@ export const tagColors: Record<string, string> = {
   social: '#00897b',
   newsletter: '#757575',
   junk: '#795548',
+  action: '#ff8f00',     // amber - action tags
 };

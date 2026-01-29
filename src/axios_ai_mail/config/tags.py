@@ -73,6 +73,7 @@ CATEGORY_COLORS: Dict[str, str] = {
     "marketing": "orange",
     "social": "teal",
     "system": "gray",
+    "action": "amber",
 }
 
 # Color palette for hash-based color assignment (for custom tags)
@@ -168,6 +169,8 @@ def get_tags_for_prompt(tags: List[Dict[str, str]]) -> str:
     """
     Format tags for inclusion in AI prompt.
 
+    Only includes non-action tags (action tags are user-assigned only).
+
     Args:
         tags: List of tag dicts with name and description
 
@@ -176,5 +179,31 @@ def get_tags_for_prompt(tags: List[Dict[str, str]]) -> str:
     """
     lines = []
     for tag in tags:
+        # Exclude action tags from AI prompt
+        if tag.get("category") == "action":
+            continue
         lines.append(f"- {tag['name']}: {tag['description']}")
     return "\n".join(lines)
+
+
+def action_tags_from_definitions(action_definitions: Dict) -> List[Dict[str, str]]:
+    """Convert action definitions to tag format for the tag system.
+
+    Action tags are a special category that the AI classifier does NOT use.
+    They are only assigned manually by users and trigger MCP tool calls.
+
+    Args:
+        action_definitions: Dict of action name -> ActionDefinition
+
+    Returns:
+        List of tag dicts with name, description, and category="action"
+    """
+    tags = []
+    for name, action in action_definitions.items():
+        if action.enabled:
+            tags.append({
+                "name": name,
+                "description": action.description,
+                "category": "action",
+            })
+    return tags

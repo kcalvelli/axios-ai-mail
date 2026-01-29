@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import List, Optional, Set
 
+from .action_agent import ActionAgent
 from .ai_classifier import AIClassifier, AIConfig
 from .db.database import Database
 from .db.models import PendingOperation
@@ -45,6 +46,9 @@ class SyncResult:
     new_messages: List[NewMessageInfo] = None
     pending_ops_processed: int = 0
     pending_ops_failed: int = 0
+    actions_processed: int = 0
+    actions_succeeded: int = 0
+    actions_failed: int = 0
 
     def __post_init__(self):
         if self.new_messages is None:
@@ -58,6 +62,7 @@ class SyncResult:
             f"classified={self.messages_classified}, "
             f"labels_updated={self.labels_updated}, "
             f"pending_ops={self.pending_ops_processed}/{self.pending_ops_processed + self.pending_ops_failed}, "
+            f"actions={self.actions_succeeded}/{self.actions_processed}, "
             f"errors={len(self.errors)}, "
             f"duration={self.duration_seconds:.2f}s)"
         )
@@ -72,6 +77,7 @@ class SyncEngine:
         database: Database,
         ai_classifier: AIClassifier,
         label_prefix: str = "AI",
+        action_agent: Optional[ActionAgent] = None,
     ):
         """Initialize sync engine.
 
@@ -80,12 +86,14 @@ class SyncEngine:
             database: Database instance
             ai_classifier: AI classifier instance
             label_prefix: Prefix for AI-generated labels (e.g., "AI" -> "AI/Work")
+            action_agent: Optional action agent for processing action tags
         """
         self.provider = provider
         self.db = database
         self.ai_classifier = ai_classifier
         self.label_prefix = label_prefix
         self.account_id = provider.account_id
+        self.action_agent = action_agent
 
     def sync(self, max_messages: int = 100) -> SyncResult:
         """Perform a complete sync operation.
@@ -95,8 +103,9 @@ class SyncEngine:
         3. Store messages in database
         4. Classify unclassified messages
         5. Push AI labels back to provider
-        6. Update sync timestamp
-        7. Clean up old completed operations
+        6. Process action tags (if action agent is configured)
+        7. Update sync timestamp
+        8. Clean up old completed operations and action log
 
         Args:
             max_messages: Maximum messages to fetch in this sync
@@ -111,6 +120,9 @@ class SyncEngine:
         labels_updated = 0
         pending_ops_processed = 0
         pending_ops_failed = 0
+        actions_processed = 0
+        actions_succeeded = 0
+        actions_failed = 0
         new_messages: List[NewMessageInfo] = []
 
         logger.info(f"Starting sync for account {self.account_id}")
@@ -245,8 +257,29 @@ class SyncEngine:
                     logger.error(error_msg)
                     errors.append(error_msg)
 
+            # 6. Process action tags (if action agent is configured)
+            if self.action_agent:
+                try:
+                    action_stats = self.action_agent.process_actions(
+                        account_id=self.account_id,
+                    )
+                    actions_processed = action_stats.get("processed", 0)
+                    actions_succeeded = action_stats.get("succeeded", 0)
+                    actions_failed = action_stats.get("failed", 0)
+                except Exception as e:
+                    error_msg = f"Action processing failed: {e}"
+                    logger.error(error_msg)
+                    errors.append(error_msg)
+
             # 7. Update last sync timestamp
             self.db.update_last_sync(self.account_id, datetime.now(timezone.utc))
+
+            # 8. Clean up old action log entries
+            if self.action_agent:
+                try:
+                    self.db.cleanup_action_log(max_age_days=90)
+                except Exception as e:
+                    logger.warning(f"Action log cleanup failed: {e}")
 
             duration = (datetime.now(timezone.utc) - start_time).total_seconds()
             result = SyncResult(
@@ -259,6 +292,9 @@ class SyncEngine:
                 new_messages=new_messages,
                 pending_ops_processed=pending_ops_processed,
                 pending_ops_failed=pending_ops_failed,
+                actions_processed=actions_processed,
+                actions_succeeded=actions_succeeded,
+                actions_failed=actions_failed,
             )
 
             logger.info(f"Sync completed: {result}")
@@ -281,6 +317,9 @@ class SyncEngine:
                 duration_seconds=duration,
                 pending_ops_processed=pending_ops_processed,
                 pending_ops_failed=pending_ops_failed,
+                actions_processed=actions_processed,
+                actions_succeeded=actions_succeeded,
+                actions_failed=actions_failed,
             )
 
     def _compute_label_changes(
@@ -408,6 +447,11 @@ class SyncEngine:
 
         logger.info(f"Starting reclassification for account {self.account_id}")
 
+        # Get action tag names to preserve during reclassification
+        action_tag_names = (
+            self.action_agent.get_action_tag_names() if self.action_agent else []
+        )
+
         try:
             # Get all messages for this account
             messages = self.db.query_messages(account_id=self.account_id, limit=max_messages or 10000)
@@ -436,7 +480,7 @@ class SyncEngine:
                         message, db=self.db, account_id=self.account_id
                     )
 
-                    # Store classification
+                    # Store classification (preserve action tags)
                     self.db.store_classification(
                         message_id=message.id,
                         tags=classification.tags,
@@ -445,6 +489,7 @@ class SyncEngine:
                         can_archive=classification.can_archive,
                         model=self.ai_classifier.config.model,
                         confidence=classification.confidence,
+                        preserve_tags=action_tag_names or None,
                     )
 
                     messages_classified += 1
