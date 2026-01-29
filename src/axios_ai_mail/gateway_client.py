@@ -74,7 +74,7 @@ class GatewayClient:
                 return False
 
         for t in self._available_tools or []:
-            if t.get("server") == server and t.get("name") == tool:
+            if t.get("server_id") == server and t.get("name") == tool:
                 return True
         return False
 
