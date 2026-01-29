@@ -13,6 +13,7 @@ Complete reference for all axios-ai-mail Nix configuration options.
   - [Account Configuration](#account-configuration)
   - [AI Configuration](#ai-configuration)
   - [Sync Settings](#sync-settings)
+  - [Gateway & Action Tags](#gateway--action-tags)
 - [AI Model Recommendations](#ai-model-recommendations)
 - [Custom Tags](#custom-tags)
 - [Example Configurations](#example-configurations)
@@ -249,6 +250,49 @@ sync = {
 | `enableWebhooks` | boolean | `false` | Enable real-time webhooks |
 
 > **Note:** Sync *timing* (`frequency`, `onBoot`) is configured in the NixOS module, not here.
+
+### Gateway & Action Tags
+
+Action tags let you trigger real-world actions from emails (create contacts, calendar events, etc.) via [mcp-gateway](https://github.com/kcalvelli/mcp-gateway) and [axios-dav](https://github.com/kcalvelli/axios-dav). See the full [Action Tags Guide](ACTION_TAGS.md) for setup and usage.
+
+```nix
+gateway = {
+  enable = true;
+  url = "http://localhost:8085";
+  addressbook = "google/default";
+  calendar = "kc.calvelli@gmail.com";
+};
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `gateway.enable` | boolean | `false` | Enable action tag processing via mcp-gateway |
+| `gateway.url` | string | `"http://localhost:8085"` | mcp-gateway REST API URL |
+| `gateway.addressbook` | string | *required*\* | vdirsyncer addressbook name for `add-contact` |
+| `gateway.calendar` | string | *required*\* | vdirsyncer calendar name for `create-reminder` |
+
+\* Required when `gateway.enable = true`.
+
+```nix
+# Optional: override built-in actions or add custom ones
+actions = {
+  "save-receipt" = {
+    description = "Save receipt to expense tracker";
+    server = "expenses";
+    tool = "add_expense";
+    defaultArgs = { currency = "USD"; };
+  };
+};
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `actions.<name>.description` | string | `""` | Human-readable description |
+| `actions.<name>.server` | string | *required* | MCP server ID in mcp-gateway |
+| `actions.<name>.tool` | string | *required* | MCP tool name to call |
+| `actions.<name>.extractionPrompt` | string or null | `null` | Custom Ollama extraction prompt |
+| `actions.<name>.defaultArgs` | attrset | `{}` | Static arguments for the tool |
+| `actions.<name>.enabled` | boolean | `true` | Enable/disable this action |
 
 ---
 

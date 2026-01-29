@@ -16,6 +16,7 @@ axios-ai-mail is a declarative email management system that combines direct prov
 
 - **[Quick Start Guide](docs/QUICKSTART.md)** - Get up and running in 15 minutes
 - **[User Guide](docs/USER_GUIDE.md)** - Learn all features (desktop & mobile)
+- **[Action Tags Guide](docs/ACTION_TAGS.md)** - Automate tasks from your inbox (contacts, calendar)
 - **[Configuration Reference](docs/CONFIGURATION.md)** - All Nix options documented
 - **[Architecture Overview](docs/ARCHITECTURE.md)** - System design deep-dive
 - **[Development Guide](docs/DEVELOPMENT.md)** - Contributing and local development
@@ -35,6 +36,13 @@ axios-ai-mail is a declarative email management system that combines direct prov
 - **Message Threading** - View conversation threads in context
 
 ![Desktop Light Mode - Bulk Selection](docs/screenshots/desktop-light-bulk-selection.png)
+
+### Action Tags
+- **Add Contact** - Tag an email to create a contact from the sender's info
+- **Create Reminder** - Tag an email to create a calendar event from mentioned dates
+- **Custom Actions** - Define your own actions that call any MCP tool
+- **Toast Notifications** - Visual confirmation when actions succeed or fail
+- **Requires:** [axios-dav](https://github.com/kcalvelli/axios-dav) + [mcp-gateway](https://github.com/kcalvelli/mcp-gateway) — see [Action Tags Guide](docs/ACTION_TAGS.md)
 
 ### Email Management
 - **Multi-Account** - Manage Gmail and IMAP accounts from a single interface
@@ -88,16 +96,16 @@ Full keyboard shortcut support for power users:
 ┌────────────────────▼────────────────────────────────────┐
 │              FastAPI Backend (Python)                   │
 │  REST API • WebSocket • Message Management • Sync       │
-└─────┬──────────────────────────────────────────┬────────┘
-      │                                          │
-      │ Gmail API / IMAP                        │ Ollama API
-      │                                          │
-┌─────▼─────────────────┐              ┌────────▼─────────┐
-│  Email Providers      │              │   AI Classifier  │
-│  • Gmail (OAuth2)     │              │   • Local LLM    │
-│  • IMAP (Password)    │              │   • Tag/Priority │
-│  • Fastmail, etc.     │              │   • No cloud API │
-└───────────────────────┘              └──────────────────┘
+└──┬──────────────────────────────┬────────────────┬──────┘
+   │                              │                │
+   │ Gmail API / IMAP            │ Ollama API     │ mcp-gateway
+   │                              │                │
+┌──▼────────────────┐  ┌─────────▼──────┐  ┌──────▼──────────┐
+│  Email Providers  │  │ AI Classifier  │  │  Action Agent   │
+│  • Gmail (OAuth2) │  │ • Local LLM    │  │  • add-contact  │
+│  • IMAP (Password)│  │ • Tag/Priority │  │  • create-event │
+│  • Fastmail, etc. │  │ • No cloud API │  │  → mcp-dav      │
+└───────────────────┘  └────────────────┘  └─────────────────┘
            │
            │ SQLite
            ▼
@@ -315,13 +323,12 @@ axios-ai-mail mcp info
 - [x] Bulk operations with undo
 - [x] AI-generated quick replies
 - [x] MCP server for AI assistant integration
+- [x] Action tags — calendar and contact integration via MCP
 
 ### Planned
 
 - [ ] Outlook/Office365 provider
 - [ ] User feedback loop for AI improvement
-- [ ] Calendar integration
-- [ ] Contact management
 
 ## Contributing
 
@@ -348,6 +355,10 @@ Built with:
 - [SQLAlchemy](https://www.sqlalchemy.org/) - Database ORM
 - [React Query](https://tanstack.com/query) - Data fetching
 - [Zustand](https://zustand-demo.pmnd.rs/) - State management
+
+Integrates with:
+- [axios-dav](https://github.com/kcalvelli/axios-dav) - CalDAV/CardDAV sync with MCP server
+- [mcp-gateway](https://github.com/kcalvelli/mcp-gateway) - REST API gateway for MCP servers
 
 ---
 
