@@ -93,7 +93,10 @@ DEFAULT_ACTIONS: Dict[str, ActionDefinition] = {
         server="mcp-dav",
         tool="create_contact",
         extraction_prompt=_CONTACT_EXTRACTION_PROMPT,
-        default_args={"addressbook": "default"},
+        # NOTE: "addressbook" is required by mcp-dav but the name is
+        # environment-specific (vdirsyncer config). Users must configure
+        # it via Nix: actions."add-contact".defaultArgs.addressbook = "...";
+        default_args={},
     ),
     "create-reminder": ActionDefinition(
         name="create-reminder",
@@ -101,6 +104,9 @@ DEFAULT_ACTIONS: Dict[str, ActionDefinition] = {
         server="mcp-dav",
         tool="create_event",
         extraction_prompt=_REMINDER_EXTRACTION_PROMPT,
+        # NOTE: "calendar" is required by mcp-dav but the name is
+        # environment-specific (vdirsyncer config). Users must configure
+        # it via Nix: actions."create-reminder".defaultArgs.calendar = "...";
         default_args={},
     ),
 }

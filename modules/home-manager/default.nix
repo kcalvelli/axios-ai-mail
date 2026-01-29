@@ -380,8 +380,8 @@ in {
 
           server = mkOption {
             type = types.str;
-            description = "MCP server ID in mcp-gateway (e.g., 'dav').";
-            example = "dav";
+            description = "MCP server ID in mcp-gateway (e.g., 'mcp-dav').";
+            example = "mcp-dav";
           };
 
           tool = mkOption {
@@ -405,8 +405,12 @@ in {
             description = ''
               Default arguments to pass to the MCP tool.
               Extracted data is merged on top (does not override defaults).
+
+              Built-in actions require environment-specific args:
+              - add-contact: needs "addressbook" (vdirsyncer addressbook name)
+              - create-reminder: needs "calendar" (vdirsyncer calendar name)
             '';
-            example = literalExpression ''{ addressbook = "Family"; }'';
+            example = literalExpression ''{ addressbook = "google"; }'';
           };
 
           enabled = mkOption {
@@ -419,11 +423,17 @@ in {
       default = {};
       description = ''
         Action tags that trigger MCP tool calls via mcp-gateway.
-        Built-in actions (add-contact, create-reminder) are always available.
-        Custom actions defined here are merged with built-ins.
+        Built-in actions (add-contact, create-reminder) are always available
+        when gateway is enabled. Use this to override built-in defaults
+        (e.g., set addressbook/calendar names) or define custom actions.
       '';
       example = literalExpression ''
         {
+          # Override built-in: set the vdirsyncer addressbook name
+          "add-contact".defaultArgs.addressbook = "google";
+          # Override built-in: set the vdirsyncer calendar name
+          "create-reminder".defaultArgs.calendar = "personal";
+          # Custom action
           "save-receipt" = {
             description = "Save receipt to expense tracker";
             server = "expenses";
