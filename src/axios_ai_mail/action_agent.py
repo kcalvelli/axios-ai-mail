@@ -5,9 +5,11 @@ this agent extracts relevant data using Ollama and executes the corresponding
 MCP tool via mcp-gateway's REST API.
 """
 
+import calendar
 import json
 import logging
 import uuid
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import requests
@@ -245,6 +247,12 @@ class ActionAgent:
             cleaned[k] = v
         arguments = cleaned
 
+        # Validate and fix date fields for calendar actions
+        if action.tool == "create_event":
+            for date_field in ("start", "end"):
+                if date_field in arguments:
+                    arguments[date_field] = self._fix_date(arguments[date_field])
+
         # Call the MCP tool via gateway
         try:
             tool_result = self.gateway.call_tool(action.server, action.tool, arguments)
@@ -313,6 +321,7 @@ class ActionAgent:
         # Format the extraction prompt with email data
         body = message.body_text or message.snippet or ""
         to_emails = ", ".join(message.to_emails) if message.to_emails else ""
+        now = datetime.now()
 
         prompt = action.extraction_prompt.format(
             subject=message.subject or "",
@@ -320,6 +329,7 @@ class ActionAgent:
             to_emails=to_emails,
             date=str(message.date) if message.date else "",
             body=body[:3000],  # Limit body to avoid token overflow
+            current_date=now.strftime("%Y-%m-%d %A"),  # e.g. "2026-01-29 Thursday"
         )
 
         # Call Ollama
@@ -369,3 +379,53 @@ class ActionAgent:
         updated_tags = [t for t in message.classification.tags if t != tag_name]
         self.db.update_message_tags(message.id, updated_tags)
         logger.debug(f"Removed action tag '{tag_name}' from message {message.id}")
+
+    @staticmethod
+    def _fix_date(date_str: str) -> str:
+        """Validate and fix a date string from LLM extraction.
+
+        Clamps out-of-range days to the last valid day of the month
+        (e.g., Feb 29 on a non-leap year becomes Feb 28).
+
+        Args:
+            date_str: ISO 8601 date string (e.g., "2026-02-29T09:00:00")
+
+        Returns:
+            Valid date string, fixed if necessary
+        """
+        try:
+            # Try parsing as-is — if valid, return unchanged
+            datetime.fromisoformat(date_str)
+            return date_str
+        except ValueError:
+            pass
+
+        # Try to fix invalid day-of-month
+        try:
+            # Split off time portion
+            if "T" in date_str:
+                date_part, time_part = date_str.split("T", 1)
+            else:
+                date_part = date_str
+                time_part = None
+
+            parts = date_part.split("-")
+            if len(parts) == 3:
+                year, month, day = int(parts[0]), int(parts[1]), int(parts[2])
+                # Clamp day to last valid day of the month
+                max_day = calendar.monthrange(year, month)[1]
+                if day > max_day:
+                    logger.warning(
+                        f"Fixing invalid date {date_str}: day {day} clamped to {max_day}"
+                    )
+                    day = max_day
+                fixed = f"{year:04d}-{month:02d}-{day:02d}"
+                if time_part:
+                    fixed = f"{fixed}T{time_part}"
+                return fixed
+        except (ValueError, IndexError):
+            pass
+
+        # Can't fix it — return original and let the gateway report the error
+        logger.warning(f"Could not validate date: {date_str}")
+        return date_str

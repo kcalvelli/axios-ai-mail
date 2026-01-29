@@ -56,6 +56,8 @@ RULES:
 _REMINDER_EXTRACTION_PROMPT = """
 Analyze this email and extract details for creating a calendar reminder.
 
+TODAY'S DATE: {current_date}
+
 EMAIL CONTENT:
 Subject: {subject}
 From: {from_email}
@@ -69,20 +71,22 @@ Return ONLY a JSON object with these fields:
 
 {{
   "summary": "Brief description of what to remember",
-  "start": "2025-02-15T09:00:00",
-  "end": "2025-02-15T09:30:00",
+  "start": "2026-02-15T09:00:00",
+  "end": "2026-02-15T09:30:00",
   "description": "Details from the email",
   "location": "Location if mentioned"
 }}
 
 RULES:
 1. The summary should be concise but descriptive (e.g., "Payment due - Invoice #1234")
-2. If a specific date is mentioned, use it for start. If only a deadline, set reminder for that date at 9:00 AM
-3. If no end time, set it 30 minutes after start
-4. Include relevant context from the email in the description
-5. Use ISO 8601 format for dates (YYYY-MM-DDTHH:MM:SS)
-6. If no date can be determined, set start to tomorrow at 9:00 AM
-7. Return ONLY valid JSON, no markdown or explanation
+2. Today's date is {current_date}. Use this as reference for all date calculations
+3. If a specific date is mentioned, use it for start. If only a deadline, set reminder for that date at 9:00 AM
+4. If no end time, set it 30 minutes after start
+5. Include relevant context from the email in the description
+6. Use ISO 8601 format for dates (YYYY-MM-DDTHH:MM:SS)
+7. Dates MUST be valid calendar dates. Check that the day exists in that month (e.g., February has 28 days, or 29 in leap years)
+8. If no date can be determined, set start to tomorrow at 9:00 AM
+9. Return ONLY valid JSON, no markdown or explanation
 """
 
 
