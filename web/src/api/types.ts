@@ -130,6 +130,7 @@ export type WebSocketMessageType =
   | 'messages_deleted'
   | 'messages_restored'
   | 'new_messages'
+  | 'action_completed'
   | 'error'
   | 'pong';
 
@@ -162,6 +163,10 @@ export interface WebSocketMessage {
   // For new_messages events
   messages?: NewMessageNotification[];
   count?: number;
+  // For action_completed events
+  action_name?: string;
+  status?: string;
+  message_subject?: string;
 }
 
 // Trusted Senders types

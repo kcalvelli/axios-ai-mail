@@ -76,7 +76,7 @@ class ActionAgent:
         Returns:
             Dict with counts: processed, succeeded, failed, skipped
         """
-        stats = {"processed": 0, "succeeded": 0, "failed": 0, "skipped": 0, "modified_messages": []}
+        stats = {"processed": 0, "succeeded": 0, "failed": 0, "skipped": 0, "modified_messages": [], "action_results": []}
 
         action_tag_names = self.get_action_tag_names()
         if not action_tag_names:
@@ -128,6 +128,13 @@ class ActionAgent:
                     stats["failed"] += 1
                 elif result == "skipped":
                     stats["skipped"] += 1
+
+                # Track per-action result for notifications
+                stats["action_results"].append({
+                    "action_name": action.name,
+                    "status": result,
+                    "message_subject": message.subject or "(no subject)",
+                })
 
         logger.info(
             f"Action processing complete: {stats['succeeded']} succeeded, "

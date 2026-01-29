@@ -129,7 +129,7 @@ async def _sync_single_account(account, ai_config, db, max_messages: int, loop, 
 
     Sends WebSocket events and manages sync state for one account.
     """
-    from ..websocket import send_sync_started, send_sync_completed, send_error, send_new_messages, send_messages_updated
+    from ..websocket import send_sync_started, send_sync_completed, send_error, send_new_messages, send_messages_updated, send_action_completed
     from functools import partial
 
     account_id = account.id
@@ -156,6 +156,14 @@ async def _sync_single_account(account, ai_config, db, max_messages: int, loop, 
             # Send WebSocket event: action tag changes
             if result.action_modified_messages:
                 await send_messages_updated(result.action_modified_messages, "tags_updated")
+
+            # Send WebSocket event: action completion toasts
+            for action_result in result.action_results:
+                await send_action_completed(
+                    action_name=action_result["action_name"],
+                    status=action_result["status"],
+                    message_subject=action_result.get("message_subject", ""),
+                )
 
             # Send WebSocket event: sync completed
             await send_sync_completed(account_id, {

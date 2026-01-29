@@ -82,10 +82,10 @@
   - Action tags grouped separately ("Actions" section) in tag picker via `groupBy`
   - Sorted so action tags appear after regular tags
 
-- [ ] 5.3 Add action log viewer (optional, can defer)
-  - Simple list view of recent action results
-  - Show: message subject, action name, status, timestamp
-  - Filter by status (success/failed)
+- [x] 5.3 Add action completion toast notifications (replaces log viewer)
+  - WebSocket `action_completed` event with action_name, status, message_subject
+  - Frontend shows success/error toasts ("Contact Added", "Event Created", etc.)
+  - Human-readable labels mapped from action names in useWebSocket.ts
 
 ## 6. API
 

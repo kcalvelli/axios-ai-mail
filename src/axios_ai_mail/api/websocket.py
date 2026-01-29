@@ -133,6 +133,23 @@ async def send_new_messages(messages: List[dict]):
     })
 
 
+async def send_action_completed(action_name: str, status: str, message_subject: str):
+    """Send action completed event for toast notifications.
+
+    Args:
+        action_name: Action tag name (e.g., "add-contact", "create-reminder")
+        status: Result status ("success", "failed", "skipped")
+        message_subject: Subject of the email the action was performed on
+    """
+    await manager.broadcast({
+        "type": "action_completed",
+        "action_name": action_name,
+        "status": status,
+        "message_subject": message_subject,
+        "timestamp": datetime.utcnow().isoformat(),
+    })
+
+
 async def send_messages_updated(message_ids: List[str], action: str):
     """Send message updated event to all clients.
 

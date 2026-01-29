@@ -50,12 +50,15 @@ class SyncResult:
     actions_succeeded: int = 0
     actions_failed: int = 0
     action_modified_messages: List[str] = None
+    action_results: List[dict] = None
 
     def __post_init__(self):
         if self.new_messages is None:
             self.new_messages = []
         if self.action_modified_messages is None:
             self.action_modified_messages = []
+        if self.action_results is None:
+            self.action_results = []
 
     def __str__(self) -> str:
         """String representation."""
@@ -127,6 +130,7 @@ class SyncEngine:
         actions_succeeded = 0
         actions_failed = 0
         action_modified_messages: List[str] = []
+        action_results: List[dict] = []
         new_messages: List[NewMessageInfo] = []
 
         logger.info(f"Starting sync for account {self.account_id}")
@@ -148,16 +152,6 @@ class SyncEngine:
 
             if not messages:
                 logger.info("No new messages to process")
-                return SyncResult(
-                    account_id=self.account_id,
-                    messages_fetched=0,
-                    messages_classified=0,
-                    labels_updated=0,
-                    errors=[],
-                    duration_seconds=(datetime.now(timezone.utc) - start_time).total_seconds(),
-                    pending_ops_processed=pending_ops_processed,
-                    pending_ops_failed=pending_ops_failed,
-                )
 
             # 4. Store messages in database
             for message in messages:
@@ -271,6 +265,7 @@ class SyncEngine:
                     actions_succeeded = action_stats.get("succeeded", 0)
                     actions_failed = action_stats.get("failed", 0)
                     action_modified_messages = action_stats.get("modified_messages", [])
+                    action_results = action_stats.get("action_results", [])
                 except Exception as e:
                     error_msg = f"Action processing failed: {e}"
                     logger.error(error_msg)
@@ -301,6 +296,7 @@ class SyncEngine:
                 actions_succeeded=actions_succeeded,
                 actions_failed=actions_failed,
                 action_modified_messages=action_modified_messages,
+                action_results=action_results,
             )
 
             logger.info(f"Sync completed: {result}")

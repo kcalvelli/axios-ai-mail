@@ -8,7 +8,14 @@ import { useAppStore } from '../store/appStore';
 import { messageKeys } from './useMessages';
 import { statsKeys } from './useStats';
 import { useNotifications } from './useNotifications';
+import { useToastStore } from './useToast';
 import type { WebSocketMessage } from '../api/types';
+
+// Human-readable labels for action tags
+const ACTION_LABELS: Record<string, { success: string; failure: string }> = {
+  'add-contact': { success: 'Contact Added', failure: "Couldn't add contact" },
+  'create-reminder': { success: 'Event Created', failure: "Couldn't create event" },
+};
 
 export function useWebSocket() {
   const [isConnected, setIsConnected] = useState(false);
@@ -16,6 +23,7 @@ export function useWebSocket() {
   const queryClient = useQueryClient();
   const { setSyncStatus } = useAppStore();
   const { showNewMessageNotification } = useNotifications();
+  const addToast = useToastStore((state) => state.addToast);
 
   useEffect(() => {
     // Determine WebSocket URL based on current location
@@ -111,6 +119,22 @@ export function useWebSocket() {
             console.error('WebSocket error:', message.message);
             break;
 
+          case 'action_completed': {
+            const actionName = message.action_name || 'unknown';
+            const labels = ACTION_LABELS[actionName] || {
+              success: `Action "${actionName}" completed`,
+              failure: `Action "${actionName}" failed`,
+            };
+
+            if (message.status === 'success') {
+              addToast({ message: labels.success, severity: 'success' });
+            } else if (message.status === 'failed') {
+              addToast({ message: labels.failure, severity: 'error' });
+            }
+            // Skip 'skipped' status — no toast needed
+            break;
+          }
+
           case 'new_messages':
             // Show browser notification for new messages
             if (message.messages && Array.isArray(message.messages)) {
@@ -139,7 +163,7 @@ export function useWebSocket() {
         ws.close();
       }
     };
-  }, [queryClient, setSyncStatus, showNewMessageNotification]);
+  }, [queryClient, setSyncStatus, showNewMessageNotification, addToast]);
 
   const sendMessage = (message: any) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
