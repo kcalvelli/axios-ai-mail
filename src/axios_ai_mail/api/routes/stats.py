@@ -119,19 +119,20 @@ async def list_available_tags(request: Request):
                 ))
                 seen_names.add(tag["name"])
 
-        # Add action tags from action definitions
+        # Add action tags from action definitions (only if gateway is enabled)
         app_config = getattr(request.app.state, 'config', None) or {}
-        custom_actions = app_config.get("actions", {}) if isinstance(app_config, dict) else {}
-        actions = merge_actions(custom_actions if custom_actions else None)
-        action_tags = action_tags_from_definitions(actions)
-        for tag in action_tags:
-            if tag["name"] not in seen_names:
-                tags.append(AvailableTagResponse(
-                    name=tag["name"],
-                    description=tag["description"],
-                    category="action",
-                ))
-                seen_names.add(tag["name"])
+        if isinstance(app_config, dict) and app_config.get("gateway", {}).get("enable", False):
+            custom_actions = app_config.get("actions", {})
+            actions = merge_actions(custom_actions if custom_actions else None)
+            action_tags = action_tags_from_definitions(actions)
+            for tag in action_tags:
+                if tag["name"] not in seen_names:
+                    tags.append(AvailableTagResponse(
+                        name=tag["name"],
+                        description=tag["description"],
+                        category="action",
+                    ))
+                    seen_names.add(tag["name"])
 
         return AvailableTagsResponse(tags=tags)
 

@@ -26,13 +26,17 @@ async def list_available_actions(request: Request):
     whether each action's MCP tool is available in mcp-gateway.
     """
     try:
-        # Get actions from config
+        # Check if gateway integration is enabled
         config = getattr(request.app.state, 'config', None) or {}
-        custom_actions = config.get("actions", {}) if isinstance(config, dict) else {}
+        if not (isinstance(config, dict) and config.get("gateway", {}).get("enable", False)):
+            return ActionsListResponse(actions=[])
+
+        # Get actions from config
+        custom_actions = config.get("actions", {})
         actions = merge_actions(custom_actions if custom_actions else None)
 
         # Check tool availability via gateway
-        gateway_config = config.get("gateway", {}) if isinstance(config, dict) else {}
+        gateway_config = config.get("gateway", {})
         gateway_url = gateway_config.get("url", "http://localhost:8085")
         gateway = GatewayClient(base_url=gateway_url, timeout=5)
 

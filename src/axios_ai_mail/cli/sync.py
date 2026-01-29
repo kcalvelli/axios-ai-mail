@@ -52,8 +52,11 @@ def _create_action_agent(config: dict, db: Database) -> Optional[ActionAgent]:
     Returns:
         ActionAgent if configured, None otherwise
     """
-    # Get gateway URL from config
+    # Check if gateway integration is enabled
     gateway_config = config.get("gateway", {})
+    if not gateway_config.get("enable", False):
+        return None
+
     gateway_url = gateway_config.get("url", "http://localhost:8085")
 
     # Get custom actions from config

@@ -83,9 +83,9 @@ def _sync_account_blocking(account, ai_config, db, max_messages: int, config: di
 
         ai_classifier = AIClassifier(ai_config)
 
-        # Initialize action agent if config is available
+        # Initialize action agent if gateway integration is enabled
         action_agent = None
-        if config:
+        if config and config.get("gateway", {}).get("enable", False):
             gateway_config = config.get("gateway", {})
             gateway_url = gateway_config.get("url", "http://localhost:8085")
             custom_actions = config.get("actions", {})

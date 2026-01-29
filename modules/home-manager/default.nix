@@ -195,7 +195,9 @@ let
       enableWebhooks = cfg.sync.enableWebhooks;
     };
 
+  } // optionalAttrs cfg.gateway.enable {
     gateway = {
+      enable = true;
       url = cfg.gateway.url;
     };
 
@@ -353,6 +355,8 @@ in {
     gateway = mkOption {
       type = types.submodule {
         options = {
+          enable = mkEnableOption "mcp-gateway integration for action tags";
+
           url = mkOption {
             type = types.str;
             default = "http://localhost:8085";
