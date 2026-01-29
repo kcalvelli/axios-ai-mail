@@ -149,6 +149,19 @@ async def _sync_single_account(account, ai_config, db, max_messages: int, loop, 
         if error:
             await send_error(f"Sync failed for {account_id}", error)
         else:
+            # Send push notifications for new messages (even if PWA is closed)
+            if result.new_messages:
+                try:
+                    from ...push_service import create_push_service
+                    from ...config.loader import ConfigLoader
+                    push_svc = create_push_service(db, ConfigLoader.load_config())
+                    if push_svc:
+                        push_svc.notify_new_messages(
+                            [msg.to_dict() for msg in result.new_messages]
+                        )
+                except Exception as e:
+                    logger.warning(f"Push notification error: {e}")
+
             # Send WebSocket event: new messages for notifications
             if result.new_messages:
                 await send_new_messages([msg.to_dict() for msg in result.new_messages])

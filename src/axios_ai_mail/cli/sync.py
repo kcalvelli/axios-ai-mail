@@ -155,6 +155,21 @@ def sync_run(
             result = sync_engine.sync(max_messages=max_messages)
             results.append(result)
 
+            # Send push notifications for new messages (even if PWA is closed)
+            if result.new_messages:
+                try:
+                    from ..push_service import create_push_service
+
+                    push_svc = create_push_service(db, config)
+                    if push_svc:
+                        sent = push_svc.notify_new_messages(
+                            [msg.to_dict() for msg in result.new_messages]
+                        )
+                        if sent:
+                            console.print(f"  Push notifications sent: {sent}")
+                except Exception as e:
+                    logger.warning(f"Push notification error: {e}")
+
             # Display result
             if result.errors:
                 console.print(f"[yellow]⚠ Sync completed with {len(result.errors)} errors[/yellow]")

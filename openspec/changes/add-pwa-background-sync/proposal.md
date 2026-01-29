@@ -1,5 +1,9 @@
 # Proposal: PWA Background Sync
 
+> **Note**: This proposal is independent of `enhance-pwa` (which covers push
+> notifications and forced cache updates). Background sync handles offline
+> operation queuing and is a separate concern.
+
 ## What
 Queue operations performed while offline and automatically sync when connectivity returns, enabling true offline-first mobile experience.
 

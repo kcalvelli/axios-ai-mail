@@ -34,6 +34,7 @@ import {
   FormControlLabel,
   Checkbox,
   CircularProgress,
+  Switch,
 } from '@mui/material';
 import {
   SmartToy,
@@ -46,8 +47,10 @@ import {
   CheckCircle,
   Error as ErrorIcon,
   DisplaySettings,
+  Notifications,
 } from '@mui/icons-material';
 import { useAppStore } from '../store/appStore';
+import { usePushSubscription } from '../hooks/usePushSubscription';
 import axios from 'axios';
 
 interface TabPanelProps {
@@ -80,6 +83,7 @@ export function SettingsPage() {
           sx={{ borderBottom: 1, borderColor: 'divider' }}
         >
           <Tab icon={<DisplaySettings />} label="Display" />
+          <Tab icon={<Notifications />} label="Notifications" />
           <Tab icon={<SmartToy />} label="AI Configuration" />
           <Tab icon={<Sync />} label="Sync Settings" />
           <Tab icon={<Label />} label="Tag Taxonomy" />
@@ -91,18 +95,22 @@ export function SettingsPage() {
         </TabPanel>
 
         <TabPanel value={activeTab} index={1}>
-          <AIConfigPanel />
+          <NotificationsPanel />
         </TabPanel>
 
         <TabPanel value={activeTab} index={2}>
-          <SyncSettingsPanel />
+          <AIConfigPanel />
         </TabPanel>
 
         <TabPanel value={activeTab} index={3}>
-          <TagTaxonomyPanel />
+          <SyncSettingsPanel />
         </TabPanel>
 
         <TabPanel value={activeTab} index={4}>
+          <TagTaxonomyPanel />
+        </TabPanel>
+
+        <TabPanel value={activeTab} index={5}>
           <MaintenancePanel />
         </TabPanel>
       </Paper>
@@ -166,6 +174,76 @@ function DisplaySettingsPanel() {
           </ul>
         </Box>
       </Stack>
+    </Box>
+  );
+}
+
+function NotificationsPanel() {
+  const push = usePushSubscription();
+
+  return (
+    <Box>
+      <Typography variant="h6" gutterBottom>
+        Push Notifications
+      </Typography>
+
+      {!push.supported ? (
+        <Alert severity="warning" sx={{ mb: 3 }}>
+          Push notifications are not supported in this browser. Try using a
+          Chromium-based browser or Firefox.
+        </Alert>
+      ) : (
+        <Stack spacing={3}>
+          <Box>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={push.isSubscribed}
+                  onChange={() =>
+                    push.isSubscribed ? push.unsubscribe() : push.subscribe()
+                  }
+                  disabled={push.loading || push.permission === 'denied'}
+                />
+              }
+              label={push.isSubscribed ? 'Push notifications enabled' : 'Enable push notifications'}
+            />
+            {push.loading && (
+              <CircularProgress size={20} sx={{ ml: 2 }} />
+            )}
+            <Typography variant="body2" color="text.secondary" sx={{ ml: 4 }}>
+              Receive push notifications on this device when new emails arrive,
+              even when the app is closed.
+            </Typography>
+          </Box>
+
+          {push.permission === 'denied' && (
+            <Alert severity="error">
+              Notification permission has been blocked. To enable push
+              notifications, update the notification setting for this site in
+              your browser settings.
+            </Alert>
+          )}
+
+          {push.error && (
+            <Alert severity="error" onClose={() => {}}>
+              {push.error}
+            </Alert>
+          )}
+
+          <Divider />
+
+          <Box>
+            <Typography variant="subtitle2" gutterBottom>
+              How it works
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              When push notifications are enabled, you'll receive a notification
+              each time new emails are synced. Notifications show the sender and
+              subject. Tapping a notification opens the email in the app.
+            </Typography>
+          </Box>
+        </Stack>
+      )}
     </Box>
   );
 }

@@ -1,12 +1,31 @@
+import { writeFileSync } from 'fs'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// Build ID: changes every build, used for cache invalidation
+const buildId = Date.now().toString(36)
+
+// Write build ID to a file so the backend can serve it via /api/version
+const writeBuildId = () => ({
+  name: 'write-build-id',
+  closeBundle() {
+    writeFileSync('dist/build-id.json', JSON.stringify({ version: buildId }))
+  },
+})
+
 // https://vitejs.dev/config/
 export default defineConfig({
+  define: {
+    '__APP_VERSION__': JSON.stringify(buildId),
+  },
   plugins: [
     react(),
+    writeBuildId(),
     VitePWA({
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
       registerType: 'autoUpdate',
       includeAssets: ['logo.png', 'icon-192.png', 'icon-512.png', 'icon-monochrome.svg'],
       manifest: {
@@ -81,27 +100,9 @@ export default defineConfig({
           },
         ],
       },
-      workbox: {
-        // Don't use cached fallback for API/WebSocket routes
-        navigateFallbackDenylist: [/^\/api/, /^\/ws/],
-        // Cache static assets only
+      injectManifest: {
+        // Static assets to precache (injected into self.__WB_MANIFEST)
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
-        // Clean up old caches
-        cleanupOutdatedCaches: true,
-        // Explicitly skip caching for API routes
-        // Using navigateFallback: undefined ensures no fallback for non-navigation requests
-        runtimeCaching: [
-          {
-            // Match any request that contains /api/ in the URL
-            urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
-            handler: 'NetworkOnly',
-          },
-          {
-            // Match WebSocket upgrade requests
-            urlPattern: ({ url }) => url.pathname.startsWith('/ws'),
-            handler: 'NetworkOnly',
-          },
-        ],
       },
     }),
   ],

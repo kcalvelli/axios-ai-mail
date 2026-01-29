@@ -195,6 +195,14 @@ let
       enableWebhooks = cfg.sync.enableWebhooks;
     };
 
+  } // optionalAttrs cfg.push.enable {
+    push = {
+      enable = true;
+      vapidPrivateKeyFile = cfg.push.vapidPrivateKeyFile;
+      vapidPublicKey = cfg.push.vapidPublicKey;
+      contactEmail = cfg.push.contactEmail;
+    };
+
   } // optionalAttrs cfg.gateway.enable {
     gateway = {
       enable = true;
@@ -391,6 +399,45 @@ in {
       description = "mcp-gateway configuration for action tag processing.";
     };
 
+    push = mkOption {
+      type = types.submodule {
+        options = {
+          enable = mkEnableOption "Web Push notifications for new emails";
+
+          vapidPrivateKeyFile = mkOption {
+            type = types.nullOr types.str;
+            default = null;
+            description = ''
+              Path to VAPID private key file (PEM format, decrypted by agenix or sops-nix).
+              Generate with: openssl ecparam -genkey -name prime256v1 -noout -out vapid_private.pem
+            '';
+            example = literalExpression ''config.age.secrets.vapid-private-key.path'';
+          };
+
+          vapidPublicKey = mkOption {
+            type = types.str;
+            default = "";
+            description = ''
+              VAPID public key (base64url-encoded, safe to store in config).
+              Generate from private key: openssl ec -in vapid_private.pem -pubout -outform DER | tail -c 65 | base64 | tr '/+' '_-' | tr -d '='
+            '';
+          };
+
+          contactEmail = mkOption {
+            type = types.str;
+            default = "";
+            description = ''
+              Contact email for VAPID claims (mailto: URI).
+              Required by push services to contact the app operator.
+            '';
+            example = "mailto:admin@example.com";
+          };
+        };
+      };
+      default = {};
+      description = "Web Push notification configuration for mobile PWA.";
+    };
+
     actions = mkOption {
       type = types.attrsOf (types.submodule {
         options = {
@@ -466,6 +513,18 @@ in {
       {
         assertion = cfg.accounts != {};
         message = "axios-ai-mail: at least one account must be configured";
+      }
+      {
+        assertion = cfg.push.enable -> cfg.push.vapidPrivateKeyFile != null;
+        message = "axios-ai-mail: push.vapidPrivateKeyFile must be set when push notifications are enabled";
+      }
+      {
+        assertion = cfg.push.enable -> cfg.push.vapidPublicKey != "";
+        message = "axios-ai-mail: push.vapidPublicKey must be set when push notifications are enabled";
+      }
+      {
+        assertion = cfg.push.enable -> cfg.push.contactEmail != "";
+        message = "axios-ai-mail: push.contactEmail must be set when push notifications are enabled (e.g., mailto:you@example.com)";
       }
       {
         assertion = cfg.gateway.enable -> cfg.gateway.addressbook != "";

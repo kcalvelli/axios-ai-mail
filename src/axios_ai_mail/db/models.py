@@ -262,6 +262,26 @@ class ActionLog(Base):
         )
 
 
+class PushSubscription(Base):
+    """Web Push notification subscription.
+
+    Stores browser push subscription details so the backend can send
+    notifications even when the PWA is closed.
+    """
+
+    __tablename__ = "push_subscriptions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    endpoint: Mapped[str] = mapped_column(String(500), nullable=False, unique=True, index=True)
+    p256dh: Mapped[str] = mapped_column(String(255), nullable=False)
+    auth: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    last_used_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+    def __repr__(self) -> str:
+        return f"<PushSubscription(id={self.id}, endpoint={self.endpoint[:50]!r}...)>"
+
+
 class TrustedSender(Base):
     """Trusted senders for auto-loading remote images.
 

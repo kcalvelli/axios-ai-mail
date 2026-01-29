@@ -14,7 +14,7 @@ from ..ai_classifier import AIClassifier, AIConfig
 from ..providers.connection_pool import shutdown_connection_pool
 from ..providers.imap_idle import get_idle_watcher, shutdown_idle_watcher, IdleConfig
 from .routes.sync import _sync_executor
-from .routes import accounts, actions, attachments, drafts, feedback, maintenance, messages, send, stats, sync, trusted_senders
+from .routes import accounts, actions, attachments, drafts, feedback, maintenance, messages, push, send, stats, sync, trusted_senders
 from .websocket import router as websocket_router
 
 # Configure logging for the entire axios_ai_mail package
@@ -70,6 +70,7 @@ app.include_router(attachments.router, prefix="/api", tags=["attachments"])
 app.include_router(send.router, prefix="/api", tags=["send"])
 app.include_router(maintenance.router, prefix="/api", tags=["maintenance"])
 app.include_router(feedback.router, prefix="/api", tags=["feedback"])
+app.include_router(push.router, prefix="/api", tags=["push"])
 app.include_router(trusted_senders.router, prefix="/api", tags=["trusted-senders"])
 app.include_router(websocket_router, tags=["websocket"])
 
@@ -241,6 +242,25 @@ async def health_check():
         "database": str(db_path),
         "database_exists": db_path.exists(),
     }
+
+
+# Load build version from web assets (generated during frontend build)
+_build_version: str = "dev"
+_build_id_path = Path(__file__).parent.parent / "web_assets" / "build-id.json"
+if not _build_id_path.exists():
+    _build_id_path = Path(__file__).parent.parent.parent.parent / "web" / "dist" / "build-id.json"
+if _build_id_path.exists():
+    import json as _json
+    try:
+        _build_version = _json.loads(_build_id_path.read_text()).get("version", "dev")
+    except Exception:
+        pass
+
+
+@app.get("/api/version")
+async def get_version():
+    """Return the current build version for cache invalidation."""
+    return {"version": _build_version}
 
 
 @app.on_event("shutdown")

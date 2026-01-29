@@ -10,7 +10,7 @@ from sqlalchemy import create_engine, delete, event, select, String, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from .models import Account, ActionLog, Attachment, Base, Classification, Draft, Feedback, Message, PendingOperation, TrustedSender
+from .models import Account, ActionLog, Attachment, Base, Classification, Draft, Feedback, Message, PendingOperation, PushSubscription, TrustedSender
 
 logger = logging.getLogger(__name__)
 
@@ -1722,6 +1722,85 @@ class Database:
             if count > 0:
                 logger.info(f"Cleaned up {count} action log entries older than {max_age_days} days")
             return count
+
+    # Push subscription methods
+
+    def upsert_push_subscription(self, endpoint: str, p256dh: str, auth: str) -> PushSubscription:
+        """Create or update a push subscription.
+
+        Args:
+            endpoint: Push service endpoint URL
+            p256dh: Client public key (base64url)
+            auth: Auth secret (base64url)
+
+        Returns:
+            PushSubscription instance
+        """
+        with self.session() as session:
+            existing = session.execute(
+                select(PushSubscription).where(PushSubscription.endpoint == endpoint)
+            ).scalar_one_or_none()
+
+            if existing:
+                existing.p256dh = p256dh
+                existing.auth = auth
+                session.commit()
+                logger.debug(f"Updated push subscription: {endpoint[:50]}...")
+                return existing
+            else:
+                sub = PushSubscription(
+                    endpoint=endpoint,
+                    p256dh=p256dh,
+                    auth=auth,
+                )
+                session.add(sub)
+                session.commit()
+                logger.info(f"Created push subscription: {endpoint[:50]}...")
+                return sub
+
+    def delete_push_subscription(self, endpoint: str) -> bool:
+        """Delete a push subscription by endpoint.
+
+        Args:
+            endpoint: Push service endpoint URL
+
+        Returns:
+            True if deleted, False if not found
+        """
+        with self.session() as session:
+            result = session.execute(
+                delete(PushSubscription).where(PushSubscription.endpoint == endpoint)
+            )
+            session.commit()
+            deleted = result.rowcount > 0
+            if deleted:
+                logger.info(f"Deleted push subscription: {endpoint[:50]}...")
+            return deleted
+
+    def get_all_push_subscriptions(self) -> List[PushSubscription]:
+        """Get all active push subscriptions.
+
+        Returns:
+            List of PushSubscription instances
+        """
+        with self.session() as session:
+            return list(
+                session.execute(select(PushSubscription)).scalars().all()
+            )
+
+    def update_push_subscription_last_used(self, endpoint: str) -> None:
+        """Update last_used_at timestamp for a subscription.
+
+        Args:
+            endpoint: Push service endpoint URL
+        """
+        with self.session() as session:
+            sub = session.execute(
+                select(PushSubscription).where(PushSubscription.endpoint == endpoint)
+            ).scalar_one_or_none()
+            if sub:
+                sub.last_used_at = datetime.utcnow()
+                session.commit()
 
     # Utility methods
 

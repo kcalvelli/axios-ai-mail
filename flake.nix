@@ -116,6 +116,9 @@
           # MCP (Model Context Protocol)
           mcp
 
+          # Push notifications
+          pywebpush
+
           # Web API (Phase 2)
           fastapi
           uvicorn

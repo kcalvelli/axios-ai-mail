@@ -44,6 +44,9 @@ dependencies = [
 
     # MCP (Model Context Protocol)
     "mcp>=1.0.0",
+
+    # Push notifications
+    "pywebpush>=2.0.0",
 ]
 
 [project.optional-dependencies]
