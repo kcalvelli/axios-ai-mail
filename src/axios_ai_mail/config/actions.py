@@ -93,7 +93,7 @@ DEFAULT_ACTIONS: Dict[str, ActionDefinition] = {
         server="mcp-dav",
         tool="create_contact",
         extraction_prompt=_CONTACT_EXTRACTION_PROMPT,
-        default_args={"addressbook": "Personal"},
+        default_args={"addressbook": "default"},
     ),
     "create-reminder": ActionDefinition(
         name="create-reminder",

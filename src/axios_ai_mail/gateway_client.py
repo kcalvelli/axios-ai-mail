@@ -110,17 +110,23 @@ class GatewayClient:
                     raise GatewayError(
                         f"Tool {server}/{tool} returned error: {result['error']}"
                     )
-                # Check result content for validation/execution errors
+                # Check result content for errors reported in tool output
                 result_items = result.get("result", [])
                 if isinstance(result_items, list):
                     for item in result_items:
                         text = item.get("text", "") if isinstance(item, dict) else ""
-                        if "error" in text.lower() and (
-                            "validation error" in text.lower()
-                            or "missing required" in text.lower()
-                        ):
+                        if not text:
+                            continue
+                        text_lower = text.lower()
+                        # Detect validation errors, missing args, and tool-reported errors
+                        if any(indicator in text_lower for indicator in [
+                            "validation error",
+                            "missing required",
+                            '"error"',       # JSON error field in tool output
+                            "'error'",       # Alternative quoting
+                        ]):
                             raise GatewayError(
-                                f"Tool {server}/{tool} validation error: {text}"
+                                f"Tool {server}/{tool} error: {text}"
                             )
 
             return result
