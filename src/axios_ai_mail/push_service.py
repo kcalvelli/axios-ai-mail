@@ -4,11 +4,13 @@ Sends push notifications to subscribed browsers when new emails arrive.
 Uses pywebpush with VAPID authentication.
 """
 
+import base64
 import json
 import logging
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from pywebpush import WebPushException, webpush
 
 from .db.database import Database
@@ -41,14 +43,51 @@ class PushService:
         self.vapid_public_key = vapid_public_key
         self.contact_email = contact_email
 
-        # Read VAPID private key from file
+        # Read VAPID private key from file and convert to raw base64url format.
+        # pywebpush's Vapid.from_string() doesn't handle PEM format, so we
+        # extract the raw 32-byte private key scalar and base64url-encode it.
         key_path = Path(vapid_private_key_file)
         if key_path.exists():
-            self.vapid_private_key = key_path.read_text().strip()
-            logger.info("Push service initialized with VAPID keys")
+            self.vapid_private_key = self._load_vapid_key(key_path)
+            if self.vapid_private_key:
+                logger.info("Push service initialized with VAPID keys")
+            else:
+                logger.warning("VAPID private key could not be parsed")
         else:
             self.vapid_private_key = ""
             logger.warning(f"VAPID private key not found at {vapid_private_key_file}")
+
+    @staticmethod
+    def _load_vapid_key(key_path: Path) -> str:
+        """Load a VAPID private key and return it as a raw base64url string.
+
+        Handles both PEM-encoded keys (SEC1 or PKCS8) and raw base64url keys.
+        pywebpush's Vapid.from_string() only understands raw/DER format, so
+        PEM keys must be converted to the 32-byte raw scalar form.
+
+        Args:
+            key_path: Path to the private key file
+
+        Returns:
+            Base64url-encoded raw private key string, or empty string on error
+        """
+        try:
+            raw = key_path.read_text().strip()
+
+            if raw.startswith("-----"):
+                # PEM format — parse with cryptography, extract raw D value
+                pem_key = load_pem_private_key(raw.encode("utf-8"), password=None)
+                # Get the raw 32-byte private key integer
+                private_numbers = pem_key.private_numbers()
+                d_bytes = private_numbers.private_value.to_bytes(32, byteorder="big")
+                # Base64url-encode (no padding) — the format Vapid.from_raw() expects
+                return base64.urlsafe_b64encode(d_bytes).rstrip(b"=").decode("ascii")
+            else:
+                # Already raw base64url — pass through
+                return raw
+        except Exception as e:
+            logger.error(f"Failed to load VAPID private key: {e}")
+            return ""
 
     def _send_push(self, subscription: PushSubscription, payload: dict) -> bool:
         """Send a push notification to a single subscription.

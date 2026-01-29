@@ -240,10 +240,6 @@ function NotificationsPanel() {
             </Alert>
           )}
 
-          <Typography variant="caption" color="text.secondary">
-            Status: permission={push.permission}, subscribed={String(push.isSubscribed)}, loading={String(push.loading)}
-          </Typography>
-
           <Divider />
 
           <Box>
