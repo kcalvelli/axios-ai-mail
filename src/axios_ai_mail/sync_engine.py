@@ -49,10 +49,13 @@ class SyncResult:
     actions_processed: int = 0
     actions_succeeded: int = 0
     actions_failed: int = 0
+    action_modified_messages: List[str] = None
 
     def __post_init__(self):
         if self.new_messages is None:
             self.new_messages = []
+        if self.action_modified_messages is None:
+            self.action_modified_messages = []
 
     def __str__(self) -> str:
         """String representation."""
@@ -123,6 +126,7 @@ class SyncEngine:
         actions_processed = 0
         actions_succeeded = 0
         actions_failed = 0
+        action_modified_messages: List[str] = []
         new_messages: List[NewMessageInfo] = []
 
         logger.info(f"Starting sync for account {self.account_id}")
@@ -266,6 +270,7 @@ class SyncEngine:
                     actions_processed = action_stats.get("processed", 0)
                     actions_succeeded = action_stats.get("succeeded", 0)
                     actions_failed = action_stats.get("failed", 0)
+                    action_modified_messages = action_stats.get("modified_messages", [])
                 except Exception as e:
                     error_msg = f"Action processing failed: {e}"
                     logger.error(error_msg)
@@ -295,6 +300,7 @@ class SyncEngine:
                 actions_processed=actions_processed,
                 actions_succeeded=actions_succeeded,
                 actions_failed=actions_failed,
+                action_modified_messages=action_modified_messages,
             )
 
             logger.info(f"Sync completed: {result}")

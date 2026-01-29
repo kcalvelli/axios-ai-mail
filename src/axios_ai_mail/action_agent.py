@@ -76,7 +76,7 @@ class ActionAgent:
         Returns:
             Dict with counts: processed, succeeded, failed, skipped
         """
-        stats = {"processed": 0, "succeeded": 0, "failed": 0, "skipped": 0}
+        stats = {"processed": 0, "succeeded": 0, "failed": 0, "skipped": 0, "modified_messages": []}
 
         action_tag_names = self.get_action_tag_names()
         if not action_tag_names:
@@ -122,6 +122,8 @@ class ActionAgent:
 
                 if result == "success":
                     stats["succeeded"] += 1
+                    if message.id not in stats["modified_messages"]:
+                        stats["modified_messages"].append(message.id)
                 elif result == "failed":
                     stats["failed"] += 1
                 elif result == "skipped":
