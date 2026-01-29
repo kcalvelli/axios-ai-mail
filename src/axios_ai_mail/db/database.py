@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, Generator, List, Optional
 
-from sqlalchemy import create_engine, event, select, String, text
+from sqlalchemy import create_engine, delete, event, select, String, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -1632,6 +1632,28 @@ class Database:
                 )
             )
             return result.scalar_one()
+
+    def delete_action_log(self, message_id: str, action_name: str) -> int:
+        """Delete action log entries for a specific action on a message.
+
+        Used when retrying an action to reset the attempt counter.
+
+        Args:
+            message_id: Message ID
+            action_name: Action tag name
+
+        Returns:
+            Number of entries deleted
+        """
+        with self.session() as session:
+            result = session.execute(
+                delete(ActionLog).where(
+                    ActionLog.message_id == message_id,
+                    ActionLog.action_name == action_name,
+                )
+            )
+            session.commit()
+            return result.rowcount
 
     def get_pending_action_messages(
         self,

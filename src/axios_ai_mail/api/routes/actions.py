@@ -146,6 +146,9 @@ async def retry_action(request: Request, log_id: str):
             updated_tags = classification.tags + [entry.action_name]
             db.update_message_tags(entry.message_id, updated_tags)
 
+        # Delete old log entries for this action+message to reset attempt counter
+        db.delete_action_log(entry.message_id, entry.action_name)
+
         return {
             "status": "queued",
             "message": f"Action '{entry.action_name}' will be retried on next sync",
