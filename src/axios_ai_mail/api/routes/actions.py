@@ -129,9 +129,6 @@ async def retry_action(request: Request, log_id: str):
         if not entry:
             raise HTTPException(status_code=404, detail=f"Action log entry {log_id} not found")
 
-        if entry.status == "success":
-            raise HTTPException(status_code=400, detail="Cannot retry a successful action")
-
         # Re-add the action tag to the message classification
         message = db.get_message(entry.message_id)
         if not message:
