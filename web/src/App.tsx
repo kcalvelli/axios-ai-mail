@@ -17,8 +17,6 @@ import Compose from './pages/Compose';
 import DraftsPage from './pages/DraftsPage';
 import { ToastContainer } from './components/ToastContainer';
 import { useWebSocket } from './hooks/useWebSocket';
-// TODO: Re-enable once build-id is stable between frontend and backend builds
-// import { useVersionCheck } from './hooks/useVersionCheck';
 
 declare const __APP_VERSION__: string;
 
@@ -69,8 +67,6 @@ function App() {
 function AppContent() {
   // Initialize WebSocket connection for real-time updates
   useWebSocket();
-  // Poll for version changes and auto-reload on deploy
-  // useVersionCheck();
 
   return (
     <>
