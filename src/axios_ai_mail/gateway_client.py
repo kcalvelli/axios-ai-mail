@@ -124,7 +124,8 @@ class GatewayClient:
                             "missing required",
                             '"error"',       # JSON error field in tool output
                             "'error'",       # Alternative quoting
-                        ]):
+                            "not found:",    # Resource not found errors
+                        ]) or text_lower.startswith("error"):
                             raise GatewayError(
                                 f"Tool {server}/{tool} error: {text}"
                             )
