@@ -88,7 +88,7 @@ DEFAULT_ACTIONS: Dict[str, ActionDefinition] = {
     "add-contact": ActionDefinition(
         name="add-contact",
         description="Create a contact from this email's sender",
-        server="dav",
+        server="mcp-dav",
         tool="create_contact",
         extraction_prompt=_CONTACT_EXTRACTION_PROMPT,
         default_args={"addressbook": "Personal"},
@@ -96,7 +96,7 @@ DEFAULT_ACTIONS: Dict[str, ActionDefinition] = {
     "create-reminder": ActionDefinition(
         name="create-reminder",
         description="Create a calendar reminder from this email",
-        server="dav",
+        server="mcp-dav",
         tool="create_event",
         extraction_prompt=_REMINDER_EXTRACTION_PROMPT,
         default_args={},
