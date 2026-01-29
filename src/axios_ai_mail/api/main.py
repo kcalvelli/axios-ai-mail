@@ -74,6 +74,39 @@ app.include_router(push.router, prefix="/api", tags=["push"])
 app.include_router(trusted_senders.router, prefix="/api", tags=["trusted-senders"])
 app.include_router(websocket_router, tags=["websocket"])
 
+# Health and version endpoints (must be registered before static file mount)
+_build_version: str = "dev"
+_build_id_path = Path(__file__).parent.parent / "web_assets" / "build-id.json"
+if not _build_id_path.exists():
+    _build_id_path = Path(__file__).parent.parent.parent.parent / "web" / "dist" / "build-id.json"
+if _build_id_path.exists():
+    import json as _json
+    try:
+        _build_version = _json.loads(_build_id_path.read_text()).get("version", "dev")
+    except Exception:
+        pass
+
+_system_router = APIRouter()
+
+
+@_system_router.get("/health")
+async def health_check():
+    """Health check endpoint."""
+    return {
+        "status": "healthy",
+        "database": str(db_path),
+        "database_exists": db_path.exists(),
+    }
+
+
+@_system_router.get("/version")
+async def get_version():
+    """Return the current build version for cache invalidation."""
+    return {"version": _build_version}
+
+
+app.include_router(_system_router, prefix="/api", tags=["system"])
+
 # Serve static files (frontend build) if they exist
 # Try installed package location first, then development location
 # In installed package: axios_ai_mail/web_assets (one level up from api/)
@@ -232,35 +265,6 @@ async def startup_event():
 
         # Initialize IMAP IDLE watchers for IMAP accounts
         _setup_idle_watchers(config)
-
-
-@app.get("/api/health")
-async def health_check():
-    """Health check endpoint."""
-    return {
-        "status": "healthy",
-        "database": str(db_path),
-        "database_exists": db_path.exists(),
-    }
-
-
-# Load build version from web assets (generated during frontend build)
-_build_version: str = "dev"
-_build_id_path = Path(__file__).parent.parent / "web_assets" / "build-id.json"
-if not _build_id_path.exists():
-    _build_id_path = Path(__file__).parent.parent.parent.parent / "web" / "dist" / "build-id.json"
-if _build_id_path.exists():
-    import json as _json
-    try:
-        _build_version = _json.loads(_build_id_path.read_text()).get("version", "dev")
-    except Exception:
-        pass
-
-
-@app.get("/api/version")
-async def get_version():
-    """Return the current build version for cache invalidation."""
-    return {"version": _build_version}
 
 
 @app.on_event("shutdown")
