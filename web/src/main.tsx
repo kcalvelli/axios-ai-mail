@@ -1,5 +1,7 @@
 /**
  * Main entry point - Renders React app to DOM
+ *
+ * Auto-reloads on deploy via service worker controllerchange event.
  */
 
 import React from 'react';
