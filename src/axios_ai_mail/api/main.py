@@ -105,6 +105,24 @@ async def get_version():
     return {"version": _build_version}
 
 
+@_system_router.get("/clear-sw")
+async def clear_service_worker():
+    """Return a page that unregisters all service workers and clears caches."""
+    from fastapi.responses import HTMLResponse
+    return HTMLResponse("""<!DOCTYPE html>
+<html><body><h2>Clearing service worker...</h2><pre id="log"></pre>
+<script>
+const log = s => { document.getElementById('log').textContent += s + '\\n'; };
+(async () => {
+  const regs = await navigator.serviceWorker.getRegistrations();
+  for (const r of regs) { await r.unregister(); log('Unregistered: ' + r.scope); }
+  const keys = await caches.keys();
+  for (const k of keys) { await caches.delete(k); log('Deleted cache: ' + k); }
+  log('Done! Redirecting in 2s...');
+  setTimeout(() => window.location.href = '/', 2000);
+})();
+</script></body></html>""")
+
 app.include_router(_system_router, prefix="/api", tags=["system"])
 
 # Serve static files (frontend build) if they exist
