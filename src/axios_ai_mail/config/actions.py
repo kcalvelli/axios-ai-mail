@@ -30,7 +30,7 @@ Body:
 {body}
 
 Extract the sender's contact details from the email content, signature, and headers.
-Return ONLY a JSON object with these fields (omit fields you cannot determine):
+Return ONLY a JSON object with these fields (omit OPTIONAL fields you cannot determine):
 
 {{
   "formatted_name": "Full Name",
@@ -44,11 +44,13 @@ Return ONLY a JSON object with these fields (omit fields you cannot determine):
 }}
 
 RULES:
-1. The email address MUST come from the From header
-2. Try to extract the full name from the From header or signature
-3. Look for organization, title, and phone in the email signature
-4. If no signature, use what you can determine from the email address and content
-5. Return ONLY valid JSON, no markdown or explanation
+1. "formatted_name" and "emails" are REQUIRED - always include them
+2. The email address MUST come from the From header
+3. For formatted_name: use the display name from the From header, or derive from the email address
+4. Look for organization, title, and phone in the email signature
+5. If no signature, use what you can determine from the email address and content
+6. Do NOT include phone entries with null numbers - omit phones entirely if unknown
+7. Return ONLY valid JSON, no markdown or explanation
 """
 
 _REMINDER_EXTRACTION_PROMPT = """

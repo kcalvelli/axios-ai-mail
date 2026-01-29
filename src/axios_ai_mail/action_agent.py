@@ -209,6 +209,33 @@ class ActionAgent:
         # Merge extracted data with default args (defaults don't override extracted)
         arguments = {**action.default_args, **extracted_data}
 
+        # Ensure required fields for known actions
+        if action.tool == "create_contact" and not arguments.get("formatted_name"):
+            # Derive formatted_name from email or From header
+            from_email = message.from_email or ""
+            if "<" in from_email:
+                # "Display Name <email>" format
+                name_part = from_email.split("<")[0].strip().strip('"')
+                if name_part:
+                    arguments["formatted_name"] = name_part
+            if not arguments.get("formatted_name"):
+                # Fall back to email local part
+                email = arguments.get("emails", [from_email])[0] if arguments.get("emails") else from_email
+                arguments["formatted_name"] = email.split("@")[0].replace(".", " ").title()
+
+        # Clean up null values and empty collections that can cause validation errors
+        cleaned = {}
+        for k, v in arguments.items():
+            if v is None:
+                continue
+            # Remove phone entries with null numbers
+            if k == "phones" and isinstance(v, list):
+                v = [p for p in v if isinstance(p, dict) and p.get("number")]
+                if not v:
+                    continue
+            cleaned[k] = v
+        arguments = cleaned
+
         # Call the MCP tool via gateway
         try:
             tool_result = self.gateway.call_tool(action.server, action.tool, arguments)

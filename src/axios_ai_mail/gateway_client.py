@@ -100,7 +100,30 @@ class GatewayClient:
                 timeout=self.timeout,
             )
             response.raise_for_status()
-            return response.json()
+            result = response.json()
+
+            # Check for tool-level errors in the gateway response
+            # Gateway returns HTTP 200 even when the MCP tool itself errors
+            if isinstance(result, dict):
+                # Check for explicit error field
+                if result.get("error"):
+                    raise GatewayError(
+                        f"Tool {server}/{tool} returned error: {result['error']}"
+                    )
+                # Check result content for validation/execution errors
+                result_items = result.get("result", [])
+                if isinstance(result_items, list):
+                    for item in result_items:
+                        text = item.get("text", "") if isinstance(item, dict) else ""
+                        if "error" in text.lower() and (
+                            "validation error" in text.lower()
+                            or "missing required" in text.lower()
+                        ):
+                            raise GatewayError(
+                                f"Tool {server}/{tool} validation error: {text}"
+                            )
+
+            return result
         except requests.exceptions.ConnectionError:
             raise GatewayError(f"Cannot connect to mcp-gateway at {self.base_url}")
         except requests.exceptions.Timeout:
