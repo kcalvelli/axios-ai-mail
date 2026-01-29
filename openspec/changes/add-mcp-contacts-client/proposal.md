@@ -1,5 +1,8 @@
 # Proposal: Add MCP Contacts Client Integration
 
+> **SUPERSEDED** by [`add-action-tags`](../add-action-tags/proposal.md).
+> The action tag framework provides user-initiated contact creation (and other PIM actions) via mcp-gateway REST API, covering the core use cases of this proposal with a simpler, more extensible architecture. This proposal will not be implemented.
+
 ## Summary
 
 Add optional MCP client capability to axios-ai-mail, enabling integration with external contact providers (like axios-dav's mcp-dav) for intelligent contact-aware email workflows.
