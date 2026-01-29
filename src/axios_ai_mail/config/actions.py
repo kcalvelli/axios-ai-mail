@@ -93,9 +93,6 @@ DEFAULT_ACTIONS: Dict[str, ActionDefinition] = {
         server="mcp-dav",
         tool="create_contact",
         extraction_prompt=_CONTACT_EXTRACTION_PROMPT,
-        # NOTE: "addressbook" is required by mcp-dav but the name is
-        # environment-specific (vdirsyncer config). Users must configure
-        # it via Nix: actions."add-contact".defaultArgs.addressbook = "...";
         default_args={},
     ),
     "create-reminder": ActionDefinition(
@@ -104,28 +101,53 @@ DEFAULT_ACTIONS: Dict[str, ActionDefinition] = {
         server="mcp-dav",
         tool="create_event",
         extraction_prompt=_REMINDER_EXTRACTION_PROMPT,
-        # NOTE: "calendar" is required by mcp-dav but the name is
-        # environment-specific (vdirsyncer config). Users must configure
-        # it via Nix: actions."create-reminder".defaultArgs.calendar = "...";
         default_args={},
     ),
+}
+
+# Maps gateway config keys to the built-in action + tool arg they inject into
+_GATEWAY_DEFAULTS_MAP = {
+    "addressbook": ("add-contact", "addressbook"),
+    "calendar": ("create-reminder", "calendar"),
 }
 
 
 def merge_actions(
     custom_actions: Optional[Dict[str, Dict]] = None,
+    gateway_config: Optional[Dict] = None,
 ) -> Dict[str, ActionDefinition]:
-    """Merge built-in actions with user-defined custom actions.
+    """Merge built-in actions with gateway defaults and user-defined custom actions.
 
-    Custom actions override built-in actions with the same name.
+    Priority (lowest to highest):
+    1. Built-in defaults (empty default_args)
+    2. Gateway config (addressbook, calendar injected into built-in actions)
+    3. Custom action overrides from user config
 
     Args:
         custom_actions: Dict of action name -> config dict from user config
+        gateway_config: Gateway config dict with addressbook/calendar names
 
     Returns:
         Merged dict of action name -> ActionDefinition
     """
     result = dict(DEFAULT_ACTIONS)
+
+    # Inject gateway-level defaults into built-in actions
+    if gateway_config:
+        for gw_key, (action_name, arg_name) in _GATEWAY_DEFAULTS_MAP.items():
+            value = gateway_config.get(gw_key)
+            if value and action_name in result:
+                action = result[action_name]
+                merged_args = {**action.default_args, arg_name: value}
+                result[action_name] = ActionDefinition(
+                    name=action.name,
+                    description=action.description,
+                    server=action.server,
+                    tool=action.tool,
+                    extraction_prompt=action.extraction_prompt,
+                    default_args=merged_args,
+                    enabled=action.enabled,
+                )
 
     if not custom_actions:
         return result

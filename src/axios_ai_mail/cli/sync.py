@@ -61,7 +61,10 @@ def _create_action_agent(config: dict, db: Database) -> Optional[ActionAgent]:
 
     # Get custom actions from config
     custom_actions = config.get("actions", {})
-    actions = merge_actions(custom_actions if custom_actions else None)
+    actions = merge_actions(
+        custom_actions if custom_actions else None,
+        gateway_config=gateway_config,
+    )
 
     if not actions:
         return None

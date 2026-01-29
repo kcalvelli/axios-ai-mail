@@ -32,11 +32,14 @@ async def list_available_actions(request: Request):
             return ActionsListResponse(actions=[])
 
         # Get actions from config
+        gateway_config = config.get("gateway", {})
         custom_actions = config.get("actions", {})
-        actions = merge_actions(custom_actions if custom_actions else None)
+        actions = merge_actions(
+            custom_actions if custom_actions else None,
+            gateway_config=gateway_config,
+        )
 
         # Check tool availability via gateway
-        gateway_config = config.get("gateway", {})
         gateway_url = gateway_config.get("url", "http://localhost:8085")
         gateway = GatewayClient(base_url=gateway_url, timeout=5)
 

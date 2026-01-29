@@ -199,6 +199,8 @@ let
     gateway = {
       enable = true;
       url = cfg.gateway.url;
+      addressbook = cfg.gateway.addressbook;
+      calendar = cfg.gateway.calendar;
     };
 
     actions = mapAttrs (name: action: {
@@ -363,6 +365,26 @@ in {
             description = "mcp-gateway REST API URL for action tag execution.";
             example = "http://mcp-gateway.tailnet:8085";
           };
+
+          addressbook = mkOption {
+            type = types.str;
+            default = "";
+            description = ''
+              vdirsyncer addressbook name for the add-contact action.
+              Must match a configured addressbook in vdirsyncer/khard.
+            '';
+            example = "google";
+          };
+
+          calendar = mkOption {
+            type = types.str;
+            default = "";
+            description = ''
+              vdirsyncer calendar name for the create-reminder action.
+              Must match a configured calendar in vdirsyncer.
+            '';
+            example = "personal";
+          };
         };
       };
       default = {};
@@ -406,11 +428,10 @@ in {
               Default arguments to pass to the MCP tool.
               Extracted data is merged on top (does not override defaults).
 
-              Built-in actions require environment-specific args:
-              - add-contact: needs "addressbook" (vdirsyncer addressbook name)
-              - create-reminder: needs "calendar" (vdirsyncer calendar name)
+              Note: For built-in actions, addressbook and calendar are
+              configured via gateway.addressbook and gateway.calendar.
             '';
-            example = literalExpression ''{ addressbook = "google"; }'';
+            example = literalExpression ''{ priority = "high"; }'';
           };
 
           enabled = mkOption {
@@ -429,10 +450,6 @@ in {
       '';
       example = literalExpression ''
         {
-          # Override built-in: set the vdirsyncer addressbook name
-          "add-contact".defaultArgs.addressbook = "google";
-          # Override built-in: set the vdirsyncer calendar name
-          "create-reminder".defaultArgs.calendar = "personal";
           # Custom action
           "save-receipt" = {
             description = "Save receipt to expense tracker";
@@ -449,6 +466,14 @@ in {
       {
         assertion = cfg.accounts != {};
         message = "axios-ai-mail: at least one account must be configured";
+      }
+      {
+        assertion = cfg.gateway.enable -> cfg.gateway.addressbook != "";
+        message = "axios-ai-mail: gateway.addressbook must be set when gateway is enabled (vdirsyncer addressbook name)";
+      }
+      {
+        assertion = cfg.gateway.enable -> cfg.gateway.calendar != "";
+        message = "axios-ai-mail: gateway.calendar must be set when gateway is enabled (vdirsyncer calendar name)";
       }
     ] ++ (lib.flatten (lib.mapAttrsToList (name: account: [
       {

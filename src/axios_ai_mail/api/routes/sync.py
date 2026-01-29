@@ -89,7 +89,10 @@ def _sync_account_blocking(account, ai_config, db, max_messages: int, config: di
             gateway_config = config.get("gateway", {})
             gateway_url = gateway_config.get("url", "http://localhost:8085")
             custom_actions = config.get("actions", {})
-            actions = merge_actions(custom_actions if custom_actions else None)
+            actions = merge_actions(
+                custom_actions if custom_actions else None,
+                gateway_config=gateway_config,
+            )
 
             if actions:
                 ai_settings = config.get("ai", {})
