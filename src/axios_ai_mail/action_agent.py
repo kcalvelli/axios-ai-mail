@@ -331,5 +331,5 @@ class ActionAgent:
             return
 
         updated_tags = [t for t in message.classification.tags if t != tag_name]
-        self.db.update_tags(message.id, updated_tags)
+        self.db.update_message_tags(message.id, updated_tags)
         logger.debug(f"Removed action tag '{tag_name}' from message {message.id}")

@@ -144,7 +144,7 @@ async def retry_action(request: Request, log_id: str):
         # Add tag back if not already present
         if entry.action_name not in classification.tags:
             updated_tags = classification.tags + [entry.action_name]
-            db.update_tags(entry.message_id, updated_tags)
+            db.update_message_tags(entry.message_id, updated_tags)
 
         return {
             "status": "queued",
