@@ -463,6 +463,26 @@ export function MessageDetail({
     return processHtmlQuotes(sanitizedHtml);
   }, [sanitizedHtml]);
 
+  // Get all available tags from taxonomy (not just tags in use)
+  // Sort so action tags appear in their own group at the end
+  // IMPORTANT: These hooks MUST be called before any early returns
+  const allTags = useMemo(() => {
+    if (!availableTagsData?.tags) return [];
+    return [...availableTagsData.tags]
+      .sort((a, b) => {
+        if (a.category === 'action' && b.category !== 'action') return 1;
+        if (a.category !== 'action' && b.category === 'action') return -1;
+        return a.name.localeCompare(b.name);
+      })
+      .map((t) => t.name);
+  }, [availableTagsData]);
+
+  // Build a map from tag name to category for groupBy
+  const tagCategoryMap = useMemo(() => {
+    if (!availableTagsData?.tags) return new Map<string, string>();
+    return new Map(availableTagsData.tags.map((t) => [t.name, t.category]));
+  }, [availableTagsData]);
+
   // Early returns AFTER all hooks
   if (isLoading) {
     return (
@@ -491,24 +511,6 @@ export function MessageDetail({
     });
   };
 
-  // Get all available tags from taxonomy (not just tags in use)
-  // Sort so action tags appear in their own group at the end
-  const allTags = useMemo(() => {
-    if (!availableTagsData?.tags) return [];
-    return [...availableTagsData.tags]
-      .sort((a, b) => {
-        if (a.category === 'action' && b.category !== 'action') return 1;
-        if (a.category !== 'action' && b.category === 'action') return -1;
-        return a.name.localeCompare(b.name);
-      })
-      .map((t) => t.name);
-  }, [availableTagsData]);
-
-  // Build a map from tag name to category for groupBy
-  const tagCategoryMap = useMemo(() => {
-    if (!availableTagsData?.tags) return new Map<string, string>();
-    return new Map(availableTagsData.tags.map((t) => [t.name, t.category]));
-  }, [availableTagsData]);
   const { name: senderName, email: senderEmail } = extractSenderName(message.from_email);
 
   return (
