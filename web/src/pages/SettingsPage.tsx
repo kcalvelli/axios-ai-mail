@@ -181,6 +181,18 @@ function DisplaySettingsPanel() {
 function NotificationsPanel() {
   const push = usePushSubscription();
 
+  const handleToggle = async () => {
+    try {
+      if (push.isSubscribed) {
+        await push.unsubscribe();
+      } else {
+        await push.subscribe();
+      }
+    } catch (err) {
+      console.error('Push toggle error:', err);
+    }
+  };
+
   return (
     <Box>
       <Typography variant="h6" gutterBottom>
@@ -199,9 +211,7 @@ function NotificationsPanel() {
               control={
                 <Switch
                   checked={push.isSubscribed}
-                  onChange={() =>
-                    push.isSubscribed ? push.unsubscribe() : push.subscribe()
-                  }
+                  onChange={handleToggle}
                   disabled={push.loading || push.permission === 'denied'}
                 />
               }
@@ -225,10 +235,14 @@ function NotificationsPanel() {
           )}
 
           {push.error && (
-            <Alert severity="error" onClose={() => {}}>
+            <Alert severity="error">
               {push.error}
             </Alert>
           )}
+
+          <Typography variant="caption" color="text.secondary">
+            Status: permission={push.permission}, subscribed={String(push.isSubscribed)}, loading={String(push.loading)}
+          </Typography>
 
           <Divider />
 
