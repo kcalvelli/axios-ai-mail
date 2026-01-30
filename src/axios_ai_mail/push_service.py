@@ -122,9 +122,9 @@ class PushService:
             return True
 
         except WebPushException as e:
-            status_code = getattr(e, "response", None)
-            if status_code:
-                status_code = status_code.status_code
+            response = getattr(e, "response", None)
+            # Use `is not None` — Response.__bool__() is False for status >= 400
+            status_code = response.status_code if response is not None else None
 
             if status_code in (404, 410):
                 # Subscription expired or invalid — clean up
