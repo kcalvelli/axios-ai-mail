@@ -45,21 +45,37 @@ export function usePushSubscription(): PushSubscriptionState {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Check current subscription state on mount
+  // On mount (and after SW updates that reload the page), re-confirm our
+  // push subscription with the backend.  This keeps the backend in sync
+  // when browsers silently rotate the FCM/push token, and ensures that
+  // active clients always have a fresh entry in the subscriptions table.
   useEffect(() => {
     if (!supported) return;
 
-    const checkSubscription = async () => {
+    const syncSubscription = async () => {
       try {
         const reg = await navigator.serviceWorker.ready;
         const sub = await reg.pushManager.getSubscription();
+        if (sub) {
+          const subJson = sub.toJSON();
+          // Fire-and-forget — upsert is idempotent
+          axios
+            .post('/api/push/subscribe', {
+              endpoint: sub.endpoint,
+              keys: {
+                p256dh: subJson.keys?.p256dh ?? '',
+                auth: subJson.keys?.auth ?? '',
+              },
+            })
+            .catch(() => {});
+        }
         setIsSubscribed(sub !== null);
       } catch {
         // Silently ignore — permission might not be granted yet
       }
     };
 
-    checkSubscription();
+    syncSubscription();
   }, [supported]);
 
   const subscribe = useCallback(async () => {
