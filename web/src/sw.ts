@@ -9,6 +9,12 @@ import { cleanupOutdatedCaches, precacheAndRoute } from 'workbox-precaching'
 
 declare let self: ServiceWorkerGlobalScope
 
+/** Browser fires this when the push service rotates a subscription. */
+interface PushSubscriptionChangeEvent extends ExtendableEvent {
+  readonly oldSubscription: PushSubscription | null
+  readonly newSubscription: PushSubscription | null
+}
+
 // ── Workbox precaching ──────────────────────────────────────────────
 cleanupOutdatedCaches()
 precacheAndRoute(self.__WB_MANIFEST)
@@ -51,6 +57,63 @@ self.addEventListener('push', (event) => {
 
   event.waitUntil(self.registration.showNotification(payload.title, options))
 })
+
+// ── Push subscription renewal ─────────────────────────────────────
+// Push services (e.g. Mozilla autopush) periodically rotate subscriptions.
+// Without this handler the old endpoint goes stale (410 Gone) and the
+// backend never learns the new one, silently breaking notifications.
+
+self.addEventListener('pushsubscriptionchange', ((event: PushSubscriptionChangeEvent) => {
+  event.waitUntil(
+    (async () => {
+      try {
+        // Remove old subscription from backend
+        if (event.oldSubscription) {
+          await fetch('/api/push/unsubscribe', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ endpoint: event.oldSubscription.endpoint }),
+          })
+        }
+
+        // Use browser-provided renewal, or re-subscribe manually
+        let newSub = event.newSubscription
+        if (!newSub) {
+          const resp = await fetch('/api/push/vapid-key')
+          const { publicKey } = await resp.json()
+
+          // Convert base64url VAPID key to ArrayBuffer
+          const padding = '='.repeat((4 - (publicKey.length % 4)) % 4)
+          const b64 = (publicKey + padding).replace(/-/g, '+').replace(/_/g, '/')
+          const raw = atob(b64)
+          const key = new Uint8Array(raw.length)
+          for (let i = 0; i < raw.length; ++i) key[i] = raw.charCodeAt(i)
+
+          newSub = await self.registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: key.buffer,
+          })
+        }
+
+        // Register renewed subscription with backend
+        const subJson = newSub.toJSON()
+        await fetch('/api/push/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            endpoint: newSub.endpoint,
+            keys: {
+              p256dh: subJson.keys?.p256dh ?? '',
+              auth: subJson.keys?.auth ?? '',
+            },
+          }),
+        })
+      } catch (err) {
+        console.error('Failed to renew push subscription:', err)
+      }
+    })(),
+  )
+}) as EventListener)
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
