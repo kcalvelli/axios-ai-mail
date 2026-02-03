@@ -383,6 +383,32 @@ class AxiosMailClient:
             in_reply_to=data.get("in_reply_to"),
         )
 
+    async def get_draft(self, draft_id: str) -> Draft:
+        """Get a draft by ID.
+
+        Args:
+            draft_id: Draft ID
+
+        Returns:
+            Draft object
+
+        Raises:
+            APIError: If draft not found
+        """
+        data = await self._request("GET", f"/api/drafts/{draft_id}")
+        return Draft(
+            id=data["id"],
+            account_id=data["account_id"],
+            subject=data["subject"],
+            to_emails=data["to_emails"],
+            cc_emails=data.get("cc_emails"),
+            bcc_emails=data.get("bcc_emails"),
+            body_text=data.get("body_text"),
+            body_html=data.get("body_html"),
+            thread_id=data.get("thread_id"),
+            in_reply_to=data.get("in_reply_to"),
+        )
+
     async def send_draft(self, draft_id: str) -> dict[str, Any]:
         """Send a draft.
 

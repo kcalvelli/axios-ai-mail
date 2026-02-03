@@ -245,16 +245,34 @@ def register_tools(mcp: FastMCP, client: AxiosMailClient) -> None:
             bcc: BCC recipients for compose-and-send.
 
         Returns:
-            Dict with message_id of sent email and status.
+            Dict with message_id, status, and full content of sent email
+            (to, cc, bcc, subject, body, account) so the AI can report
+            what was sent without needing to query the message.
         """
         try:
             # If draft_id provided, send the existing draft
             if draft_id:
+                # Fetch draft content BEFORE sending (draft is deleted after send)
+                draft = await client.get_draft(draft_id)
+
+                # Resolve account name for display
+                accounts = await client.list_accounts()
+                account_name = next(
+                    (acc.name for acc in accounts if acc.id == draft.account_id),
+                    draft.account_id,
+                )
+
                 result = await client.send_draft(draft_id)
                 return {
                     "message_id": result.get("message_id"),
                     "status": "sent",
                     "draft_id": draft_id,
+                    "account": account_name,
+                    "to": draft.to_emails,
+                    "cc": draft.cc_emails,
+                    "bcc": draft.bcc_emails,
+                    "subject": draft.subject,
+                    "body": draft.body_text,
                 }
 
             # Otherwise, compose and send in one step
@@ -281,12 +299,19 @@ def register_tools(mcp: FastMCP, client: AxiosMailClient) -> None:
             new_draft_id = compose_result["draft_id"]
             result = await client.send_draft(new_draft_id)
 
+            # Normalize cc/bcc for response
+            cc_emails = normalize_email_list(cc)
+            bcc_emails = normalize_email_list(bcc)
+
             return {
                 "message_id": result.get("message_id"),
                 "status": "sent",
-                "to": compose_result["to"],
-                "subject": subject,
                 "account": compose_result["account"],
+                "to": compose_result["to"],
+                "cc": cc_emails if cc_emails else None,
+                "bcc": bcc_emails if bcc_emails else None,
+                "subject": subject,
+                "body": body,
             }
         except APIConnectionError as e:
             return {"error": str(e)}
