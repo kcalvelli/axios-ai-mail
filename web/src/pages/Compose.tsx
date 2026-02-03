@@ -38,6 +38,7 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import axios from 'axios';
+import RecipientAutocomplete from '../components/RecipientAutocomplete';
 
 interface Account {
   id: string;
@@ -634,14 +635,12 @@ export default function Compose() {
         </FormControl>
 
         {/* To field */}
-        <TextField
-          fullWidth
+        <RecipientAutocomplete
           label="To"
           value={to}
-          onChange={(e) => setTo(e.target.value)}
-          placeholder="recipient@example.com"
-          sx={{ mb: 2 }}
+          onChange={setTo}
           onBlur={() => saveDraft()}
+          placeholder="recipient@example.com"
         />
 
         {/* Cc/Bcc toggle */}
@@ -658,27 +657,23 @@ export default function Compose() {
 
         {/* Cc field */}
         {showCc && (
-          <TextField
-            fullWidth
+          <RecipientAutocomplete
             label="Cc"
             value={cc}
-            onChange={(e) => setCc(e.target.value)}
-            placeholder="cc@example.com"
-            sx={{ mb: 2 }}
+            onChange={setCc}
             onBlur={() => saveDraft()}
+            placeholder="cc@example.com"
           />
         )}
 
         {/* Bcc field */}
         {showBcc && (
-          <TextField
-            fullWidth
+          <RecipientAutocomplete
             label="Bcc"
             value={bcc}
-            onChange={(e) => setBcc(e.target.value)}
-            placeholder="bcc@example.com"
-            sx={{ mb: 2 }}
+            onChange={setBcc}
             onBlur={() => saveDraft()}
+            placeholder="bcc@example.com"
           />
         )}
 
