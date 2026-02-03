@@ -4,7 +4,7 @@
 
 - [x] 1.1 Create `src/axios_ai_mail/api/routes/contacts.py` with search endpoint
 - [x] 1.2 Add `GET /api/contacts/search?q={query}` route
-- [x] 1.3 Wire GatewayClient to call `dav/search_contacts`
+- [x] 1.3 Wire GatewayClient to call `mcp-dav/search_contacts`
 - [x] 1.4 Handle gateway unavailable gracefully (return empty results)
 - [x] 1.5 Register router in app initialization
 
@@ -18,6 +18,6 @@
 
 ## 3. Testing
 
-- [ ] 3.1 Test API endpoint end-to-end with mcp-gateway
-- [ ] 3.2 Test web UI autocomplete
-- [ ] 3.3 Verify graceful degradation when gateway unavailable
+- [x] 3.1 Test API endpoint end-to-end with mcp-gateway
+- [x] 3.2 Test web UI autocomplete
+- [x] 3.3 Verify graceful degradation when gateway unavailable
