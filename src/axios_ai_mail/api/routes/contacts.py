@@ -110,7 +110,7 @@ async def search_contacts(request: Request, q: str = ""):
 
     try:
         # Call mcp-dav's search_contacts tool
-        result = gateway.call_tool("dav", "search_contacts", {"query": q})
+        result = gateway.call_tool("mcp-dav", "search_contacts", {"query": q})
         contacts = _parse_contacts_result(result)
         return ContactSearchResponse(contacts=contacts)
 
