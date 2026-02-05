@@ -18,6 +18,13 @@ class PendingOperation(Base):
 
     Philosophy: Local database is source of truth. Provider sync is best-effort.
     Operations are queued here and processed during sync to avoid blocking the UI.
+
+    Supported operations:
+        - mark_read: Mark message as read on provider
+        - mark_unread: Mark message as unread on provider
+        - trash: Move message to trash on provider
+        - restore: Restore message from trash on provider
+        - delete: Permanently delete message from provider (also deletes from local DB)
     """
 
     __tablename__ = "pending_operations"

@@ -240,9 +240,10 @@ export function MessageList() {
 
   const handleClearTrashConfirm = () => {
     clearTrash.mutate(undefined, {
-      onSuccess: () => {
+      onSuccess: (result) => {
         setClearTrashDialogOpen(false);
-        toast.success('Trash cleared successfully');
+        const count = result.deleted || 0;
+        toast.success(`${count} ${count === 1 ? 'message' : 'messages'} deleted`);
       },
     });
   };

@@ -749,49 +749,58 @@ async def delete_all_messages(
 
 @router.post("/messages/clear-trash")
 async def clear_trash(request: Request):
-    """Permanently delete all messages in trash folder."""
+    """Permanently delete all messages in trash folder.
+
+    Uses async pattern: immediately marks messages as 'deleting' and queues
+    pending operations for provider sync. The sync engine will process the
+    actual provider deletion in the background.
+    """
     db = request.app.state.db
 
     try:
         # Query all messages in trash
         trash_messages = db.query_messages(folder="trash", limit=100000, offset=0)
 
-        # Permanently delete all trash messages
-        deleted_count = 0
-        provider_synced_count = 0
-        provider_failed_count = 0
+        if not trash_messages:
+            return {
+                "deleted": 0,
+                "queued": 0,
+                "total": 0,
+            }
+
+        # Mark messages as 'deleting' and queue pending operations
+        queued_count = 0
         errors = []
 
         for message in trash_messages:
             try:
-                # Phase 1: Sync to provider first (permanent delete)
-                try:
-                    account = db.get_account(message.account_id)
-                    if account:
-                        provider = ProviderFactory.create_from_account(account)
-                        provider.authenticate()
-                        provider.delete_message(message.id, permanent=True)
-                        provider_synced_count += 1
-                except Exception as e:
-                    provider_failed_count += 1
-                    logger.error(f"Provider permanent delete failed for {message.id}: {e}")
-
-                # Phase 2: Delete from database
-                success = db.delete_message(message.id)
-                if success:
-                    deleted_count += 1
-                else:
-                    errors.append({"message_id": message.id, "error": "Failed to delete"})
+                # Queue a delete operation for async provider sync
+                db.queue_pending_operation(
+                    account_id=message.account_id,
+                    message_id=message.id,
+                    operation="delete",
+                )
+                queued_count += 1
             except Exception as e:
                 errors.append({"message_id": message.id, "error": str(e)})
-                logger.error(f"Error permanently deleting message {message.id}: {e}")
+                logger.error(f"Error queuing delete for message {message.id}: {e}")
+
+        # Mark all trash messages as 'deleting' so they don't show in trash view
+        # This is done in bulk for efficiency
+        with db.session() as session:
+            for message in trash_messages:
+                msg = session.get(Message, message.id)
+                if msg and msg.folder == "trash":
+                    msg.folder = "deleting"
+            session.commit()
+
+        logger.info(f"Clear trash: queued {queued_count} messages for deletion")
 
         return {
-            "deleted": deleted_count,
-            "provider_synced": provider_synced_count,
-            "provider_failed": provider_failed_count,
+            "deleted": queued_count,  # Messages are marked for deletion
+            "queued": queued_count,   # Operations queued for provider sync
             "total": len(trash_messages),
-            "errors": errors,
+            "errors": errors if errors else None,
         }
 
     except Exception as e:

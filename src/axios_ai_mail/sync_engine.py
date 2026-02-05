@@ -406,12 +406,18 @@ class SyncEngine:
                 elif op.operation == "restore":
                     self.provider.restore_from_trash(op.message_id)
                 elif op.operation == "delete":
+                    # Permanent delete: remove from provider, then from local DB
                     self.provider.delete_message(op.message_id, permanent=True)
+                    # Delete from local DB - this CASCADE deletes the pending operation too
+                    self.db.delete_message(op.message_id)
+                    processed += 1
+                    logger.info(f"Permanently deleted message {op.message_id} from provider and local DB")
+                    continue  # Skip complete_pending_operation - record was cascade deleted
                 else:
                     logger.warning(f"Unknown operation type: {op.operation}")
                     continue
 
-                # Mark as completed
+                # Mark as completed (for non-delete operations)
                 self.db.complete_pending_operation(op.id)
                 processed += 1
                 logger.debug(f"Completed pending operation: {op.operation} for {op.message_id}")
