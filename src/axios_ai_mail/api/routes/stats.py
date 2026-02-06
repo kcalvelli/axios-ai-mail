@@ -18,13 +18,24 @@ async def list_tags(request: Request):
     """List all tags (AI + account) with counts and percentages.
 
     Only counts messages in inbox (excludes trash) so counts match
-    what users see when filtering by tag.
+    what users see when filtering by tag. Excludes hidden accounts.
     """
     db = request.app.state.db
 
     try:
-        # Get messages in inbox only (exclude trash)
-        all_messages = db.query_messages(folder="inbox", limit=100000)
+        # Get hidden account IDs for filtering
+        accounts = db.list_accounts()
+        hidden_account_ids = [
+            acc.id for acc in accounts
+            if acc.settings and acc.settings.get("hidden", False)
+        ]
+
+        # Get messages in inbox only (exclude trash and hidden accounts)
+        all_messages = db.query_messages(
+            folder="inbox",
+            exclude_account_ids=hidden_account_ids if hidden_account_ids else None,
+            limit=100000,
+        )
         total_messages = len(all_messages)
 
         # Count AI tags
@@ -55,14 +66,13 @@ async def list_tags(request: Request):
             account_id = message.account_id
             account_counts[account_id] = account_counts.get(account_id, 0) + 1
 
-        # Get account details to include email as tag name
-        accounts = db.list_accounts()
-        account_map = {acc.id: acc for acc in accounts}
+        # Get account details to include email as tag name (exclude hidden accounts)
+        account_map = {acc.id: acc for acc in accounts if acc.id not in hidden_account_ids}
 
         # Build account tag responses
         for account_id, count in sorted(account_counts.items(), key=lambda x: x[1], reverse=True):
             account = account_map.get(account_id)
-            if account:
+            if account:  # Will be None for hidden accounts
                 percentage = (count / total_messages * 100) if total_messages > 0 else 0
                 tags.append(TagResponse(
                     name=account.email,  # Use email as tag name
@@ -145,20 +155,35 @@ async def list_available_tags(request: Request):
 async def get_stats(request: Request):
     """Get overall system statistics.
 
-    Only counts messages in inbox (excludes trash).
+    Only counts messages in inbox (excludes trash and hidden accounts).
     """
     db = request.app.state.db
 
     try:
-        # Get messages in inbox only (exclude trash)
-        all_messages = db.query_messages(folder="inbox", limit=100000)
-        unread_messages = db.query_messages(folder="inbox", is_unread=True, limit=100000)
+        # Get hidden account IDs for filtering
+        all_accounts = db.list_accounts()
+        hidden_account_ids = [
+            acc.id for acc in all_accounts
+            if acc.settings and acc.settings.get("hidden", False)
+        ]
+        # Visible accounts only
+        accounts = [acc for acc in all_accounts if acc.id not in hidden_account_ids]
+
+        # Get messages in inbox only (exclude trash and hidden accounts)
+        all_messages = db.query_messages(
+            folder="inbox",
+            exclude_account_ids=hidden_account_ids if hidden_account_ids else None,
+            limit=100000,
+        )
+        unread_messages = db.query_messages(
+            folder="inbox",
+            is_unread=True,
+            exclude_account_ids=hidden_account_ids if hidden_account_ids else None,
+            limit=100000,
+        )
 
         # Count classified messages
         classified_count = sum(1 for msg in all_messages if db.has_classification(msg.id))
-
-        # Get accounts
-        accounts = db.list_accounts()
 
         # Calculate classification rate
         total_count = len(all_messages)
