@@ -14,12 +14,12 @@ router = APIRouter()
 @router.get("/accounts", response_model=List[AccountResponse])
 async def list_accounts(
     request: Request,
-    include_hidden: bool = Query(False, description="Include hidden accounts in response"),
+    exclude_hidden: bool = Query(False, description="Exclude hidden accounts from response (for GUI)"),
 ):
     """List all configured email accounts.
 
-    By default, hidden accounts (settings.hidden=true) are excluded.
-    Use include_hidden=true to return all accounts.
+    By default, all accounts are returned including hidden ones.
+    Use exclude_hidden=true to filter out hidden accounts (for GUI use).
     """
     db = request.app.state.db
 
@@ -30,8 +30,8 @@ async def list_accounts(
             # Check if account is hidden via settings
             is_hidden = account.settings.get("hidden", False) if account.settings else False
 
-            # Skip hidden accounts unless explicitly requested
-            if is_hidden and not include_hidden:
+            # Skip hidden accounts only if explicitly requested (for GUI)
+            if is_hidden and exclude_hidden:
                 continue
 
             result.append(

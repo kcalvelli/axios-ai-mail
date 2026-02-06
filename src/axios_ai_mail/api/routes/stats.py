@@ -14,23 +14,29 @@ router = APIRouter()
 
 
 @router.get("/tags", response_model=TagsListResponse)
-async def list_tags(request: Request):
+async def list_tags(
+    request: Request,
+    exclude_hidden_accounts: bool = Query(False, description="Exclude hidden accounts (for GUI)"),
+):
     """List all tags (AI + account) with counts and percentages.
 
     Only counts messages in inbox (excludes trash) so counts match
-    what users see when filtering by tag. Excludes hidden accounts.
+    what users see when filtering by tag.
+    Use exclude_hidden_accounts=true to filter out hidden accounts (for GUI use).
     """
     db = request.app.state.db
 
     try:
-        # Get hidden account IDs for filtering
+        # Get hidden account IDs for filtering (only if requested for GUI)
         accounts = db.list_accounts()
-        hidden_account_ids = [
-            acc.id for acc in accounts
-            if acc.settings and acc.settings.get("hidden", False)
-        ]
+        hidden_account_ids = []
+        if exclude_hidden_accounts:
+            hidden_account_ids = [
+                acc.id for acc in accounts
+                if acc.settings and acc.settings.get("hidden", False)
+            ]
 
-        # Get messages in inbox only (exclude trash and hidden accounts)
+        # Get messages in inbox only (exclude trash, optionally exclude hidden accounts)
         all_messages = db.query_messages(
             folder="inbox",
             exclude_account_ids=hidden_account_ids if hidden_account_ids else None,
@@ -66,8 +72,11 @@ async def list_tags(request: Request):
             account_id = message.account_id
             account_counts[account_id] = account_counts.get(account_id, 0) + 1
 
-        # Get account details to include email as tag name (exclude hidden accounts)
-        account_map = {acc.id: acc for acc in accounts if acc.id not in hidden_account_ids}
+        # Get account details to include email as tag name (optionally exclude hidden accounts)
+        if exclude_hidden_accounts:
+            account_map = {acc.id: acc for acc in accounts if acc.id not in hidden_account_ids}
+        else:
+            account_map = {acc.id: acc for acc in accounts}
 
         # Build account tag responses
         for account_id, count in sorted(account_counts.items(), key=lambda x: x[1], reverse=True):
@@ -152,24 +161,32 @@ async def list_available_tags(request: Request):
 
 
 @router.get("/stats", response_model=StatsResponse)
-async def get_stats(request: Request):
+async def get_stats(
+    request: Request,
+    exclude_hidden_accounts: bool = Query(False, description="Exclude hidden accounts (for GUI)"),
+):
     """Get overall system statistics.
 
-    Only counts messages in inbox (excludes trash and hidden accounts).
+    Only counts messages in inbox (excludes trash).
+    Use exclude_hidden_accounts=true to filter out hidden accounts (for GUI use).
     """
     db = request.app.state.db
 
     try:
-        # Get hidden account IDs for filtering
+        # Get hidden account IDs for filtering (only if requested for GUI)
         all_accounts = db.list_accounts()
-        hidden_account_ids = [
-            acc.id for acc in all_accounts
-            if acc.settings and acc.settings.get("hidden", False)
-        ]
-        # Visible accounts only
-        accounts = [acc for acc in all_accounts if acc.id not in hidden_account_ids]
+        hidden_account_ids = []
+        if exclude_hidden_accounts:
+            hidden_account_ids = [
+                acc.id for acc in all_accounts
+                if acc.settings and acc.settings.get("hidden", False)
+            ]
+            # Visible accounts only for GUI
+            accounts = [acc for acc in all_accounts if acc.id not in hidden_account_ids]
+        else:
+            accounts = all_accounts
 
-        # Get messages in inbox only (exclude trash and hidden accounts)
+        # Get messages in inbox only (exclude trash, optionally exclude hidden accounts)
         all_messages = db.query_messages(
             folder="inbox",
             exclude_account_ids=hidden_account_ids if hidden_account_ids else None,

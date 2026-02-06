@@ -158,11 +158,8 @@ class AxiosMailClient:
 
         Returns:
             List of Account objects
-
-        Note:
-            MCP clients always include hidden accounts for programmatic access.
         """
-        data = await self._request("GET", "/api/accounts", params={"include_hidden": True})
+        data = await self._request("GET", "/api/accounts")
         return [
             Account(
                 id=acc["id"],
@@ -201,12 +198,8 @@ class AxiosMailClient:
 
         Returns:
             Tuple of (list of Message objects, total count)
-
-        Note:
-            MCP clients always include hidden accounts for programmatic access.
         """
-        # MCP always includes hidden accounts for programmatic access
-        params: dict[str, Any] = {"limit": limit, "offset": offset, "include_hidden_accounts": True}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         if account_id:
             params["account_id"] = account_id
         if folder:

@@ -43,6 +43,7 @@ api.interceptors.response.use(
 
 // Message endpoints
 export const messages = {
+  // GUI always excludes hidden accounts
   list: (params?: {
     account_id?: string;
     tag?: string;
@@ -53,7 +54,7 @@ export const messages = {
     search?: string;
     limit?: number;
     offset?: number;
-  }) => api.get<MessagesListResponse>('/messages', { params }).then((r) => r.data),
+  }) => api.get<MessagesListResponse>('/messages', { params: { ...params, exclude_hidden_accounts: true } }).then((r) => r.data),
 
   get: (id: string) => api.get<Message>(`/messages/${id}`).then((r) => r.data),
 
@@ -111,9 +112,9 @@ export const messages = {
   getSmartReplies: (id: string) =>
     api.get<SmartReplyResponse>(`/messages/${id}/smart-replies`).then((r) => r.data),
 
-  // Unread count
+  // Unread count (GUI excludes hidden accounts)
   getUnreadCount: () =>
-    api.get<{ count: number }>('/messages/unread-count').then((r) => r.data),
+    api.get<{ count: number }>('/messages/unread-count', { params: { exclude_hidden_accounts: true } }).then((r) => r.data),
 };
 
 // Draft endpoints
@@ -124,7 +125,8 @@ export const drafts = {
 
 // Account endpoints
 export const accounts = {
-  list: () => api.get<Account[]>('/accounts').then((r) => r.data),
+  // GUI always excludes hidden accounts
+  list: () => api.get<Account[]>('/accounts', { params: { exclude_hidden: true } }).then((r) => r.data),
 
   getStats: (id: string) =>
     api.get<AccountStats>(`/accounts/${id}/stats`).then((r) => r.data),
@@ -132,13 +134,15 @@ export const accounts = {
 
 // Tag endpoints
 export const tags = {
-  list: () => api.get<TagsListResponse>('/tags').then((r) => r.data),
+  // GUI always excludes hidden accounts
+  list: () => api.get<TagsListResponse>('/tags', { params: { exclude_hidden_accounts: true } }).then((r) => r.data),
   available: () => api.get<AvailableTagsResponse>('/tags/available').then((r) => r.data),
 };
 
 // Stats endpoint
 export const stats = {
-  get: () => api.get<Stats>('/stats').then((r) => r.data),
+  // GUI always excludes hidden accounts
+  get: () => api.get<Stats>('/stats', { params: { exclude_hidden_accounts: true } }).then((r) => r.data),
 };
 
 // Sync endpoints

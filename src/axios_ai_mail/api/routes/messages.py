@@ -80,22 +80,22 @@ async def list_messages(
     folder: Optional[str] = Query(None, description="Filter by folder (inbox, sent, trash)"),
     thread_id: Optional[str] = Query(None, description="Filter by thread ID (for conversation view)"),
     search: Optional[str] = Query(None, description="Search in subject, from, snippet"),
-    include_hidden_accounts: bool = Query(False, description="Include messages from hidden accounts"),
+    exclude_hidden_accounts: bool = Query(False, description="Exclude messages from hidden accounts (for GUI)"),
     limit: int = Query(50, ge=1, le=200, description="Page size"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
 ):
     """List messages with filtering and pagination.
 
-    By default, messages from hidden accounts (settings.hidden=true) are excluded.
-    Use include_hidden_accounts=true to return messages from all accounts.
+    By default, all messages are returned including from hidden accounts.
+    Use exclude_hidden_accounts=true to filter out hidden account messages (for GUI use).
     When an explicit account_id is provided, hidden filtering is skipped.
     """
     db = request.app.state.db
 
     try:
-        # Get hidden account IDs for filtering (unless explicit account_id or include_hidden)
+        # Get hidden account IDs for filtering (only if requested for GUI, and no explicit account_id)
         exclude_account_ids = None
-        if not include_hidden_accounts and account_id is None:
+        if exclude_hidden_accounts and account_id is None:
             accounts = db.list_accounts()
             exclude_account_ids = [
                 acc.id for acc in accounts
@@ -179,20 +179,25 @@ async def list_messages(
 
 
 @router.get("/messages/unread-count")
-async def get_unread_count(request: Request):
+async def get_unread_count(
+    request: Request,
+    exclude_hidden_accounts: bool = Query(False, description="Exclude hidden accounts (for GUI)"),
+):
     """Get count of unread messages in inbox.
 
-    Excludes messages from hidden accounts by default.
+    By default, includes all accounts. Use exclude_hidden_accounts=true for GUI.
     """
     db = request.app.state.db
 
     try:
-        # Get hidden account IDs for filtering
-        accounts = db.list_accounts()
-        exclude_account_ids = [
-            acc.id for acc in accounts
-            if acc.settings and acc.settings.get("hidden", False)
-        ]
+        # Get hidden account IDs for filtering (only if requested for GUI)
+        exclude_account_ids = None
+        if exclude_hidden_accounts:
+            accounts = db.list_accounts()
+            exclude_account_ids = [
+                acc.id for acc in accounts
+                if acc.settings and acc.settings.get("hidden", False)
+            ]
 
         count = db.count_messages(
             folder="inbox",
