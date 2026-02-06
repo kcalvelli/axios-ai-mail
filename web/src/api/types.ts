@@ -36,6 +36,7 @@ export interface Account {
   email: string;
   provider: string;
   last_sync?: string | null; // ISO datetime string
+  hidden?: boolean; // Hidden accounts are excluded from default views
 }
 
 export interface AccountStats {

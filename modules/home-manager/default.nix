@@ -118,6 +118,17 @@ let
         description = "Per-account sync configuration.";
       };
 
+      hidden = mkOption {
+        type = types.bool;
+        default = false;
+        description = ''
+          Hide this account from the default inbox view.
+          Hidden accounts still sync normally but are excluded from
+          GET /accounts and GET /messages unless explicitly requested.
+          Useful for agent/bot accounts that shouldn't appear in the UI.
+        '';
+      };
+
       labels = mkOption {
         type = types.submodule {
           options = {
@@ -166,6 +177,8 @@ let
         ai_model = cfg.ai.model;
         ai_endpoint = cfg.ai.endpoint;
         ai_temperature = cfg.ai.temperature;
+      } // optionalAttrs account.hidden {
+        hidden = true;
       } // optionalAttrs (account.imap != null) {
         imap_host = account.imap.host;
         imap_port = account.imap.port;

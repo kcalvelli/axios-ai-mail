@@ -51,6 +51,7 @@ class AccountResponse(BaseModel):
     email: str
     provider: str
     last_sync: Optional[datetime] = None
+    hidden: bool = False
 
     class Config:
         from_attributes = True

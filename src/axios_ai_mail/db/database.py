@@ -383,6 +383,7 @@ class Database:
         is_unread: Optional[bool] = None,
         folder: Optional[str] = None,
         thread_id: Optional[str] = None,
+        exclude_account_ids: Optional[List[str]] = None,
         limit: int = 50,
         offset: int = 0,
     ) -> List[Message]:
@@ -395,6 +396,7 @@ class Database:
             is_unread: Filter by read status
             folder: Filter by folder (inbox, sent, trash)
             thread_id: Filter by thread ID (for conversation view)
+            exclude_account_ids: Account IDs to exclude from results (for hidden accounts)
             limit: Maximum number of results
             offset: Pagination offset
         """
@@ -423,16 +425,21 @@ class Database:
             # Apply account filtering (OR logic if multiple accounts)
             if account_id:
                 query = query.where(Message.account_id == account_id)
-            elif account_emails:
-                # Get account IDs from emails
-                accounts = session.execute(
-                    select(Account).where(Account.email.in_(account_emails))
-                ).scalars().all()
-                account_ids = [acc.id for acc in accounts]
+            else:
+                # Exclude hidden accounts if requested
+                if exclude_account_ids:
+                    query = query.where(Message.account_id.notin_(exclude_account_ids))
 
-                if account_ids:
-                    from sqlalchemy import or_
-                    query = query.where(or_(*[Message.account_id == aid for aid in account_ids]))
+                if account_emails:
+                    # Get account IDs from emails
+                    accounts = session.execute(
+                        select(Account).where(Account.email.in_(account_emails))
+                    ).scalars().all()
+                    account_ids = [acc.id for acc in accounts]
+
+                    if account_ids:
+                        from sqlalchemy import or_
+                        query = query.where(or_(*[Message.account_id == aid for aid in account_ids]))
 
             if is_unread is not None:
                 query = query.where(Message.is_unread == is_unread)
@@ -467,6 +474,7 @@ class Database:
         tags: Optional[List[str]] = None,
         is_unread: Optional[bool] = None,
         folder: Optional[str] = None,
+        exclude_account_ids: Optional[List[str]] = None,
     ) -> int:
         """Count messages matching the given filters.
 
@@ -476,6 +484,7 @@ class Database:
             tags: Multiple tags filter (OR logic - match any)
             is_unread: Filter by read status
             folder: Filter by folder (inbox, sent, trash)
+            exclude_account_ids: Account IDs to exclude from count (for hidden accounts)
 
         Returns:
             Total count of matching messages
@@ -507,16 +516,21 @@ class Database:
             # Apply account filtering (OR logic if multiple accounts)
             if account_id:
                 query = query.where(Message.account_id == account_id)
-            elif account_emails:
-                # Get account IDs from emails
-                accounts = session.execute(
-                    select(Account).where(Account.email.in_(account_emails))
-                ).scalars().all()
-                account_ids = [acc.id for acc in accounts]
+            else:
+                # Exclude hidden accounts if requested
+                if exclude_account_ids:
+                    query = query.where(Message.account_id.notin_(exclude_account_ids))
 
-                if account_ids:
-                    from sqlalchemy import or_
-                    query = query.where(or_(*[Message.account_id == aid for aid in account_ids]))
+                if account_emails:
+                    # Get account IDs from emails
+                    accounts = session.execute(
+                        select(Account).where(Account.email.in_(account_emails))
+                    ).scalars().all()
+                    account_ids = [acc.id for acc in accounts]
+
+                    if account_ids:
+                        from sqlalchemy import or_
+                        query = query.where(or_(*[Message.account_id == aid for aid in account_ids]))
 
             if is_unread is not None:
                 query = query.where(Message.is_unread == is_unread)

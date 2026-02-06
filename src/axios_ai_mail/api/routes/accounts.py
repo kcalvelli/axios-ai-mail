@@ -3,7 +3,7 @@
 import logging
 from typing import List
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Query
 
 from ..models import AccountResponse, AccountStatsResponse
 
@@ -12,22 +12,39 @@ router = APIRouter()
 
 
 @router.get("/accounts", response_model=List[AccountResponse])
-async def list_accounts(request: Request):
-    """List all configured email accounts."""
+async def list_accounts(
+    request: Request,
+    include_hidden: bool = Query(False, description="Include hidden accounts in response"),
+):
+    """List all configured email accounts.
+
+    By default, hidden accounts (settings.hidden=true) are excluded.
+    Use include_hidden=true to return all accounts.
+    """
     db = request.app.state.db
 
     try:
         accounts = db.list_accounts()
-        return [
-            AccountResponse(
-                id=account.id,
-                name=account.name,
-                email=account.email,
-                provider=account.provider,
-                last_sync=account.last_sync,
+        result = []
+        for account in accounts:
+            # Check if account is hidden via settings
+            is_hidden = account.settings.get("hidden", False) if account.settings else False
+
+            # Skip hidden accounts unless explicitly requested
+            if is_hidden and not include_hidden:
+                continue
+
+            result.append(
+                AccountResponse(
+                    id=account.id,
+                    name=account.name,
+                    email=account.email,
+                    provider=account.provider,
+                    last_sync=account.last_sync,
+                    hidden=is_hidden,
+                )
             )
-            for account in accounts
-        ]
+        return result
 
     except Exception as e:
         logger.error(f"Error listing accounts: {e}", exc_info=True)
