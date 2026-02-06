@@ -3,7 +3,7 @@
 import logging
 from typing import List
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from ..models import TagsListResponse, TagResponse, StatsResponse, AvailableTagsResponse, AvailableTagResponse
 from ...config.actions import merge_actions
