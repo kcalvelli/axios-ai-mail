@@ -273,7 +273,8 @@ def gmail_auth_command(
             "   • Go to 'OAuth consent screen'\n"
             "   • Choose 'External' → Create\n"
             "   • Fill in App name, email → Save\n"
-            "   • Add your email as a Test User\n\n"
+            "   • [bold yellow]Click 'Publish App'[/bold yellow] (otherwise tokens expire in 7 days!)\n"
+            "   • No verification needed for personal use (<100 users)\n\n"
             "4. Create OAuth credentials\n"
             "   • Go to 'Credentials' → 'Create Credentials'\n"
             "   • Choose 'OAuth client ID'\n"
@@ -443,10 +444,12 @@ def setup_gmail_oauth(email: str, account_id: Optional[str] = None) -> None:
     console.print("\n1. Go to: https://console.cloud.google.com/apis/credentials")
     console.print("2. Create a new project or select existing project")
     console.print("3. Enable the Gmail API: https://console.cloud.google.com/apis/library/gmail.googleapis.com")
-    console.print("4. Create OAuth 2.0 Client ID:")
+    console.print("4. Configure OAuth consent screen → [bold yellow]Publish App[/bold yellow]")
+    console.print("   (Otherwise refresh tokens expire in 7 days!)")
+    console.print("5. Create OAuth 2.0 Client ID:")
     console.print("   - Application type: Desktop app")
     console.print("   - Name: axios-ai-mail")
-    console.print("5. Download the credentials JSON file")
+    console.print("6. Download the credentials JSON file")
     console.print("\n[yellow]Press Enter when ready to continue...[/yellow]")
     input()
 
